@@ -53,6 +53,8 @@ Command: bun x shadcn-ui@latest add [component].
 
 Styling: Tailwind CSS only.
 
+Split components into smallest logically sensible parts and built from the bottom to up and REUSE
+
 6. CI/CD (GitHub Actions)
 Pipeline: 1. bun test (Units) 2. cypress run (Integrations) 3. playwright test (Visuals)
 
