@@ -1,0 +1,39 @@
+🚀 Server running at http://localhost:3000
+   - Auth API: /api/auth/*
+   - Timeline API: /api/timeline, /api/calendar/:date/timeline
+   - Health Check: /health
+🚀 Server running at http://localhost:3000
+   - Auth API: /api/auth/*
+   - Timeline API: /api/timeline, /api/calendar/:date/timeline
+   - Health Check: /health
+[2m2026-01-27T10:58:07.416Z[0m [31mERROR[0m [1m[Better Auth]:[0m User not found {
+  email: "test@example.com",
+}
+[2m2026-01-27T10:58:42.533Z[0m [31mERROR[0m [1m[Better Auth]:[0m User not found {
+  email: "test@example.com",
+}
+[2m2026-01-27T11:02:35.017Z[0m [31mERROR[0m [1m[Better Auth]:[0m Invalid password
+error: Cannot find module "@elysiajs/cors" from "/Users/andrzej.witkowski/IdeaProjects/angry_parents/backend/src/index.ts"
+🚀 Server running at localhost:3000
+   - Auth API: /api/auth/*
+   - Timeline API: /api/timeline, /api/calendar/:date/timeline
+   - Health Check: /api/health
+🚀 Server running at localhost:3000
+   - Auth API: /api/auth/*
+   - Timeline API: /api/timeline, /api/calendar/:date/timeline
+   - Health Check: /api/health
+🚀 Server running at 0.0.0.0:3000
+   - Auth API: /api/auth/*
+   - Timeline API: /api/timeline, /api/calendar/:date/timeline
+   - Health Check: /api/health
+🚀 Server running at 0.0.0.0:3000
+   - Auth API: /api/auth/*
+   - Timeline API: /api/timeline, /api/calendar/:date/timeline
+   - Health Check: /api/health
+$ vite
+
+  VITE v7.3.1  ready in 128 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help

@@ -56,7 +56,7 @@ export default function Dashboard() {
 
                     {/* Calendar Component */}
                     <div className="flex-1 min-h-0">
-                        <BetterCalendar />
+                        <BetterCalendar user={user} />
                     </div>
                 </div>
             </main>
