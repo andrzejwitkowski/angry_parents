@@ -5,20 +5,22 @@ import { isWeekend } from "@/lib/calendar-utils";
 interface CalendarDayProps {
     day: Date;
     currentDate: Date;
+    onClick: () => void;
 }
 
-export function CalendarDay({ day, currentDate }: CalendarDayProps) {
+export function CalendarDay({ day, currentDate, onClick }: CalendarDayProps) {
     const isSelectedMonth = isSameMonth(day, currentDate);
     const isDayWeekend = isWeekend(day);
     const isDayToday = isToday(day);
 
     return (
         <div
+            onClick={onClick}
             className={cn(
-                "min-h-[140px] p-4 border-r border-b border-slate-100 transition-colors group relative text-left",
+                "min-h-[140px] p-4 border-r border-b border-slate-100 transition-all duration-300 group relative text-left",
                 !isSelectedMonth && "bg-slate-50/50 opacity-40 grayscale-[0.5]",
                 isDayWeekend && isSelectedMonth && "bg-slate-50/70",
-                isSelectedMonth && "hover:bg-indigo-50/30 cursor-pointer"
+                isSelectedMonth && "hover:bg-white hover:shadow-2xl hover:z-10 hover:border-indigo-100 cursor-pointer active:scale-[0.98]"
             )}
         >
             <div className="flex justify-between items-start">

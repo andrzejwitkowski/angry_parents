@@ -4,9 +4,16 @@ import { getCalendarDays } from "@/lib/calendar-utils";
 import { CalendarHeader } from "./calendar/CalendarHeader";
 import { CalendarWeekDays } from "./calendar/CalendarWeekDays";
 import { CalendarGrid } from "./calendar/CalendarGrid";
+import { DayDetailsSheet } from "./calendar/day-details/DayDetailsSheet";
 
-export function BetterCalendar() {
+interface BetterCalendarProps {
+    user: any;
+}
+
+export function BetterCalendar({ user }: BetterCalendarProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDateForSheet, setSelectedDateForSheet] = useState<Date | null>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     const daysInMonth = getCalendarDays(currentDate);
 
@@ -14,6 +21,11 @@ export function BetterCalendar() {
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
     const handleDateSelect = (date: Date | undefined) => {
         if (date) setCurrentDate(date);
+    };
+
+    const handleDayClick = (date: Date) => {
+        setSelectedDateForSheet(date);
+        setIsSheetOpen(true);
     };
 
     return (
@@ -27,7 +39,18 @@ export function BetterCalendar() {
 
             <CalendarWeekDays />
 
-            <CalendarGrid days={daysInMonth} currentDate={currentDate} />
+            <CalendarGrid
+                days={daysInMonth}
+                currentDate={currentDate}
+                onDayClick={handleDayClick}
+            />
+
+            <DayDetailsSheet
+                date={selectedDateForSheet}
+                isOpen={isSheetOpen}
+                onClose={() => setIsSheetOpen(false)}
+                user={user}
+            />
         </div>
     );
 }
