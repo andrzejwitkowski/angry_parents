@@ -4,6 +4,15 @@ import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { BetterCalendar } from '@/components/BetterCalendar';
 import type { User } from '@/types/user';
+import { ChildrenConfigSheet } from '@/components/settings/ChildrenConfigSheet';
+import { CustodyScheduler } from '@/components/scheduler/CustodyWizard';
+import { Button } from '@/components/ui/button';
+import { Settings, CalendarPlus } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -48,8 +57,22 @@ export default function Dashboard() {
                             <h1 className="text-xl font-medium text-slate-400">Dashboard</h1>
                             <p className="text-3xl font-bold text-slate-900">Co-Parenting Hub</p>
                         </div>
-                        <div className="hidden md:block">
-                            <span className="text-sm font-medium text-slate-400 bg-slate-100 px-4 py-2 rounded-full border border-slate-200">
+                        <div className="hidden md:flex items-center gap-3">
+                            <ChildrenConfigSheet />
+
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+                                        <CalendarPlus className="w-4 h-4" />
+                                        Generate Schedule
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                                    <CustodyScheduler />
+                                </DialogContent>
+                            </Dialog>
+
+                            <span className="text-sm font-medium text-slate-400 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 ml-2">
                                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                             </span>
                         </div>

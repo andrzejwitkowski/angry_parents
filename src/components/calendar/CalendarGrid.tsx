@@ -10,9 +10,10 @@ interface CalendarGridProps {
     events: TimelineItem[];
     onDayClick: (date: Date) => void;
     user: User | null;
+    custodyEntries?: CustodyEntry[];
 }
 
-export function CalendarGrid({ days, currentDate, events, onDayClick, user }: CalendarGridProps) {
+export function CalendarGrid({ days, currentDate, events, onDayClick, user, custodyEntries = [] }: CalendarGridProps) {
     return (
         <div className="flex-1 grid grid-cols-7 h-full overflow-hidden">
             {days.map((day, i) => {
@@ -27,6 +28,7 @@ export function CalendarGrid({ days, currentDate, events, onDayClick, user }: Ca
                         onClick={() => onDayClick(day)}
                         events={dayEvents}
                         user={user}
+                        custodyEntries={custodyEntries}
                     />
                 );
             })}
