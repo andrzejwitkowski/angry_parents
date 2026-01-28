@@ -6,6 +6,7 @@ export type BaseTimelineItem = {
     date: string; // YYYY-MM-DD
     createdAt: string;
     createdBy: string;
+    createdByName?: string;
 };
 
 export type NoteItem = BaseTimelineItem & {

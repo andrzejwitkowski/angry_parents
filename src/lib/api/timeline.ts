@@ -3,11 +3,14 @@ import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types
 const API_BASE_URL = "http://localhost:3000/api";
 
 class TimelineApiError extends Error {
+    public status?: number;
+
     constructor(
         message: string,
-        public status?: number
+        status?: number
     ) {
         super(message);
+        this.status = status;
         this.name = "TimelineApiError";
     }
 }

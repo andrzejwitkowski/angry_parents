@@ -4,14 +4,17 @@ import { isWeekend } from "@/lib/calendar-utils";
 import { DayCellEvents } from "./visuals/DayCellEvents";
 import type { TimelineItem } from "@/types/timeline.types";
 
+import type { User } from '@/types/user';
+
 interface CalendarDayProps {
     day: Date;
     currentDate: Date;
     events: TimelineItem[];
     onClick: () => void;
+    user: User | null;
 }
 
-export function CalendarDay({ day, currentDate, events, onClick }: CalendarDayProps) {
+export function CalendarDay({ day, currentDate, events, onClick, user }: CalendarDayProps) {
     const isSelectedMonth = isSameMonth(day, currentDate);
     const isDayWeekend = isWeekend(day);
     const isDayToday = isToday(day);
@@ -46,7 +49,7 @@ export function CalendarDay({ day, currentDate, events, onClick }: CalendarDayPr
             </div>
 
             <div className="mt-2 space-y-1">
-                <DayCellEvents events={events} onDayClick={onClick} />
+                <DayCellEvents events={events} onDayClick={onClick} user={user} />
             </div>
         </div>
     );

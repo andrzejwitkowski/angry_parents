@@ -1,14 +1,16 @@
 import type { TimelineItem } from "@/types/timeline.types";
 import { TimelineItemFactory } from "./components/TimelineItemFactory";
 import { Calendar } from "lucide-react";
+import type { User } from '@/types/user';
 
 interface TimelineFeedProps {
     items: TimelineItem[];
-    onItemUpdate?: (updatedItem: TimelineItem) => void;
-    user: any;
+    onItemUpdate: (item: TimelineItem) => void;
+    onItemDelete: (id: string) => void;
+    user: User | null;
 }
 
-export function TimelineFeed({ items, onItemUpdate, user }: TimelineFeedProps) {
+export function TimelineFeed({ items, onItemUpdate, onItemDelete, user }: TimelineFeedProps) {
     if (items.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -32,6 +34,7 @@ export function TimelineFeed({ items, onItemUpdate, user }: TimelineFeedProps) {
                     key={item.id}
                     item={item}
                     onUpdate={onItemUpdate}
+                    onDelete={() => onItemDelete(item.id)}
                     user={user}
                 />
             ))}

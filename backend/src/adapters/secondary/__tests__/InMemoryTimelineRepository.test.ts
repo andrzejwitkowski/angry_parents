@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryTimelineRepository } from "../InMemoryTimelineRepository";
 import type { TimelineItem, MedicalVisitItem, MedsItem } from "../../../core/domain/TimelineItem";
 

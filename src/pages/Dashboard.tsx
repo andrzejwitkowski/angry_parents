@@ -3,10 +3,11 @@ import { authClient } from '@/lib/auth-client';
 import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { BetterCalendar } from '@/components/BetterCalendar';
+import type { User } from '@/types/user';
 
 export default function Dashboard() {
     const navigate = useNavigate();
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {

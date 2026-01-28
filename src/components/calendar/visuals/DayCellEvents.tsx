@@ -11,10 +11,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TimelineItemFactory } from "../day-details/components/TimelineItemFactory";
 import { format } from "date-fns";
 
+import type { User } from '@/types/user';
+
 interface DayCellEventsProps {
     events: TimelineItem[];
     maxVisible?: number;
     onDayClick?: () => void;
+    user: User | null;
 }
 
 const TYPE_PRIORITY: Record<string, number> = {
@@ -27,7 +30,7 @@ const TYPE_PRIORITY: Record<string, number> = {
     ATTACHMENT: 6,
 };
 
-export function DayCellEvents({ events, maxVisible = 3, onDayClick }: DayCellEventsProps) {
+export function DayCellEvents({ events, maxVisible = 3, onDayClick, user }: DayCellEventsProps) {
     if (events.length === 0) return null;
 
     // Sort events by priority
@@ -71,7 +74,7 @@ export function DayCellEvents({ events, maxVisible = 3, onDayClick }: DayCellEve
                                 {[...sortedEvents]
                                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                                     .map((item) => (
-                                        <TimelineItemFactory key={item.id} item={item} />
+                                        <TimelineItemFactory key={item.id} item={item} user={user} />
                                     ))}
                             </div>
                         </ScrollArea>

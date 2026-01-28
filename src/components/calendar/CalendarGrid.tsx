@@ -2,14 +2,17 @@ import type { TimelineItem } from "@/types/timeline.types";
 import { CalendarDay } from "./CalendarDay";
 import { format } from "date-fns";
 
+import type { User } from '@/types/user';
+
 interface CalendarGridProps {
     days: Date[];
     currentDate: Date;
     events: TimelineItem[];
     onDayClick: (date: Date) => void;
+    user: User | null;
 }
 
-export function CalendarGrid({ days, currentDate, events, onDayClick }: CalendarGridProps) {
+export function CalendarGrid({ days, currentDate, events, onDayClick, user }: CalendarGridProps) {
     return (
         <div className="flex-1 grid grid-cols-7 h-full overflow-hidden">
             {days.map((day, i) => {
@@ -23,6 +26,7 @@ export function CalendarGrid({ days, currentDate, events, onDayClick }: Calendar
                         currentDate={currentDate}
                         onClick={() => onDayClick(day)}
                         events={dayEvents}
+                        user={user}
                     />
                 );
             })}

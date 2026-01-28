@@ -6,6 +6,7 @@ const BaseTimelineItemSchema = z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
     createdAt: z.string().datetime(),
     createdBy: z.string(),
+    createdByName: z.string().optional(),
 });
 
 // NOTE: Standard text message

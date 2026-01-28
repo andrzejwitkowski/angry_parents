@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { auth } from "../../src/lib/auth";
+import { auth } from "./lib/auth";
 import { InMemoryTimelineRepository } from "./adapters/secondary/InMemoryTimelineRepository";
 import { TimelineServiceImpl } from "./application/TimelineService";
 import { createTimelineController } from "./adapters/primary/TimelineController";
