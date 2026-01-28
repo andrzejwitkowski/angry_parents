@@ -2,9 +2,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { User } from "@/types/user";
 
 interface SidebarHeaderProps {
-    user: any;
+    user: User | null;
     isCollapsed: boolean;
     onToggle: () => void;
 }

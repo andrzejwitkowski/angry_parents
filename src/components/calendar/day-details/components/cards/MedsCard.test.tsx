@@ -1,4 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { I18nextProvider } from "react-i18next";
+import i18n from "@/i18n";
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MedsCard } from './MedsCard';
 import type { MedsItem } from '@/types/timeline.types';
@@ -23,8 +25,23 @@ const mockItem: MedsItem = {
     administered: false,
 };
 
-const ownerUser = { id: 'user-owner' };
-const otherUser = { id: 'user-other' };
+const ownerUser = {
+    id: 'user-owner',
+    name: "Test User",
+    email: "test@example.com",
+    emailVerified: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+};
+
+const otherUser = {
+    id: 'user-other',
+    name: "Other User",
+    email: "other@example.com",
+    emailVerified: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+};
 
 describe('MedsCard', () => {
     beforeEach(() => {
@@ -32,14 +49,22 @@ describe('MedsCard', () => {
     });
 
     it('renders correctly for owner', () => {
-        render(<MedsCard item={mockItem} user={ownerUser} />);
+        render(
+            <I18nextProvider i18n={i18n}>
+                <MedsCard item={mockItem} user={ownerUser} />
+            </I18nextProvider>
+        );
         expect(screen.getByText('Paracetamol')).toBeInTheDocument();
         expect(screen.getByRole('checkbox')).not.toBeDisabled();
         expect(screen.getByRole('button')).toBeInTheDocument(); // Trash button
     });
 
     it('renders correctly for non-owner', () => {
-        render(<MedsCard item={mockItem} user={otherUser} />);
+        render(
+            <I18nextProvider i18n={i18n}>
+                <MedsCard item={mockItem} user={otherUser} />
+            </I18nextProvider>
+        );
         expect(screen.getByRole('checkbox')).toBeDisabled();
         expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
@@ -48,7 +73,11 @@ describe('MedsCard', () => {
         const onUpdate = vi.fn();
         (timelineApi.update as any).mockResolvedValue({ ...mockItem, administered: true });
 
-        render(<MedsCard item={mockItem} user={ownerUser} onUpdate={onUpdate} />);
+        render(
+            <I18nextProvider i18n={i18n}>
+                <MedsCard item={mockItem} user={ownerUser} onUpdate={onUpdate} />
+            </I18nextProvider>
+        );
 
         const checkbox = screen.getByRole('checkbox');
         fireEvent.click(checkbox);
@@ -61,16 +90,24 @@ describe('MedsCard', () => {
 
     it('calls delete API when delete button is clicked by owner', async () => {
         const onUpdate = vi.fn();
-        window.confirm = vi.fn().mockReturnValue(true);
+        const onDelete = vi.fn();
 
-        render(<MedsCard item={mockItem} user={ownerUser} onUpdate={onUpdate} />);
+        render(
+            <I18nextProvider i18n={i18n}>
+                <MedsCard item={mockItem} user={ownerUser} onUpdate={onUpdate} onDelete={onDelete} />
+            </I18nextProvider>
+        );
 
         const deleteBtn = screen.getByRole('button');
         fireEvent.click(deleteBtn);
 
+        // Find the confirm button in the AlertDialog
+        const confirmBtn = await screen.findByText('Confirm');
+        fireEvent.click(confirmBtn);
+
         await vi.waitFor(() => {
             expect(timelineApi.delete).toHaveBeenCalledWith('1');
-            expect(onUpdate).toHaveBeenCalled();
-        });
+            expect(onDelete).toHaveBeenCalled();
+        }, { timeout: 2000 });
     });
 });

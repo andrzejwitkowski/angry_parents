@@ -6,16 +6,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { MedsItem } from "@/types/timeline.types";
+import type { User } from "@/types/user";
 import { timelineApi } from "@/lib/api/timeline";
 import { cn } from "@/lib/utils";
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 interface MedsCardProps {
     item: MedsItem;
-    user: any;
+    user: User | null;
     onUpdate?: (updatedItem: MedsItem) => void;
+    onDelete?: () => void;
 }
 
-export function MedsCard({ item, onUpdate, user }: MedsCardProps) {
+export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
     const { t } = useTranslation();
     const isOwner = user?.id === item.createdBy;
     const [isUpdating, setIsUpdating] = useState(false);
@@ -37,10 +51,9 @@ export function MedsCard({ item, onUpdate, user }: MedsCardProps) {
     };
 
     const handleDelete = async () => {
-        if (!confirm(t("meds.confirmDelete"))) return;
         try {
             await timelineApi.delete(item.id);
-            onUpdate?.({ ...item, id: "__DELETED__" } as any); // Simple way to trigger refresh
+            onDelete?.();
         } catch (error) {
             console.error("Failed to delete medication:", error);
         }
@@ -72,14 +85,34 @@ export function MedsCard({ item, onUpdate, user }: MedsCardProps) {
                             {administered ? "Administered" : "Pending"}
                         </Badge>
                         {isOwner && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                onClick={handleDelete}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {t("meds.confirmDelete")}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={handleDelete}
+                                            className="bg-red-600 hover:bg-red-700"
+                                        >
+                                            {t("common.confirm")}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                     </div>
                 </div>
@@ -127,9 +160,16 @@ export function MedsCard({ item, onUpdate, user }: MedsCardProps) {
                 </div>
 
                 {/* Timestamp */}
-                <p className="text-xs text-gray-500 pt-2">
-                    {new Date(item.createdAt).toLocaleString()}
-                </p>
+                <div className="flex justify-between items-center pt-2">
+                    <p className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleString()}
+                    </p>
+                    {item.createdByName && (
+                        <p className="text-xs text-gray-400 font-medium">
+                            Administered by {item.createdByName}
+                        </p>
+                    )}
+                </div>
             </CardContent>
         </Card>
     );

@@ -6,12 +6,13 @@ import { timelineApi } from "@/lib/api/timeline";
 import type { TimelineItem } from "@/types/timeline.types";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
+import type { User } from '@/types/user';
 
 interface DayDetailsSheetProps {
     date: Date | null;
     isOpen: boolean;
     onClose: () => void;
-    user: any;
+    user: User | null;
     onUpdate?: () => void;
 }
 
@@ -44,6 +45,7 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, onUpdate }: DayDe
     }, [isOpen, formattedDate]);
 
     const handleItemUpdate = (updatedItem: TimelineItem) => {
+        if (!updatedItem?.id) return;
         setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
     };
 
@@ -71,6 +73,7 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, onUpdate }: DayDe
                         <TimelineFeed
                             items={items}
                             onItemUpdate={handleItemUpdate}
+                            onItemDelete={fetchItems}
                             user={user}
                         />
                     )}

@@ -49,7 +49,6 @@ export default function AuthPage() {
             email,
             password,
             name,
-            username,
         }, {
             onSuccess: () => {
                 navigate('/dashboard');

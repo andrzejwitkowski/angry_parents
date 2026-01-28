@@ -9,9 +9,10 @@ import { useEffect } from "react";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { timelineApi } from "@/lib/api/timeline";
 import type { TimelineItem } from "@/types/timeline.types";
+import type { User } from '@/types/user';
 
 interface BetterCalendarProps {
-    user: any;
+    user: User | null;
 }
 
 export function BetterCalendar({ user }: BetterCalendarProps) {
@@ -64,6 +65,7 @@ export function BetterCalendar({ user }: BetterCalendarProps) {
                 currentDate={currentDate}
                 onDayClick={handleDayClick}
                 events={monthEvents}
+                user={user}
             />
 
             <DayDetailsSheet

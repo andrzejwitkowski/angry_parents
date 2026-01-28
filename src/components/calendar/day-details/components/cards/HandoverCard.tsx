@@ -4,25 +4,38 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { HandoverItem } from "@/types/timeline.types";
+import type { User } from "@/types/user";
 import { timelineApi } from "@/lib/api/timeline";
 import { cn } from "@/lib/utils";
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 interface HandoverCardProps {
     item: HandoverItem;
-    user: any;
-    onUpdate?: () => void;
+    user: User | null;
+    onUpdate?: (updatedItem: HandoverItem) => void;
+    onDelete?: () => void;
 }
 
-export function HandoverCard({ item, user, onUpdate }: HandoverCardProps) {
+export function HandoverCard({ item, user, onUpdate: _onUpdate, onDelete }: HandoverCardProps) {
     const { t } = useTranslation();
     const isOwner = user?.id === item.createdBy;
     const isCompleted = item.status === "COMPLETED";
 
     const handleDelete = async () => {
-        if (!confirm(t("handover.confirmDelete"))) return;
         try {
             await timelineApi.delete(item.id);
-            onUpdate?.();
+            onDelete?.();
         } catch (error) {
             console.error("Failed to delete handover:", error);
         }
@@ -59,14 +72,34 @@ export function HandoverCard({ item, user, onUpdate }: HandoverCardProps) {
                             {item.status}
                         </Badge>
                         {isOwner && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                onClick={handleDelete}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {t("handover.confirmDelete")}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={handleDelete}
+                                            className="bg-red-600 hover:bg-red-700"
+                                        >
+                                            {t("common.confirm")}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                     </div>
                 </div>
@@ -100,9 +133,16 @@ export function HandoverCard({ item, user, onUpdate }: HandoverCardProps) {
                 </div>
 
                 {/* Timestamp */}
-                <p className="text-xs text-gray-500 pt-2">
-                    {new Date(item.createdAt).toLocaleString()}
-                </p>
+                <div className="flex justify-between items-center pt-2">
+                    <p className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleString()}
+                    </p>
+                    {item.createdByName && (
+                        <p className="text-xs text-gray-400 font-medium">
+                            Added by {item.createdByName}
+                        </p>
+                    )}
+                </div>
             </CardContent>
         </Card>
     );

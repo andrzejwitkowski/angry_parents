@@ -1,4 +1,4 @@
-import { expect, test, describe } from "bun:test";
+import { expect, test, describe } from "vitest";
 import { getCalendarDays, isWeekend, getMonthYearLabel } from "./calendar-utils";
 import { isSameDay } from "date-fns";
 

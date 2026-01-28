@@ -5,10 +5,24 @@ import { Button } from "@/components/ui/button";
 import type { AttachmentItem } from "@/types/timeline.types";
 import { timelineApi } from "@/lib/api/timeline";
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import type { User } from '@/types/user';
+
 interface AttachmentCardProps {
     item: AttachmentItem;
-    user: any;
-    onUpdate?: () => void;
+    user: User | null;
+    onUpdate?: (updatedItem: AttachmentItem) => void;
+    onDelete?: () => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -17,16 +31,15 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function AttachmentCard({ item, user, onUpdate }: AttachmentCardProps) {
+export function AttachmentCard({ item, user, onUpdate: _onUpdate, onDelete }: AttachmentCardProps) {
     const { t } = useTranslation();
     const isOwner = user?.id === item.createdBy;
-    const isImage = item.mimeType.startsWith("image/");
+    const isImage = item.mimeType?.startsWith("image/");
 
     const handleDelete = async () => {
-        if (!confirm(t("attachment.confirmDelete"))) return;
         try {
             await timelineApi.delete(item.id);
-            onUpdate?.();
+            onDelete?.();
         } catch (error) {
             console.error("Failed to delete attachment:", error);
         }
@@ -43,14 +56,34 @@ export function AttachmentCard({ item, user, onUpdate }: AttachmentCardProps) {
                         <h3 className="font-bold text-gray-900">Attachment</h3>
                     </div>
                     {isOwner && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                            onClick={handleDelete}
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        {t("attachment.confirmDelete")}
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={handleDelete}
+                                        className="bg-red-600 hover:bg-red-700"
+                                    >
+                                        {t("common.confirm")}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     )}
                 </div>
             </CardHeader>
@@ -81,9 +114,16 @@ export function AttachmentCard({ item, user, onUpdate }: AttachmentCardProps) {
                     </p>
                 </div>
 
-                <p className="text-xs text-gray-500 pt-2">
-                    {new Date(item.createdAt).toLocaleString()}
-                </p>
+                <div className="flex justify-between items-center pt-2">
+                    <p className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleString()}
+                    </p>
+                    {item.createdByName && (
+                        <p className="text-xs text-gray-400 font-medium">
+                            Uploaded by {item.createdByName}
+                        </p>
+                    )}
+                </div>
             </CardContent>
         </Card>
     );

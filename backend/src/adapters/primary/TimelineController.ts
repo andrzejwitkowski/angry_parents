@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import type { TimelineServiceImpl } from "../../application/TimelineService";
 import { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
-import { auth } from "../../../../src/lib/auth";
+import { auth } from "../../lib/auth";
 
 /**
  * Timeline REST API Controller
@@ -64,9 +64,14 @@ export function createTimelineController(service: TimelineServiceImpl) {
             async ({ body, session }) => {
                 try {
                     const userId = session?.user?.id || "anonymous";
+                    // Fallback to username if name is not set (Better Auth additional fields)
+                    const userName = session?.user?.name || (session?.user as any)?.username || "Unknown";
+
                     const item = await service.createItem({
                         ...body as CreateTimelineItemDto,
-                        createdBy: userId
+                        createdBy: userId,
+
+                        createdByName: userName
                     });
                     return item;
                 } catch (error) {
@@ -89,6 +94,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     ]),
                     date: t.String(),
                     createdBy: t.String(),
+                    createdByName: t.Optional(t.String()),
                 }, { additionalProperties: true }),
             }
         )

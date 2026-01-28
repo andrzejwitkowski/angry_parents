@@ -4,14 +4,22 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { IncidentItem } from "@/types/timeline.types";
+import type { User } from "@/types/user";
 import { timelineApi } from "@/lib/api/timeline";
 import { cn } from "@/lib/utils";
 
-interface IncidentCardProps {
-    item: IncidentItem;
-    user: any;
-    onUpdate?: () => void;
-}
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 
 const severityConfig = {
     LOW: {
@@ -34,16 +42,22 @@ const severityConfig = {
     },
 };
 
-export function IncidentCard({ item, user, onUpdate }: IncidentCardProps) {
+interface IncidentCardProps {
+    item: IncidentItem;
+    user: User | null;
+    onUpdate?: (updatedItem: IncidentItem) => void;
+    onDelete?: () => void;
+}
+
+export function IncidentCard({ item, user, onUpdate: _onUpdate, onDelete }: IncidentCardProps) {
     const { t } = useTranslation();
     const isOwner = user?.id === item.createdBy;
     const config = severityConfig[item.severity];
 
     const handleDelete = async () => {
-        if (!confirm(t("incident.confirmDelete"))) return;
         try {
             await timelineApi.delete(item.id);
-            onUpdate?.();
+            onDelete?.();
         } catch (error) {
             console.error("Failed to delete incident report:", error);
         }
@@ -68,14 +82,34 @@ export function IncidentCard({ item, user, onUpdate }: IncidentCardProps) {
                             {item.severity}
                         </Badge>
                         {isOwner && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/20"
-                                onClick={handleDelete}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {t("incident.confirmDelete")}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={handleDelete}
+                                            className="bg-red-600 hover:bg-red-700"
+                                        >
+                                            {t("common.confirm")}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                     </div>
                 </div>
@@ -93,9 +127,16 @@ export function IncidentCard({ item, user, onUpdate }: IncidentCardProps) {
                 </div>
 
                 {/* Timestamp */}
-                <p className="text-xs text-gray-500 pt-2">
-                    {new Date(item.createdAt).toLocaleString()}
-                </p>
+                <div className="flex justify-between items-center pt-2">
+                    <p className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleString()}
+                    </p>
+                    {item.createdByName && (
+                        <p className="text-xs text-gray-400 font-medium">
+                            Reported by {item.createdByName}
+                        </p>
+                    )}
+                </div>
             </CardContent>
         </Card>
     );
