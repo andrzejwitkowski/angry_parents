@@ -51,10 +51,33 @@ export class TimelineServiceImpl {
         );
     }
 
-    async updateItem(id: string, updates: Partial<TimelineItem>): Promise<TimelineItem> {
+    async getItemsByDateRange(from: string, to: string): Promise<TimelineItem[]> {
+        // Validate date formats
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(from) || !dateRegex.test(to)) {
+            throw new Error("Invalid date format. Expected YYYY-MM-DD");
+        }
+
+        const items = await this.repository.findByDateRange(from, to);
+
+        // Sort by date (ascending) then by creation time (newest first)
+        return items.sort((a, b) => {
+            if (a.date !== b.date) {
+                return a.date.localeCompare(b.date);
+            }
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+    }
+
+    async updateItem(id: string, updates: Partial<TimelineItem>, userId: string): Promise<TimelineItem> {
         const existing = await this.repository.findById(id);
         if (!existing) {
             throw new Error(`Timeline item with id ${id} not found`);
+        }
+
+        // Authorization check: only the creator can update
+        if (existing.createdBy !== userId) {
+            throw new Error("Unauthorized: You can only modify your own items");
         }
 
         // Merge updates with existing item
@@ -66,10 +89,15 @@ export class TimelineServiceImpl {
         return this.repository.update(id, validated);
     }
 
-    async deleteItem(id: string): Promise<void> {
+    async deleteItem(id: string, userId: string): Promise<void> {
         const existing = await this.repository.findById(id);
         if (!existing) {
             throw new Error(`Timeline item with id ${id} not found`);
+        }
+
+        // Authorization check: only the creator can delete
+        if (existing.createdBy !== userId) {
+            throw new Error("Unauthorized: You can only delete your own items");
         }
 
         await this.repository.delete(id);

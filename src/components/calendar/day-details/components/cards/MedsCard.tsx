@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Pill } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Pill, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { MedsItem } from "@/types/timeline.types";
 import { timelineApi } from "@/lib/api/timeline";
@@ -9,10 +11,13 @@ import { cn } from "@/lib/utils";
 
 interface MedsCardProps {
     item: MedsItem;
+    user: any;
     onUpdate?: (updatedItem: MedsItem) => void;
 }
 
-export function MedsCard({ item, onUpdate }: MedsCardProps) {
+export function MedsCard({ item, onUpdate, user }: MedsCardProps) {
+    const { t } = useTranslation();
+    const isOwner = user?.id === item.createdBy;
     const [isUpdating, setIsUpdating] = useState(false);
     const [administered, setAdministered] = useState(item.administered);
 
@@ -31,6 +36,16 @@ export function MedsCard({ item, onUpdate }: MedsCardProps) {
         }
     };
 
+    const handleDelete = async () => {
+        if (!confirm(t("meds.confirmDelete"))) return;
+        try {
+            await timelineApi.delete(item.id);
+            onUpdate?.({ ...item, id: "__DELETED__" } as any); // Simple way to trigger refresh
+        } catch (error) {
+            console.error("Failed to delete medication:", error);
+        }
+    };
+
     return (
         <Card className={cn(
             "border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50",
@@ -45,16 +60,28 @@ export function MedsCard({ item, onUpdate }: MedsCardProps) {
                         </div>
                         <h3 className="font-bold text-purple-900">Medication</h3>
                     </div>
-                    <Badge
-                        variant="outline"
-                        className={cn(
-                            administered
-                                ? "bg-green-100 text-green-800 border-green-300"
-                                : "bg-amber-100 text-amber-800 border-amber-300"
+                    <div className="flex items-center gap-2">
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                administered
+                                    ? "bg-green-100 text-green-800 border-green-300"
+                                    : "bg-amber-100 text-amber-800 border-amber-300"
+                            )}
+                        >
+                            {administered ? "Administered" : "Pending"}
+                        </Badge>
+                        {isOwner && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                onClick={handleDelete}
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
                         )}
-                    >
-                        {administered ? "Administered" : "Pending"}
-                    </Badge>
+                    </div>
                 </div>
             </CardHeader>
 
@@ -85,7 +112,7 @@ export function MedsCard({ item, onUpdate }: MedsCardProps) {
                         id={`meds-${item.id}`}
                         checked={administered}
                         onCheckedChange={handleCheckboxChange}
-                        disabled={isUpdating}
+                        disabled={isUpdating || !isOwner}
                         data-testid="meds-checkbox"
                     />
                     <label

@@ -9,31 +9,32 @@ import { AttachmentCard } from "./cards/AttachmentCard";
 
 interface TimelineItemFactoryProps {
     item: TimelineItem;
-    onUpdate?: (updatedItem: TimelineItem) => void;
+    onUpdate?: (updatedItem?: any) => void;
+    user: any;
 }
 
-export function TimelineItemFactory({ item, onUpdate }: TimelineItemFactoryProps) {
+export function TimelineItemFactory({ item, onUpdate, user }: TimelineItemFactoryProps) {
     switch (item.type) {
         case "MEDICAL_VISIT":
-            return <MedicalCard item={item} />;
+            return <MedicalCard item={item} user={user} onUpdate={onUpdate} />;
 
         case "HANDOVER":
-            return <HandoverCard item={item} />;
+            return <HandoverCard item={item} user={user} onUpdate={onUpdate} />;
 
         case "MEDS":
-            return <MedsCard item={item} onUpdate={onUpdate} />;
+            return <MedsCard item={item} onUpdate={(val) => onUpdate?.(val)} user={user} />;
 
         case "INCIDENT":
-            return <IncidentCard item={item} />;
+            return <IncidentCard item={item} user={user} onUpdate={onUpdate} />;
 
         case "NOTE":
-            return <NoteCard item={item} />;
+            return <NoteCard item={item} user={user} onUpdate={onUpdate} />;
 
         case "VACATION":
-            return <VacationCard item={item} />;
+            return <VacationCard item={item} user={user} onUpdate={onUpdate} />;
 
         case "ATTACHMENT":
-            return <AttachmentCard item={item} />;
+            return <AttachmentCard item={item} user={user} onUpdate={onUpdate} />;
 
         default:
             // TypeScript exhaustiveness check

@@ -30,11 +30,24 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export const timelineApi = {
-    /**
-     * Get all timeline items for a specific date
-     */
     async getByDate(date: string): Promise<TimelineItem[]> {
         const response = await fetch(`${API_BASE_URL}/calendar/${date}/timeline`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+        });
+
+        const data = await handleResponse<{ items: TimelineItem[] }>(response);
+        return data.items;
+    },
+
+    /**
+     * Get all timeline items within a date range
+     */
+    async getByDateRange(from: string, to: string): Promise<TimelineItem[]> {
+        const response = await fetch(`${API_BASE_URL}/timeline/range?from=${from}&to=${to}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",

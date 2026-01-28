@@ -18,6 +18,13 @@ export interface TimelineRepository {
     findByDate(date: string): Promise<TimelineItem[]>;
 
     /**
+     * Find timeline items within a date range
+     * @param from - Start date (YYYY-MM-DD)
+     * @param to - End date (YYYY-MM-DD)
+     */
+    findByDateRange(from: string, to: string): Promise<TimelineItem[]>;
+
+    /**
      * Find a single timeline item by ID
      */
     findById(id: string): Promise<TimelineItem | null>;
@@ -49,12 +56,19 @@ export interface TimelineService {
     getItemsByDate(date: string): Promise<TimelineItem[]>;
 
     /**
-     * Update a timeline item (e.g., toggle medication checkbox)
+     * Get items within a date range
      */
-    updateItem(id: string, updates: Partial<TimelineItem>): Promise<TimelineItem>;
+    getItemsByDateRange(from: string, to: string): Promise<TimelineItem[]>;
+
+    /**
+     * Update a timeline item (e.g., toggle medication checkbox)
+     * Only the creator can update their own items
+     */
+    updateItem(id: string, updates: Partial<TimelineItem>, userId: string): Promise<TimelineItem>;
 
     /**
      * Delete a timeline item
+     * Only the creator can delete their own items
      */
-    deleteItem(id: string): Promise<void>;
+    deleteItem(id: string, userId: string): Promise<void>;
 }

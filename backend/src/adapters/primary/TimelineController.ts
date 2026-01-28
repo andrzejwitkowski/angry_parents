@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import type { TimelineServiceImpl } from "../../application/TimelineService";
 import { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
+import { auth } from "../../../../src/lib/auth";
 
 /**
  * Timeline REST API Controller
@@ -8,6 +9,12 @@ import { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
  */
 export function createTimelineController(service: TimelineServiceImpl) {
     return new Elysia({ prefix: "/api" })
+        .derive(async ({ request }) => {
+            const session = await auth.api.getSession({
+                headers: request.headers
+            });
+            return { session };
+        })
         // GET /api/calendar/:date/timeline
         .get(
             "/calendar/:date/timeline",
@@ -29,12 +36,38 @@ export function createTimelineController(service: TimelineServiceImpl) {
             }
         )
 
+        // GET /api/timeline/range?from=YYYY-MM-DD&to=YYYY-MM-DD
+        .get(
+            "/timeline/range",
+            async ({ query }) => {
+                try {
+                    const items = await service.getItemsByDateRange(query.from, query.to);
+                    return { items };
+                } catch (error) {
+                    return {
+                        error: error instanceof Error ? error.message : "Unknown error",
+                        status: 400,
+                    };
+                }
+            },
+            {
+                query: t.Object({
+                    from: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+                    to: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+                }),
+            }
+        )
+
         // POST /api/timeline
         .post(
             "/timeline",
-            async ({ body }) => {
+            async ({ body, session }) => {
                 try {
-                    const item = await service.createItem(body as CreateTimelineItemDto);
+                    const userId = session?.user?.id || "anonymous";
+                    const item = await service.createItem({
+                        ...body as CreateTimelineItemDto,
+                        createdBy: userId
+                    });
                     return item;
                 } catch (error) {
                     return {
@@ -63,9 +96,12 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // PATCH /api/timeline/:id
         .patch(
             "/timeline/:id",
-            async ({ params, body }) => {
+            async ({ params, body, session }) => {
                 try {
-                    const updated = await service.updateItem(params.id, body);
+                    if (!session?.user) {
+                        return { error: "Unauthorized", status: 401 };
+                    }
+                    const updated = await service.updateItem(params.id, body as any, session.user.id);
                     return updated;
                 } catch (error) {
                     return {
@@ -84,9 +120,13 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // DELETE /api/timeline/:id
         .delete(
             "/timeline/:id",
-            async ({ params, set }) => {
+            async ({ params, set, session }) => {
                 try {
-                    await service.deleteItem(params.id);
+                    if (!session?.user) {
+                        set.status = 401;
+                        return { error: "Unauthorized" };
+                    }
+                    await service.deleteItem(params.id, session.user.id);
                     set.status = 204;
                     return null;
                 } catch (error) {

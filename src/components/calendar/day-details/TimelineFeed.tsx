@@ -5,9 +5,10 @@ import { Calendar } from "lucide-react";
 interface TimelineFeedProps {
     items: TimelineItem[];
     onItemUpdate?: (updatedItem: TimelineItem) => void;
+    user: any;
 }
 
-export function TimelineFeed({ items, onItemUpdate }: TimelineFeedProps) {
+export function TimelineFeed({ items, onItemUpdate, user }: TimelineFeedProps) {
     if (items.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -31,6 +32,7 @@ export function TimelineFeed({ items, onItemUpdate }: TimelineFeedProps) {
                     key={item.id}
                     item={item}
                     onUpdate={onItemUpdate}
+                    user={user}
                 />
             ))}
         </div>

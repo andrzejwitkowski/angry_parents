@@ -15,7 +15,15 @@ const resources = {
             "auth.password": "Password",
             "auth.submit": "Submit",
             "dashboard.welcome": "Hello World",
-            "dashboard.logout": "Logout"
+            "dashboard.logout": "Logout",
+            "common.confirmDelete": "Are you sure you want to delete this item?",
+            "meds.confirmDelete": "Are you sure you want to delete this medication?",
+            "note.confirmDelete": "Are you sure you want to delete this note?",
+            "attachment.confirmDelete": "Are you sure you want to delete this attachment?",
+            "medical.confirmDelete": "Are you sure you want to delete this medical visit?",
+            "handover.confirmDelete": "Are you sure you want to delete this handover?",
+            "incident.confirmDelete": "Are you sure you want to delete this incident?",
+            "vacation.confirmDelete": "Are you sure you want to delete this vacation?"
         }
     }
 };

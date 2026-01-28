@@ -1,9 +1,14 @@
-import { Paperclip, FileText } from "lucide-react";
+import { Paperclip, FileText, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import type { AttachmentItem } from "@/types/timeline.types";
+import { timelineApi } from "@/lib/api/timeline";
 
 interface AttachmentCardProps {
     item: AttachmentItem;
+    user: any;
+    onUpdate?: () => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -12,17 +17,41 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function AttachmentCard({ item }: AttachmentCardProps) {
+export function AttachmentCard({ item, user, onUpdate }: AttachmentCardProps) {
+    const { t } = useTranslation();
+    const isOwner = user?.id === item.createdBy;
     const isImage = item.mimeType.startsWith("image/");
+
+    const handleDelete = async () => {
+        if (!confirm(t("attachment.confirmDelete"))) return;
+        try {
+            await timelineApi.delete(item.id);
+            onUpdate?.();
+        } catch (error) {
+            console.error("Failed to delete attachment:", error);
+        }
+    };
 
     return (
         <Card className="border-2 border-gray-200 bg-gradient-to-br from-gray-50 to-slate-50 shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                    <div className="p-2 bg-gray-500 rounded-lg">
-                        <Paperclip className="w-5 h-5 text-white" />
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="p-2 bg-gray-500 rounded-lg">
+                            <Paperclip className="w-5 h-5 text-white" />
+                        </div>
+                        <h3 className="font-bold text-gray-900">Attachment</h3>
                     </div>
-                    <h3 className="font-bold text-gray-900">Attachment</h3>
+                    {isOwner && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                            onClick={handleDelete}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    )}
                 </div>
             </CardHeader>
 
