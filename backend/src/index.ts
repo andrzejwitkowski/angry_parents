@@ -11,6 +11,8 @@ const timelineController = createTimelineController(timelineService);
 
 import { cors } from "@elysiajs/cors";
 
+import { custodyController } from "./adapters/primary/CustodyController";
+
 // Create Elysia app
 const app = new Elysia()
     .use(cors({
@@ -21,6 +23,7 @@ const app = new Elysia()
     }))
     // Mount timeline controller (already has /api prefix)
     .use(timelineController)
+    .use(custodyController)
     // Mount better-auth handler with a more robust catch-all
     .all("/api/auth/*", async ({ request, path }) => {
         // Log for debugging (optional, can be removed once verified)
