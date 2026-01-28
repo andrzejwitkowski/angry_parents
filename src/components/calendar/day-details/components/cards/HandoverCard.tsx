@@ -1,15 +1,32 @@
-import { ArrowRightLeft, MapPin, Clock } from "lucide-react";
+import { ArrowRightLeft, MapPin, Clock, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { HandoverItem } from "@/types/timeline.types";
+import { timelineApi } from "@/lib/api/timeline";
 import { cn } from "@/lib/utils";
 
 interface HandoverCardProps {
     item: HandoverItem;
+    user: any;
+    onUpdate?: () => void;
 }
 
-export function HandoverCard({ item }: HandoverCardProps) {
+export function HandoverCard({ item, user, onUpdate }: HandoverCardProps) {
+    const { t } = useTranslation();
+    const isOwner = user?.id === item.createdBy;
     const isCompleted = item.status === "COMPLETED";
+
+    const handleDelete = async () => {
+        if (!confirm(t("handover.confirmDelete"))) return;
+        try {
+            await timelineApi.delete(item.id);
+            onUpdate?.();
+        } catch (error) {
+            console.error("Failed to delete handover:", error);
+        }
+    };
 
     return (
         <Card className={cn(
@@ -30,16 +47,28 @@ export function HandoverCard({ item }: HandoverCardProps) {
                         </div>
                         <h3 className="font-bold text-indigo-900">Child Handover</h3>
                     </div>
-                    <Badge
-                        variant="outline"
-                        className={cn(
-                            isCompleted
-                                ? "bg-blue-100 text-blue-800 border-blue-300"
-                                : "bg-amber-100 text-amber-800 border-amber-300"
+                    <div className="flex items-center gap-2">
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                isCompleted
+                                    ? "bg-blue-100 text-blue-800 border-blue-300"
+                                    : "bg-amber-100 text-amber-800 border-amber-300"
+                            )}
+                        >
+                            {item.status}
+                        </Badge>
+                        {isOwner && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                onClick={handleDelete}
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
                         )}
-                    >
-                        {item.status}
-                    </Badge>
+                    </div>
                 </div>
             </CardHeader>
 

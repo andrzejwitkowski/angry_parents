@@ -30,6 +30,16 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return this.storage.get(date) || [];
     }
 
+    async findByDateRange(from: string, to: string): Promise<TimelineItem[]> {
+        const results: TimelineItem[] = [];
+        for (const [date, items] of this.storage.entries()) {
+            if (date >= from && date <= to) {
+                results.push(...items);
+            }
+        }
+        return results;
+    }
+
     async findById(id: string): Promise<TimelineItem | null> {
         return this.itemsById.get(id) || null;
     }

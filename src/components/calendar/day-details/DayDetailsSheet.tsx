@@ -12,9 +12,10 @@ interface DayDetailsSheetProps {
     isOpen: boolean;
     onClose: () => void;
     user: any;
+    onUpdate?: () => void;
 }
 
-export function DayDetailsSheet({ date, isOpen, onClose, user }: DayDetailsSheetProps) {
+export function DayDetailsSheet({ date, isOpen, onClose, user, onUpdate }: DayDetailsSheetProps) {
     const [items, setItems] = useState<TimelineItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -67,14 +68,21 @@ export function DayDetailsSheet({ date, isOpen, onClose, user }: DayDetailsSheet
                             {error}
                         </div>
                     ) : (
-                        <TimelineFeed items={items} onItemUpdate={handleItemUpdate} />
+                        <TimelineFeed
+                            items={items}
+                            onItemUpdate={handleItemUpdate}
+                            user={user}
+                        />
                     )}
                 </div>
 
                 <div className="shrink-0 pb-6 pt-4">
                     <LogComposer
                         date={formattedDate}
-                        onSuccess={fetchItems}
+                        onSuccess={() => {
+                            fetchItems();
+                            onUpdate?.();
+                        }}
                         createdBy={user?.id || "anonymous"}
                     />
                 </div>

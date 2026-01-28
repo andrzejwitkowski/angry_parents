@@ -5,6 +5,10 @@ import { CalendarHeader } from "./calendar/CalendarHeader";
 import { CalendarWeekDays } from "./calendar/CalendarWeekDays";
 import { CalendarGrid } from "./calendar/CalendarGrid";
 import { DayDetailsSheet } from "./calendar/day-details/DayDetailsSheet";
+import { useEffect } from "react";
+import { startOfMonth, endOfMonth, format } from "date-fns";
+import { timelineApi } from "@/lib/api/timeline";
+import type { TimelineItem } from "@/types/timeline.types";
 
 interface BetterCalendarProps {
     user: any;
@@ -14,8 +18,24 @@ export function BetterCalendar({ user }: BetterCalendarProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDateForSheet, setSelectedDateForSheet] = useState<Date | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [monthEvents, setMonthEvents] = useState<TimelineItem[]>([]);
 
     const daysInMonth = getCalendarDays(currentDate);
+
+    const fetchMonthEvents = async () => {
+        const start = format(startOfMonth(currentDate), "yyyy-MM-dd");
+        const end = format(endOfMonth(currentDate), "yyyy-MM-dd");
+        try {
+            const events = await timelineApi.getByDateRange(start, end);
+            setMonthEvents(events);
+        } catch (error) {
+            console.error("Failed to fetch month events:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchMonthEvents();
+    }, [currentDate]);
 
     const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
@@ -43,6 +63,7 @@ export function BetterCalendar({ user }: BetterCalendarProps) {
                 days={daysInMonth}
                 currentDate={currentDate}
                 onDayClick={handleDayClick}
+                events={monthEvents}
             />
 
             <DayDetailsSheet
@@ -50,6 +71,7 @@ export function BetterCalendar({ user }: BetterCalendarProps) {
                 isOpen={isSheetOpen}
                 onClose={() => setIsSheetOpen(false)}
                 user={user}
+                onUpdate={fetchMonthEvents}
             />
         </div>
     );

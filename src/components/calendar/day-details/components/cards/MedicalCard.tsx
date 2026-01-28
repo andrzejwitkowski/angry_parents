@@ -1,14 +1,31 @@
-import { Stethoscope, FileText } from "lucide-react";
+import { Stethoscope, FileText, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { MedicalVisitItem } from "@/types/timeline.types";
+import { timelineApi } from "@/lib/api/timeline";
 import { cn } from "@/lib/utils";
 
 interface MedicalCardProps {
     item: MedicalVisitItem;
+    user: any;
+    onUpdate?: () => void;
 }
 
-export function MedicalCard({ item }: MedicalCardProps) {
+export function MedicalCard({ item, user, onUpdate }: MedicalCardProps) {
+    const { t } = useTranslation();
+    const isOwner = user?.id === item.createdBy;
+
+    const handleDelete = async () => {
+        if (!confirm(t("medical.confirmDelete"))) return;
+        try {
+            await timelineApi.delete(item.id);
+            onUpdate?.();
+        } catch (error) {
+            console.error("Failed to delete medical visit:", error);
+        }
+    };
     return (
         <Card className={cn(
             "border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50",
@@ -27,9 +44,21 @@ export function MedicalCard({ item }: MedicalCardProps) {
                             )}
                         </div>
                     </div>
-                    <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300">
-                        Medical Visit
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                            Medical Visit
+                        </Badge>
+                        {isOwner && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                onClick={handleDelete}
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </CardHeader>
 
