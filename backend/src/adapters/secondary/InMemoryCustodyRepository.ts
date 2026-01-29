@@ -25,4 +25,8 @@ export class InMemoryCustodyRepository implements CustodyRepository {
     async deleteAll(): Promise<void> {
         this.entries = [];
     }
+
+    async deleteByRuleId(ruleId: string): Promise<void> {
+        this.entries = this.entries.filter(e => e.sourceRuleId !== ruleId);
+    }
 }
