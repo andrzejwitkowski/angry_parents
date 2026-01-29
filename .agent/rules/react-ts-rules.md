@@ -63,4 +63,7 @@ Deploy to Vercel/Oracle only if ALL tests pass.
 7. Architecture Principles
 Simplicity: Favor flat folder structures and "Prostota nad abstrakcję".
 
+8. Definition of done
+For every new feature unit tests and e2e cypress tests MUST be created. All projects tests must pass 
+
 Parsability: Code must be easy for AI to read and for Kibana to index.

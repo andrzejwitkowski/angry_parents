@@ -70,11 +70,9 @@ describe("CustodyGenerator", () => {
             startDate: "2026-02-02", // Monday
             endDate: "2026-02-15", // 2 weeks
             type: "CUSTOM_SEQUENCE",
-            sequence: [2, 2, 3],
+            sequence: [2, 2, 3, 2, 2, 3], // Full 14-day cycle to ensure rotation
             startingParent: "MOM",
-            handoverTime: "09:00" // Optional, keeping it simple for now, or 09:00 to verify 00:00 start if not set? 
-            // Prompt says: "Mon/Tue: Parent A", "Wed/Thu: Parent B".
-            // Usually 2-2-3 switches in the morning.
+            handoverTime: "09:00"
         };
 
         const entries = generator.generate(config);
@@ -92,10 +90,39 @@ describe("CustodyGenerator", () => {
         expect(fri1[0].assignedTo).toBe("MOM");
 
         // Next Mon 09 (Day 8) - DAD (Parent B) - Rotation flips!
-        // 2-2-3 cycle is 14 days. 
-        // Week 1: 2(A) 2(B) 3(A) -> Week 2: 2(B) 2(A) 3(B)
         const mon2 = getEntriesForDate(entries, "2026-02-09");
         expect(mon2[0].assignedTo).toBe("DAD");
+    });
+
+    it("Case 6: Every Other Tuesday ([1, 13] Pattern)", () => {
+        // Start Date: Tuesday 2026-03-03.
+        // Sequence: 1 day ON (Tue), 13 days OFF (Wed-Mon next week).
+        const config: CustodyPatternConfig = {
+            childId: "child-1",
+            startDate: "2026-03-03", // Tuesday
+            endDate: "2026-03-31",
+            type: "CUSTOM_SEQUENCE",
+            sequence: [1, 13],
+            startingParent: "MOM"
+        };
+
+        const entries = generator.generate(config);
+
+        // Tue Mar 03: MOM (Day 0 of Cycle)
+        const day1 = getEntriesForDate(entries, "2026-03-03");
+        expect(day1[0].assignedTo).toBe("MOM");
+
+        // Wed Mar 04: DAD (Day 1 of Cycle - Start of 13 block)
+        const day2 = getEntriesForDate(entries, "2026-03-04");
+        expect(day2[0].assignedTo).toBe("DAD");
+
+        // Tue Mar 17 (2 weeks later): MOM (New Cycle Day 0/14)
+        const day15 = getEntriesForDate(entries, "2026-03-17");
+        expect(day15[0].assignedTo).toBe("MOM");
+
+        // Wed Mar 18: DAD
+        const day16 = getEntriesForDate(entries, "2026-03-18");
+        expect(day16[0].assignedTo).toBe("DAD");
     });
 
     it("Case 3: Holiday Override (Priority)", () => {
