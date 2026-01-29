@@ -11,7 +11,11 @@ import type { CustodyEntry, CustodyPatternConfig } from "@/types/custody";
 // Mock Child for now, or fetch from ChildrenConfigSheet state/context
 const MOCK_CHILD = { id: "c1", name: "Alice" };
 
-export function CustodyScheduler() {
+export interface CustodySchedulerProps {
+    onSave?: () => void;
+}
+
+export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
     const [step, setStep] = useState(1);
     const [config, setConfig] = useState<Partial<CustodyPatternConfig>>({
         childId: MOCK_CHILD.id,
@@ -47,6 +51,41 @@ export function CustodyScheduler() {
         }
     };
 
+    const handleSave = async () => {
+        if (previewEntries.length === 0) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch("http://localhost:3000/api/custody", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(previewEntries)
+            });
+
+            if (res.ok) {
+                // Ideally show success toast
+                console.log("Saved successfully");
+                // Reset or close? For now, maybe just alert or visual feedback
+                if (onSave) onSave();
+                // window.alert("Schedule Saved!"); // Removed alert as we will likely close dialog or show toast in parent
+            } else {
+                console.error("Failed to save");
+                let errMsg = "Unknown error";
+                try {
+                    const errPayload = await res.json();
+                    errMsg = typeof errPayload === 'object' && errPayload.error ? errPayload.error : JSON.stringify(errPayload);
+                } catch (e) { /* ignore text body */ }
+
+                window.alert(`Save Failed: ${res.status} ${res.statusText} - ${errMsg}`);
+            }
+        } catch (e) {
+            console.error(e);
+            window.alert(`Save failed with network error: ${e}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto p-6 space-y-6">
             <h1 className="text-2xl font-bold tracking-tight">Custody Scheduler</h1>
@@ -61,6 +100,7 @@ export function CustodyScheduler() {
                         <CardDescription>Choose a template or define a custom rotation.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        {/* ... (Pattern Selection logic omitted relative to original, but we keep the surrounding structure in mind) ... */}
 
                         {/* Pattern Selection Cards */}
                         <div className="space-y-2">
@@ -106,7 +146,7 @@ export function CustodyScheduler() {
                                     )}
                                 >
                                     <div className="p-1.5 rounded-full bg-white shadow-sm ring-1 ring-slate-100">
-                                        <Settings className="w-4 h-4" /> {/* Ensure Settings is imported */}
+                                        <Settings className="w-4 h-4" />
                                     </div>
                                     <span className="text-xs font-semibold text-center leading-tight">Custom Loop</span>
                                 </button>
@@ -196,10 +236,18 @@ export function CustodyScheduler() {
                         </Button>
                     </CardContent>
                 </Card>
+
                 {/* Preview / Results */}
                 <Card className="h-full border-0 shadow-lg bg-white ring-1 ring-slate-100 flex flex-col">
                     <CardHeader>
-                        <CardTitle>Schedule Preview</CardTitle>
+                        <CardTitle className="flex justify-between items-center">
+                            Schedule Preview
+                            {previewEntries.length > 0 && (
+                                <Button size="sm" onClick={handleSave} disabled={loading} variant="outline" className="text-xs">
+                                    Save
+                                </Button>
+                            )}
+                        </CardTitle>
                         <CardDescription>
                             {previewEntries.length > 0
                                 ? `Generated ${previewEntries.length} entries.`
@@ -237,3 +285,4 @@ export function CustodyScheduler() {
         </div>
     );
 }
+

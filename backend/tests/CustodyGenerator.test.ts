@@ -236,4 +236,34 @@ describe("CustodyGenerator", () => {
         expect(dec31.length).toBeGreaterThan(0);
         expect(jan01.length).toBeGreaterThan(0);
     });
+    it("Case 7: Regression - Monday Start with Handover Time (User Bug Report)", () => {
+        // User Start: 05.01 (Monday). Handover 17:05. Starting Parent: DAD.
+        // Expectation: Monday reflects Handover Time, not hardcoded 09:00.
+        // Note: Logic implies "Monday" is end of DAD's weekend.
+        // So DAD should have 00:00 - 17:05. MOM 17:05 - 23:59.
+
+        const config: CustodyPatternConfig = {
+            childId: "child-1",
+            startDate: "2026-01-05", // Monday
+            endDate: "2026-01-05", // Just checking Monday
+            type: "ALTERNATING_WEEKEND",
+            startingParent: "DAD",
+            handoverTime: "17:05" // Specific time
+        };
+
+        const entries = generator.generate(config);
+        const mondayEntries = getEntriesForDate(entries, "2026-01-05");
+
+        expect(mondayEntries).toHaveLength(2);
+
+        // Entry 1: DAD (Weekend Parent returning child)
+        expect(mondayEntries[0].assignedTo).toBe("DAD");
+        expect(mondayEntries[0].startTime).toBe("00:00");
+        expect(mondayEntries[0].endTime).toBe("17:05"); // Verified Fix
+
+        // Entry 2: MOM (Weekday Parent taking over)
+        expect(mondayEntries[1].assignedTo).toBe("MOM");
+        expect(mondayEntries[1].startTime).toBe("17:05");
+        expect(mondayEntries[1].endTime).toBe("23:59");
+    });
 });

@@ -18,6 +18,8 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isWizardOpen, setIsWizardOpen] = useState(false);
+    const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
 
     useEffect(() => {
         const checkSession = async () => {
@@ -43,6 +45,11 @@ export default function Dashboard() {
         );
     }
 
+    const handleScheduleSaved = () => {
+        setIsWizardOpen(false);
+        setCalendarRefreshKey(prev => prev + 1);
+    };
+
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden font-sans antialiased text-slate-900">
             {/* Sidebar Component */}
@@ -60,7 +67,7 @@ export default function Dashboard() {
                         <div className="hidden md:flex items-center gap-3">
                             <ChildrenConfigSheet />
 
-                            <Dialog>
+                            <Dialog open={isWizardOpen} onOpenChange={setIsWizardOpen}>
                                 <DialogTrigger asChild>
                                     <Button size="sm" className="gap-2 bg-indigo-600 hover:bg-indigo-700">
                                         <CalendarPlus className="w-4 h-4" />
@@ -68,7 +75,7 @@ export default function Dashboard() {
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                                    <CustodyScheduler />
+                                    <CustodyScheduler onSave={handleScheduleSaved} />
                                 </DialogContent>
                             </Dialog>
 
@@ -80,7 +87,7 @@ export default function Dashboard() {
 
                     {/* Calendar Component */}
                     <div className="flex-1 min-h-0">
-                        <BetterCalendar user={user} />
+                        <BetterCalendar user={user} refreshKey={calendarRefreshKey} />
                     </div>
                 </div>
             </main>
