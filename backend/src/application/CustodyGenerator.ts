@@ -4,6 +4,8 @@ import { AlternatingWeekendStrategy } from "../core/domain/child/strategies/Alte
 import { TwoTwoThreeStrategy } from "../core/domain/child/strategies/TwoTwoThreeStrategy";
 import { HolidayStrategy } from "../core/domain/child/strategies/HolidayStrategy";
 
+import { CustomSequenceStrategy } from "../core/domain/child/strategies/CustomSequenceStrategy";
+
 export class CustodyGenerator {
     generate(config: CustodyPatternConfig): CustodyEntry[] {
         let entries: CustodyEntry[] = [];
@@ -11,8 +13,11 @@ export class CustodyGenerator {
         if (config.type === 'ALTERNATING_WEEKEND') {
             const strategy = new AlternatingWeekendStrategy();
             entries = strategy.generate(config);
+        } else if (config.type === 'TWO_TWO_THREE') {
+            const strategy = new TwoTwoThreeStrategy();
+            entries = strategy.generate(config);
         } else if (config.type === 'CUSTOM_SEQUENCE' && config.sequence) {
-            const strategy = new TwoTwoThreeStrategy(); // Simplify: assume generic custom is 2-2-3 for now or map properly
+            const strategy = new CustomSequenceStrategy();
             entries = strategy.generate(config);
         } else if (config.type === 'HOLIDAY') {
             const strategy = new HolidayStrategy();

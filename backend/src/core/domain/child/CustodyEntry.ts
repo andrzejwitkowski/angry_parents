@@ -1,4 +1,4 @@
-export type PatternType = 'WEEKLY' | 'WEEKEND' | 'ALTERNATING_WEEKEND' | 'CUSTOM_SEQUENCE' | 'HOLIDAY';
+export type PatternType = 'WEEKLY' | 'WEEKEND' | 'ALTERNATING_WEEKEND' | 'TWO_TWO_THREE' | 'CUSTOM_SEQUENCE' | 'HOLIDAY';
 
 export interface CustodyEntry {
     id: string;
