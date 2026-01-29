@@ -3,6 +3,7 @@ import { CalendarDay } from "./CalendarDay";
 import { format } from "date-fns";
 
 import type { User } from '@/types/user';
+import type { CustodyEntry } from '@/types/custody';
 
 interface CalendarGridProps {
     days: Date[];

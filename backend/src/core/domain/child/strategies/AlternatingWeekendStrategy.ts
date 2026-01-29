@@ -20,7 +20,7 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
         // Week 2 (Day 7-13): WeekdayParent has Fri-Sun.
 
         const handoverTime = config.handoverTime || "17:00"; // Default 5pm
-        const returnTime = "09:00"; // Hardcoded return assumption per prompt example
+        const returnTime = config.handoverTime || "09:00"; // Use handover time for return as well, fallback to default if needed
 
         dates.forEach(date => {
             // Calculate days difference from start

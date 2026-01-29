@@ -9,9 +9,12 @@ const timelineRepository = new InMemoryTimelineRepository();
 const timelineService = new TimelineServiceImpl(timelineRepository);
 const timelineController = createTimelineController(timelineService);
 
-import { cors } from "@elysiajs/cors";
+import { InMemoryCustodyRepository } from "./adapters/secondary/InMemoryCustodyRepository";
+import { createCustodyController } from "./adapters/primary/CustodyController";
+const custodyRepository = new InMemoryCustodyRepository();
+const custodyController = createCustodyController(custodyRepository);
 
-import { custodyController } from "./adapters/primary/CustodyController";
+import { cors } from "@elysiajs/cors";
 
 // Create Elysia app
 const app = new Elysia()
@@ -40,3 +43,4 @@ console.log(`🚀 Server running at ${app.server?.hostname}:${app.server?.port}`
 console.log(`   - Auth API: /api/auth/*`);
 console.log(`   - Timeline API: /api/timeline, /api/calendar/:date/timeline`);
 console.log(`   - Health Check: /api/health`);
+console.log(`   - Custody API: /api/custody`);

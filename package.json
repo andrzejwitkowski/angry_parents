@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:backend": "bun backend/src/index.ts",
+    "dev:backend": "bun --watch backend/src/index.ts",
     "dev:all": "bun run dev & bun run dev:backend",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

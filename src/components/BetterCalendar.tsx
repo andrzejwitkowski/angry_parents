@@ -13,30 +13,39 @@ import type { User } from '@/types/user';
 
 interface BetterCalendarProps {
     user: User | null;
+    refreshKey?: number;
 }
 
-export function BetterCalendar({ user }: BetterCalendarProps) {
+export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDateForSheet, setSelectedDateForSheet] = useState<Date | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [monthEvents, setMonthEvents] = useState<TimelineItem[]>([]);
+    const [custodyEntries, setCustodyEntries] = useState<any[]>([]); // Using any[] for now or import CustodyEntry
 
     const daysInMonth = getCalendarDays(currentDate);
 
-    const fetchMonthEvents = async () => {
+    const fetchMonthData = async () => {
         const start = format(startOfMonth(currentDate), "yyyy-MM-dd");
         const end = format(endOfMonth(currentDate), "yyyy-MM-dd");
+
         try {
-            const events = await timelineApi.getByDateRange(start, end);
+            // Parallel fetch
+            const [events, custody] = await Promise.all([
+                timelineApi.getByDateRange(start, end),
+                fetch(`http://localhost:3000/api/custody?start=${start}&end=${end}`).then(res => res.ok ? res.json() : [])
+            ]);
+
             setMonthEvents(events);
+            setCustodyEntries(custody as any[]);
         } catch (error) {
-            console.error("Failed to fetch month events:", error);
+            console.error("Failed to fetch month data:", error);
         }
     };
 
     useEffect(() => {
-        fetchMonthEvents();
-    }, [currentDate]);
+        fetchMonthData();
+    }, [currentDate, refreshKey]);
 
     const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
@@ -66,6 +75,7 @@ export function BetterCalendar({ user }: BetterCalendarProps) {
                 onDayClick={handleDayClick}
                 events={monthEvents}
                 user={user}
+                custodyEntries={custodyEntries}
             />
 
             <DayDetailsSheet
@@ -73,7 +83,7 @@ export function BetterCalendar({ user }: BetterCalendarProps) {
                 isOpen={isSheetOpen}
                 onClose={() => setIsSheetOpen(false)}
                 user={user}
-                onUpdate={fetchMonthEvents}
+                onUpdate={fetchMonthData}
             />
         </div>
     );
