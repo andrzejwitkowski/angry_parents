@@ -11,8 +11,13 @@ const timelineController = createTimelineController(timelineService);
 
 import { InMemoryCustodyRepository } from "./adapters/secondary/InMemoryCustodyRepository";
 import { createCustodyController } from "./adapters/primary/CustodyController";
+import { InMemoryScheduleRepository } from "./adapters/secondary/InMemoryScheduleRepository";
+import { ScheduleService } from "./application/ScheduleService";
+
 const custodyRepository = new InMemoryCustodyRepository();
-const custodyController = createCustodyController(custodyRepository);
+const scheduleRepository = new InMemoryScheduleRepository();
+const scheduleService = new ScheduleService(scheduleRepository, custodyRepository);
+const custodyController = createCustodyController(custodyRepository, scheduleService);
 
 import { cors } from "@elysiajs/cors";
 

@@ -4,7 +4,9 @@ import { CustodyPatternConfig } from "../../core/domain/child/CustodyPatternConf
 import { CustodyRepository } from "../../core/ports/CustodyRepository";
 import { CustodyEntry } from "../../core/domain/child/CustodyEntry";
 
-export const createCustodyController = (custodyRepository: CustodyRepository) => new Elysia({ prefix: "/api" })
+import { ScheduleService } from "../../application/ScheduleService";
+
+export const createCustodyController = (custodyRepository: CustodyRepository, scheduleService: ScheduleService) => new Elysia({ prefix: "/api" })
     .post("/custody/preview", ({ body, set }) => {
         try {
             const config = body as unknown as CustodyPatternConfig;
@@ -46,7 +48,8 @@ export const createCustodyController = (custodyRepository: CustodyRepository) =>
             endTime: t.String(),
             assignedTo: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
             isRecurring: t.Boolean(),
-            priority: t.Number()
+            priority: t.Number(),
+            sourceRuleId: t.Optional(t.String())
         }))
     })
     .get("/custody", async ({ query, set }) => {
@@ -67,5 +70,61 @@ export const createCustodyController = (custodyRepository: CustodyRepository) =>
             start: t.String(),
             end: t.String(),
             childId: t.Optional(t.String())
+        })
+    })
+    // --- Schedule Rules API ---
+    .post("/rules", async ({ body, set }) => {
+        try {
+            const config = body as unknown as CustodyPatternConfig;
+            const rule = await scheduleService.createRule(config);
+            return { success: true, ruleId: rule.id };
+        } catch (e) {
+            console.error("Error creating schedule rule:", e);
+            set.status = 500;
+            return { error: "Failed to create schedule rule" };
+        }
+    }, {
+        body: t.Object({
+            childId: t.String(),
+            startDate: t.String(),
+            endDate: t.String(),
+            type: t.String(),
+            startingParent: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
+            handoverTime: t.Optional(t.String()),
+            sequence: t.Optional(t.Array(t.Number())),
+            holidays: t.Optional(t.Array(t.String()))
+        })
+    })
+    .get("/rules", async ({ query, set }) => {
+        try {
+            const { childId } = query;
+            if (!childId) {
+                set.status = 400;
+                return { error: "Missing childId" };
+            }
+            return await scheduleService.getRulesByChild(childId);
+        } catch (e) {
+            console.error("Error fetching rules:", e);
+            set.status = 500;
+            return { error: "Failed to fetch rules" };
+        }
+    }, {
+        query: t.Object({
+            childId: t.String()
+        })
+    })
+    .delete("/rules/:id", async ({ params, set }) => {
+        try {
+            const { id } = params;
+            await scheduleService.deleteRule(id);
+            return { success: true };
+        } catch (e) {
+            console.error("Error deleting rule:", e);
+            set.status = 500;
+            return { error: "Failed to delete rule" };
+        }
+    }, {
+        params: t.Object({
+            id: t.String()
         })
     });

@@ -21,3 +21,11 @@ export interface CustodyPatternConfig {
     sequence?: number[];
     holidays?: string[];
 }
+
+export interface ScheduleRule {
+    id: string;
+    childId: string;
+    name: string;
+    config: CustodyPatternConfig;
+    createdAt: string;
+}
