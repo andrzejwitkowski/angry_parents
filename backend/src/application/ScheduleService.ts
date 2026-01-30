@@ -26,6 +26,7 @@ export class ScheduleService {
             name: `${this.formatPatternName(config.type)} (${config.startDate})`,
             config: config,
             priority: newPriority,
+            isOneTime: !!config.isOneTime,
             createdAt: new Date().toISOString()
         };
 

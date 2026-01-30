@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { CustodyEntry, CustodyPatternConfig, ScheduleRule } from "@/types/custody";
 import { ActiveRulesList } from "./ActiveRulesList";
@@ -44,6 +45,13 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
 
     const [conflictRules, setConflictRules] = useState<ScheduleRule[]>([]);
     const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+
+    const [isPropagationDialogOpen, setIsPropagationDialogOpen] = useState(false);
+    const [propagationResult, setPropagationResult] = useState<{
+        canProceed: boolean;
+        rulesToCreate: CustodyPatternConfig[];
+        skippedRules: Array<{ ruleName: string; reason: 'ONE_TIME' | 'INVALID_DATE' }>;
+    } | null>(null);
 
     useEffect(() => {
         fetchRules();
@@ -105,6 +113,8 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                     setLoading(false);
                     return;
                 }
+            } else {
+                console.error("Conflict check failed with status: " + conflictRes.status);
             }
 
             // No conflicts, proceed
@@ -112,7 +122,6 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
 
         } catch (e) {
             console.error("Error checking conflicts", e);
-            // On error, try to proceed anyway? Or stop? Let's stop.
             setLoading(false);
         }
     };
@@ -210,6 +219,66 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             }
         } catch (e) {
             console.error("Network error reordering", e);
+        }
+    };
+
+    const handleCheckPropagation = async () => {
+        setLoading(true);
+        try {
+            // Determine current month from existing rules or default to today
+            // For MVP: Use the month of the first active rule, or today if none.
+            // Improve: Use the latest rule's start date month.
+            const pivotDate = activeRules.length > 0 ? activeRules[0].config.startDate : new Date().toISOString().split('T')[0];
+
+            // Start of date's month
+            const d = new Date(pivotDate);
+            const currentMonthDate = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+
+            const res = await fetch("http://localhost:3000/api/rules/propagate/dry-run", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    childId: MOCK_CHILD.id,
+                    currentMonthDate: currentMonthDate
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setPropagationResult(data);
+                setIsPropagationDialogOpen(true);
+            }
+        } catch (e) {
+            console.error("Error checking propagation", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExecutePropagation = async () => {
+        if (!propagationResult) return;
+        setLoading(true);
+        try {
+            const res = await fetch("http://localhost:3000/api/rules/propagate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    rulesToCreate: propagationResult.rulesToCreate
+                })
+            });
+
+            if (res.ok) {
+                await fetchRules();
+                setIsPropagationDialogOpen(false);
+                setPropagationResult(null);
+                if (onSave) onSave();
+            } else {
+                console.error("Failed to propagate");
+            }
+        } catch (e) {
+            console.error("Error executing propagation", e);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -364,11 +433,31 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                 </div>
                             </div>
 
+                            <div className="flex items-center space-x-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <Checkbox
+                                    id="isOneTime"
+                                    checked={config.isOneTime || false}
+                                    onCheckedChange={(checked) => setConfig({ ...config, isOneTime: checked as boolean })}
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                    <Label
+                                        htmlFor="isOneTime"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        One-time rule (Do not propagate)
+                                    </Label>
+                                    <p className="text-[11px] text-slate-500">
+                                        Check this for holidays or specific events that should not repeat next month.
+                                    </p>
+                                </div>
+                            </div>
+
                             <Button
                                 className="w-full mt-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-200 transition-all hover:scale-[1.02]"
                                 size="lg"
                                 onClick={handleGeneratePreview}
                                 disabled={loading || !config.startDate || !config.endDate}
+                                data-testid="generate-btn"
                             >
                                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarIcon className="mr-2 h-4 w-4" />}
                                 Generate Schedule
@@ -386,6 +475,20 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                             onReorder={handleReorderRule}
                         />
                     </div>
+
+                    {/* Propagation Control: Show only if rules exist (MVP coverage check) */}
+                    {activeRules.length > 0 && (
+                        <div className="mt-6 mb-2 flex justify-end">
+                            <Button
+                                variant="outline"
+                                onClick={handleCheckPropagation}
+                                className="text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
+                            >
+                                <ArrowRight className="w-4 h-4 mr-2" />
+                                Propagate to Next Month
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column: Preview (5 cols) */}
@@ -472,6 +575,55 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={performGeneratePreview} className="bg-amber-600 hover:bg-amber-700">
                             Proceed Anyway
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isPropagationDialogOpen} onOpenChange={setIsPropagationDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Propagate Schedule</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Copy existing pattern to next month?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    {propagationResult && (
+                        <div className="space-y-4 my-2">
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">To Be Created</h4>
+                                <div className="space-y-1">
+                                    {propagationResult.rulesToCreate.map((r, i) => (
+                                        <div key={i} className="text-sm bg-indigo-50 text-indigo-700 p-2 rounded border border-indigo-100 flex justify-between">
+                                            <span>{r.startingParent} Starts (Pattern)</span>
+                                            <span className="text-xs opacity-70">{r.startDate}</span>
+                                        </div>
+                                    ))}
+                                    {propagationResult.rulesToCreate.length === 0 && <p className="text-xs text-slate-500 italic">No recurring rules found.</p>}
+                                </div>
+                            </div>
+
+                            {propagationResult.skippedRules.length > 0 && (
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">Skipped (One-Time / Invalid)</h4>
+                                    <div className="space-y-1">
+                                        {propagationResult.skippedRules.map((r, i) => (
+                                            <div key={i} className="text-sm bg-slate-100 text-slate-500 p-2 rounded border border-slate-200 flex justify-between">
+                                                <span className="line-through">{r.ruleName}</span>
+                                                <Badge variant="outline" className="text-[10px] h-5 bg-white">{r.reason === 'ONE_TIME' ? 'One Time' : 'Error'}</Badge>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleExecutePropagation} disabled={!propagationResult?.canProceed} data-testid="confirm-propagate-btn">
+                            Confirm & Propagate
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
