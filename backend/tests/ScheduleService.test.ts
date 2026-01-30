@@ -105,4 +105,40 @@ describe("ScheduleService", () => {
         expect(remainingEntries.length).toBe(1);
         expect(remainingEntries[0].id).toBe("manual-1");
     });
+
+    it("should allow multiple rules to coexist and generate distinct entries", async () => {
+        // Rule 1: Jan 1-14 (Dad)
+        const config1: CustodyPatternConfig = {
+            childId: "child-1",
+            type: "ALTERNATING_WEEKEND",
+            startDate: "2024-01-01",
+            endDate: "2024-01-14",
+            startingParent: "DAD"
+        };
+        const rule1 = await scheduleService.createRule(config1);
+
+        // Rule 2: Feb 1-14 (Mom)
+        const config2: CustodyPatternConfig = {
+            childId: "child-1",
+            type: "ALTERNATING_WEEKEND",
+            startDate: "2024-02-01",
+            endDate: "2024-02-14",
+            startingParent: "MOM"
+        };
+        const rule2 = await scheduleService.createRule(config2);
+
+        // Verify Rule 1 Entries
+        const entries1 = await custodyRepository.findByDateRange("child-1", "2024-01-01", "2024-01-14");
+        expect(entries1.length).toBeGreaterThan(0);
+        expect(entries1[0].sourceRuleId).toBe(rule1.id);
+        expect(entries1[0].assignedTo).toBe("DAD"); // Assuming DAD starts on Jan 1 based on logic, or at least one DAD entry
+
+        // Verify Rule 2 Entries
+        const entries2 = await custodyRepository.findByDateRange("child-1", "2024-02-01", "2024-02-14");
+        expect(entries2.length).toBeGreaterThan(0);
+        expect(entries2[0].sourceRuleId).toBe(rule2.id);
+        // Mom starts Feb 1 (Thursday). Logic assigns Weekday (Dad) on Thu, Handover (Mom) on Fri, Mom on Sat.
+        // Check Feb 3 (Saturday)
+        expect(entries2.find(e => e.date === "2024-02-03")?.assignedTo).toBe("MOM");
+    });
 });

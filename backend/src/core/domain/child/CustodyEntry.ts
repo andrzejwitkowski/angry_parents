@@ -9,4 +9,5 @@ export interface CustodyEntry {
     assignedTo: 'MOM' | 'DAD';
     isRecurring: boolean;
     priority: number;   // 0=Standard, 10=Holiday/Override
+    sourceRuleId?: string; // ID of the ScheduleRule that generated this entry
 }

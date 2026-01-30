@@ -28,6 +28,8 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
     const [loading, setLoading] = useState(false);
     const [activeRules, setActiveRules] = useState<ScheduleRule[]>([]);
 
+    const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+
     useEffect(() => {
         fetchRules();
     }, []);
@@ -69,10 +71,40 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
         }
     };
 
+    const handleEditRule = (rule: ScheduleRule) => {
+        setConfig(rule.config);
+        setEditingRuleId(rule.id);
+        setPreviewEntries([]); // Clear preview to force regeneration
+        setStep(1); // Go back to config
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
+    };
+
+    const handleCancelEdit = () => {
+        setEditingRuleId(null);
+        setConfig({
+            childId: MOCK_CHILD.id,
+            type: "ALTERNATING_WEEKEND",
+            startingParent: "DAD",
+            handoverTime: "17:00"
+        });
+        setPreviewEntries([]);
+    };
+
     const handleSaveRule = async () => {
         setLoading(true);
         try {
-            // New Flow: Create Rule (Backend generates entries and tags them)
+            // If editing, delete the old rule first
+            if (editingRuleId) {
+                console.log(`Deleting old rule ${editingRuleId} before update...`);
+                const deleteRes = await fetch(`http://localhost:3000/api/rules/${editingRuleId}`, {
+                    method: "DELETE"
+                });
+                if (!deleteRes.ok) {
+                    throw new Error("Failed to delete old rule during update");
+                }
+            }
+
+            // Create new rule
             const res = await fetch("http://localhost:3000/api/rules", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -80,10 +112,11 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             });
 
             if (res.ok) {
-                console.log("Rule saved successfully");
+                console.log("Rule saved/updated successfully");
                 await fetchRules(); // Refresh list
                 setPreviewEntries([]); // Clear preview
-                setStep(1); // Reset step (optional)
+                setEditingRuleId(null); // Reset edit state
+                setStep(1);
                 if (onSave) onSave();
             } else {
                 console.error("Failed to save rule");
@@ -91,6 +124,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             }
         } catch (e) {
             console.error(e);
+            window.alert("Error saving rule.");
         } finally {
             setLoading(false);
         }
@@ -103,6 +137,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             });
             if (res.ok) {
                 await fetchRules(); // Refresh list
+                if (editingRuleId === ruleId) handleCancelEdit(); // Cancel edit if verifying deleted
                 if (onSave) onSave(); // Trigger calendar refresh
             } else {
                 window.alert("Failed to delete rule.");
@@ -128,8 +163,13 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                 <div className="lg:col-span-7 space-y-6">
                     <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl ring-1 ring-slate-200">
                         <CardHeader className="pb-4">
-                            <CardTitle className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                                Pattern Configuration
+                            <CardTitle className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center justify-between">
+                                <span>{editingRuleId ? "Edit Pattern" : "Pattern Configuration"}</span>
+                                {editingRuleId && (
+                                    <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="text-xs text-slate-500 h-6">
+                                        Cancel Edit
+                                    </Button>
+                                )}
                             </CardTitle>
                             <CardDescription>Choose a template or define a custom rotation.</CardDescription>
                         </CardHeader>
@@ -217,6 +257,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                     <Input
                                         type="date"
                                         className="block w-full border-slate-200 focus-visible:ring-indigo-500"
+                                        value={config.startDate || ''}
                                         onChange={(e) => setConfig({ ...config, startDate: e.target.value })}
                                     />
                                 </div>
@@ -225,6 +266,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                     <Input
                                         type="date"
                                         className="block w-full border-slate-200 focus-visible:ring-indigo-500"
+                                        value={config.endDate || ''}
                                         onChange={(e) => setConfig({ ...config, endDate: e.target.value })}
                                     />
                                 </div>
@@ -235,7 +277,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                     <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Starting Parent</Label>
                                     <Select
                                         onValueChange={(v: 'MOM' | 'DAD') => setConfig({ ...config, startingParent: v })}
-                                        defaultValue={config.startingParent}
+                                        value={config.startingParent}
                                     >
                                         <SelectTrigger className="border-slate-200 focus:ring-indigo-500">
                                             <SelectValue placeholder="Select parent" />
@@ -272,7 +314,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                     {/* Active Rules List */}
                     <div className="mt-8">
                         <h3 className="text-lg font-bold text-slate-700 mb-4 px-1">Active Patterns</h3>
-                        <ActiveRulesList rules={activeRules} onDelete={handleDeleteRule} />
+                        <ActiveRulesList rules={activeRules} onDelete={handleDeleteRule} onEdit={handleEditRule} />
                     </div>
                 </div>
 
@@ -288,8 +330,11 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                             <Button size="sm" onClick={() => setPreviewEntries([])} variant="ghost" className="text-xs">
                                                 Clear
                                             </Button>
-                                            <Button size="sm" onClick={handleSaveRule} disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-200 text-xs">
-                                                Confirm & Save
+                                            <Button size="sm" onClick={handleSaveRule} disabled={loading} className={cn(
+                                                "text-white shadow-md shadow-indigo-200 text-xs",
+                                                editingRuleId ? "bg-amber-600 hover:bg-amber-700" : "bg-indigo-600 hover:bg-indigo-700"
+                                            )}>
+                                                {editingRuleId ? "Update Pattern" : "Confirm & Save"}
                                             </Button>
                                         </div>
                                     )}
