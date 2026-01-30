@@ -22,6 +22,20 @@ export default function Dashboard() {
     const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
 
     useEffect(() => {
+        // AUTH DISABLED FOR MANUAL TESTING
+        const MOCK_USER: User = {
+            id: 'mock-user-id',
+            email: 'test@example.com',
+            emailVerified: true,
+            name: 'Test User',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            username: 'testuser'
+        };
+        setUser(MOCK_USER);
+        setLoading(false);
+
+        /* 
         const checkSession = async () => {
             const session = await authClient.getSession();
             if (!session.data) {
@@ -32,6 +46,7 @@ export default function Dashboard() {
             setLoading(false);
         };
         checkSession();
+        */
     }, [navigate]);
 
     if (loading) {

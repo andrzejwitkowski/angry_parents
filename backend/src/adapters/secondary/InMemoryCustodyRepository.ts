@@ -29,4 +29,12 @@ export class InMemoryCustodyRepository implements CustodyRepository {
     async deleteByRuleId(ruleId: string): Promise<void> {
         this.entries = this.entries.filter(e => e.sourceRuleId !== ruleId);
     }
+
+    async updatePriorityByRuleId(ruleId: string, newPriority: number): Promise<void> {
+        this.entries.forEach(e => {
+            if (e.sourceRuleId === ruleId) {
+                e.priority = newPriority;
+            }
+        });
+    }
 }
