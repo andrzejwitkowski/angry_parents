@@ -67,6 +67,11 @@ export function ActiveRulesList({ rules, onDelete, onEdit, onReorder }: ActiveRu
                                     <Badge variant="outline" className="text-[9px] h-4 px-1 text-slate-400 font-mono">
                                         P{rule.priority}
                                     </Badge>
+                                    {rule.isOneTime && (
+                                        <Badge variant="secondary" className="text-[9px] h-4 px-1 text-amber-600 bg-amber-50 border border-amber-200">
+                                            1x
+                                        </Badge>
+                                    )}
                                 </div>
                                 <span className="text-xs text-slate-500">
                                     {rule.config.startDate} - {rule.config.endDate}

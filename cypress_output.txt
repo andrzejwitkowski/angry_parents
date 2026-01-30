@@ -1,0 +1,72 @@
+
+DevTools listening on ws://127.0.0.1:56225/devtools/browser/73f0e018-8482-4ca1-83e9-9af9d382ab1e
+
+====================================================================================================
+
+  (Run Starting)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Cypress:        15.9.0                                                                         │
+  │ Browser:        Electron 138 (headless)                                                        │
+  │ Node Version:   v22.15.0 (/Users/andrzej.witkowski/.nvm/versions/node/v22.15.0/bin/node)       │
+  │ Specs:          1 found (rules-induction.cy.ts)                                                │
+  │ Searched:       cypress/e2e/rules-induction.cy.ts                                              │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+  Running:  rules-induction.cy.ts                                                           (1 of 1)
+
+
+  Rule Engine - Visual Induction Proof (N+1)
+    1) "before each" hook for "Visually proves the Tower of Overrides (Blue -> Pink -> Blue -> Pink -> Revert)"
+
+
+  0 passing (13s)
+  1 failing
+
+  1) Rule Engine - Visual Induction Proof (N+1)
+       "before each" hook for "Visually proves the Tower of Overrides (Blue -> Pink -> Blue -> Pink -> Revert)":
+     AssertionError: Timed out retrying after 10000ms: Expected to find content: 'Better Calendar' but never did.
+
+Because this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Rule Engine - Visual Induct...`
+      at Context.eval (webpack://tmp_app/./cypress/e2e/rules-induction.cy.ts:34:59)
+
+
+
+
+  (Results)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Tests:        1                                                                                │
+  │ Passing:      0                                                                                │
+  │ Failing:      1                                                                                │
+  │ Pending:      0                                                                                │
+  │ Skipped:      0                                                                                │
+  │ Screenshots:  1                                                                                │
+  │ Video:        false                                                                            │
+  │ Duration:     12 seconds                                                                       │
+  │ Spec Ran:     rules-induction.cy.ts                                                            │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+  (Screenshots)
+
+  -  /Users/andrzej.witkowski/IdeaProjects/angry_parents/cypress/screenshots/rules-in     (1280x720)
+     duction.cy.ts/Rule Engine - Visual Induction Proof (N+1) -- Visually proves the                
+     Tower of Overrides (Blue - Pink - Blue - Pink - Revert) -- before each hook (fai               
+     led).png                                                                                       
+
+
+====================================================================================================
+
+  (Run Finished)
+
+
+       Spec                                              Tests  Passing  Failing  Pending  Skipped  
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ ✖  rules-induction.cy.ts                    00:12        1        -        1        -        - │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+    ✖  1 of 1 failed (100%)                     00:12        1        -        1        -        -  
+

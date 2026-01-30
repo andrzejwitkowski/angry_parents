@@ -5,8 +5,9 @@ import { CustodyRepository } from "../../core/ports/CustodyRepository";
 import { CustodyEntry } from "../../core/domain/child/CustodyEntry";
 
 import { ScheduleService } from "../../application/ScheduleService";
+import { PropagationService } from "../../application/PropagationService";
 
-export const createCustodyController = (custodyRepository: CustodyRepository, scheduleService: ScheduleService) => new Elysia({ prefix: "/api" })
+export const createCustodyController = (custodyRepository: CustodyRepository, scheduleService: ScheduleService, propagationService: PropagationService) => new Elysia({ prefix: "/api" })
     .post("/custody/preview", ({ body, set }) => {
         try {
             const config = body as unknown as CustodyPatternConfig;
@@ -167,8 +168,56 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
                 startingParent: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
                 handoverTime: t.Optional(t.String()),
                 sequence: t.Optional(t.Array(t.Number())),
-                holidays: t.Optional(t.Array(t.String()))
+                holidays: t.Optional(t.Array(t.String())),
+                isOneTime: t.Optional(t.Boolean())
             }),
             excludeRuleId: t.Optional(t.String())
+        })
+    })
+    .post("/rules/propagate/dry-run", async ({ body, set }) => {
+        try {
+            const { childId, currentMonthDate } = body;
+            const result = await propagationService.simulatePropagation(childId, currentMonthDate);
+            return result;
+        } catch (e) {
+            console.error("Error dry-run propagation:", e);
+            set.status = 500;
+            return { error: "Failed to simulate propagation" };
+        }
+    }, {
+        body: t.Object({
+            childId: t.String(),
+            currentMonthDate: t.String()
+        })
+    })
+    .post("/rules/propagate", async ({ body, set }) => {
+        try {
+            const { rulesToCreate } = body;
+            const createdRules = [];
+            for (const config of rulesToCreate) {
+                // Ensure isOneTime is false for propagated rules? Or explicitly set?
+                // PropagationService already generates them.
+                const rule = await scheduleService.createRule(config as unknown as CustodyPatternConfig);
+                createdRules.push(rule);
+            }
+            return { success: true, count: createdRules.length };
+        } catch (e) {
+            console.error("Error executing propagation:", e);
+            set.status = 500;
+            return { error: "Failed to execute propagation" };
+        }
+    }, {
+        body: t.Object({
+            rulesToCreate: t.Array(t.Object({
+                childId: t.String(),
+                startDate: t.String(),
+                endDate: t.String(),
+                type: t.String(),
+                startingParent: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
+                handoverTime: t.Optional(t.String()),
+                sequence: t.Optional(t.Array(t.Number())),
+                holidays: t.Optional(t.Array(t.String())),
+                isOneTime: t.Optional(t.Boolean())
+            }))
         })
     });

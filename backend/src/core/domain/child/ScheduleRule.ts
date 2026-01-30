@@ -6,5 +6,6 @@ export interface ScheduleRule {
     name: string;
     config: CustodyPatternConfig;
     priority: number;
+    isOneTime: boolean;
     createdAt: string;
 }

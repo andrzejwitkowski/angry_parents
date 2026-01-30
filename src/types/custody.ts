@@ -20,6 +20,7 @@ export interface CustodyPatternConfig {
     handoverTime?: string;
     sequence?: number[];
     holidays?: string[];
+    isOneTime?: boolean;
 }
 
 export interface ScheduleRule {
@@ -28,5 +29,6 @@ export interface ScheduleRule {
     name: string;
     config: CustodyPatternConfig;
     priority: number;
+    isOneTime: boolean;
     createdAt: string;
 }

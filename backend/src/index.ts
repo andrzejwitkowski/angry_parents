@@ -14,17 +14,20 @@ import { createCustodyController } from "./adapters/primary/CustodyController";
 import { InMemoryScheduleRepository } from "./adapters/secondary/InMemoryScheduleRepository";
 import { ScheduleService } from "./application/ScheduleService";
 
+import { PropagationService } from "./application/PropagationService";
+
 const custodyRepository = new InMemoryCustodyRepository();
 const scheduleRepository = new InMemoryScheduleRepository();
 const scheduleService = new ScheduleService(scheduleRepository, custodyRepository);
-const custodyController = createCustodyController(custodyRepository, scheduleService);
+const propagationService = new PropagationService(scheduleRepository);
+const custodyController = createCustodyController(custodyRepository, scheduleService, propagationService);
 
 import { cors } from "@elysiajs/cors";
 
 // Create Elysia app
 const app = new Elysia()
     .use(cors({
-        origin: "http://localhost:5173",
+        origin: ["http://localhost:5173", "http://localhost:5175"], // Allow both development ports
         credentials: true,
         allowedHeaders: ["Content-Type", "Authorization"],
         methods: ["GET", "POST", "OPTIONS", "PATCH", "DELETE"]
