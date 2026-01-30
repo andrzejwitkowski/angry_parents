@@ -8,6 +8,18 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { CustodyEntry, CustodyPatternConfig, ScheduleRule } from "@/types/custody";
 import { ActiveRulesList } from "./ActiveRulesList";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 
 // Mock Child for now, or fetch from ChildrenConfigSheet state/context
 const MOCK_CHILD = { id: "c1", name: "Alice" };
@@ -30,6 +42,9 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
 
     const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
 
+    const [conflictRules, setConflictRules] = useState<ScheduleRule[]>([]);
+    const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+
     useEffect(() => {
         fetchRules();
     }, []);
@@ -46,9 +61,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
         }
     };
 
-    const handleGeneratePreview = async () => {
-        if (!config.startDate || !config.endDate || !config.type) return;
-
+    const performGeneratePreview = async () => {
         setLoading(true);
         try {
             const res = await fetch("http://localhost:3000/api/custody/preview", {
@@ -61,12 +74,45 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                 const data = await res.json();
                 setPreviewEntries(data);
                 setStep(2);
+                setIsConflictDialogOpen(false); // Close dialog if open
             } else {
                 console.error("Failed to generate preview");
             }
         } catch (e) {
             console.error(e);
         } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGeneratePreview = async () => {
+        if (!config.startDate || !config.endDate || !config.type) return;
+
+        setLoading(true);
+        try {
+            // Check Conflicts
+            const conflictRes = await fetch("http://localhost:3000/api/rules/check-conflicts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ config, excludeRuleId: editingRuleId || undefined })
+            });
+
+            if (conflictRes.ok) {
+                const data = await conflictRes.json();
+                if (data.conflicts && data.conflicts.length > 0) {
+                    setConflictRules(data.conflicts);
+                    setIsConflictDialogOpen(true);
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // No conflicts, proceed
+            await performGeneratePreview();
+
+        } catch (e) {
+            console.error("Error checking conflicts", e);
+            // On error, try to proceed anyway? Or stop? Let's stop.
             setLoading(false);
         }
     };
@@ -145,6 +191,25 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
         } catch (e) {
             console.error(e);
             window.alert("Network error deleting rule.");
+        }
+    };
+
+    const handleReorderRule = async (ruleId: string, direction: 'UP' | 'DOWN') => {
+        try {
+            const res = await fetch(`http://localhost:3000/api/rules/${ruleId}/reorder`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ direction })
+            });
+
+            if (res.ok) {
+                await fetchRules(); // Refresh list (and sorting)
+                if (onSave) onSave(); // Trigger calendar refresh
+            } else {
+                console.error("Failed to reorder");
+            }
+        } catch (e) {
+            console.error("Network error reordering", e);
         }
     };
 
@@ -314,7 +379,12 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                     {/* Active Rules List */}
                     <div className="mt-8">
                         <h3 className="text-lg font-bold text-slate-700 mb-4 px-1">Active Patterns</h3>
-                        <ActiveRulesList rules={activeRules} onDelete={handleDeleteRule} onEdit={handleEditRule} />
+                        <ActiveRulesList
+                            rules={activeRules}
+                            onDelete={handleDeleteRule}
+                            onEdit={handleEditRule}
+                            onReorder={handleReorderRule}
+                        />
                     </div>
                 </div>
 
@@ -375,6 +445,37 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                     </Card>
                 </div>
             </div>
+
+            <AlertDialog open={isConflictDialogOpen} onOpenChange={setIsConflictDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+                            <AlertTriangle className="w-5 h-5" />
+                            Schedule Conflict Detected
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            <p className="mb-3">This pattern overlaps with existing rules. The new rule will take priority and override the following:</p>
+                            <div className="bg-slate-50 p-3 rounded-md border border-slate-100 space-y-2 max-h-[150px] overflow-y-auto">
+                                {conflictRules.map(rule => (
+                                    <div key={rule.id} className="flex items-center justify-between text-xs p-2 bg-white rounded shadow-sm border border-slate-100">
+                                        <span className="font-medium text-slate-700">{rule.name}</span>
+                                        <Badge variant="outline" className="text-[10px] h-5">P{rule.priority}</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="mt-4 text-xs text-slate-500">
+                                Proceeding will generate this schedule and place it at the top of the priority stack (P{activeRules.length > 0 ? Math.max(...activeRules.map(r => r.priority)) + 1 : 1}).
+                            </p>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={performGeneratePreview} className="bg-amber-600 hover:bg-amber-700">
+                            Proceed Anyway
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

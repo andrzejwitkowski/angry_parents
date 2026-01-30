@@ -27,5 +27,6 @@ export interface ScheduleRule {
     childId: string;
     name: string;
     config: CustodyPatternConfig;
+    priority: number;
     createdAt: string;
 }

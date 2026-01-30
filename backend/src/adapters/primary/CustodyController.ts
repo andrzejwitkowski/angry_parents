@@ -59,7 +59,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
                 set.status = 400;
                 return { error: "Missing start or end date" };
             }
-            return await custodyRepository.findByDateRange(childId, start, end);
+            return await scheduleService.getResolvedCalendar(childId, start, end);
         } catch (e) {
             console.error("Error fetching custody entries:", e);
             set.status = 500;
@@ -126,5 +126,49 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
     }, {
         params: t.Object({
             id: t.String()
+        })
+    })
+    .post("/rules/:id/reorder", async ({ params, body, set }) => {
+        try {
+            const { id } = params;
+            const { direction } = body;
+            await scheduleService.reorderRule(id, direction);
+            return { success: true };
+        } catch (e) {
+            console.error("Error reordering rule:", e);
+            set.status = 500;
+            return { error: "Failed to reorder rule" };
+        }
+    }, {
+        params: t.Object({
+            id: t.String()
+        }),
+        body: t.Object({
+            direction: t.Union([t.Literal('UP'), t.Literal('DOWN')])
+        })
+    })
+    .post("/rules/check-conflicts", async ({ body, set }) => {
+        try {
+            const { config, excludeRuleId } = body;
+            const conflicts = await scheduleService.checkConflicts(config as any, excludeRuleId);
+            return { conflicts };
+        } catch (e) {
+            console.error("Error checking conflicts:", e);
+            set.status = 500;
+            return { error: "Failed to check conflicts" };
+        }
+    }, {
+        body: t.Object({
+            config: t.Object({
+                childId: t.String(),
+                startDate: t.String(),
+                endDate: t.String(),
+                type: t.String(),
+                startingParent: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
+                handoverTime: t.Optional(t.String()),
+                sequence: t.Optional(t.Array(t.Number())),
+                holidays: t.Optional(t.Array(t.String()))
+            }),
+            excludeRuleId: t.Optional(t.String())
         })
     });

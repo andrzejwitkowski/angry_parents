@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, Edit2, Calendar, AlertTriangle } from "lucide-react";
+import { Trash2, Edit2, Calendar, AlertTriangle, ArrowUp, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import type { ScheduleRule } from "@/types/custody";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,14 @@ interface ActiveRulesListProps {
     rules: ScheduleRule[];
     onDelete: (ruleId: string) => Promise<void>;
     onEdit?: (rule: ScheduleRule) => void;
+    onReorder?: (ruleId: string, direction: 'UP' | 'DOWN') => Promise<void>;
 }
 
-export function ActiveRulesList({ rules, onDelete, onEdit }: ActiveRulesListProps) {
+export function ActiveRulesList({ rules, onDelete, onEdit, onReorder }: ActiveRulesListProps) {
     const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    // Sort Rules: Priority DESC (Highest First)
+    const sortedRules = [...rules].sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
     const handleDeleteClick = (id: string) => {
         setDeletingId(id);
@@ -50,8 +54,8 @@ export function ActiveRulesList({ rules, onDelete, onEdit }: ActiveRulesListProp
         <>
             <ScrollArea className="h-[200px] w-full rounded-md border border-slate-100 bg-slate-50/50 p-4">
                 <div className="space-y-3">
-                    {rules.map((rule) => (
-                        <Card key={rule.id} className="p-3 flex items-center justify-between border-slate-200 shadow-sm bg-white">
+                    {sortedRules.map((rule, index) => (
+                        <Card key={rule.id} data-testid="rule-item" className="p-3 flex items-center justify-between border-slate-200 shadow-sm bg-white">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
                                     <span className="font-semibold text-sm text-slate-700">{rule.name}</span>
@@ -60,18 +64,43 @@ export function ActiveRulesList({ rules, onDelete, onEdit }: ActiveRulesListProp
                                             {rule.config.startingParent} Starts
                                         </Badge>
                                     )}
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1 text-slate-400 font-mono">
+                                        P{rule.priority}
+                                    </Badge>
                                 </div>
                                 <span className="text-xs text-slate-500">
                                     {rule.config.startDate} - {rule.config.endDate}
                                 </span>
                             </div>
                             <div className="flex items-center gap-1">
+                                {onReorder && (
+                                    <div className="flex flex-col mr-2">
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-5 w-5 text-slate-400 hover:text-indigo-600 p-0"
+                                            disabled={index === 0}
+                                            onClick={() => onReorder(rule.id, 'UP')}
+                                        >
+                                            <ArrowUp className="w-3 h-3" />
+                                        </Button>
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-5 w-5 text-slate-400 hover:text-indigo-600 p-0"
+                                            disabled={index === sortedRules.length - 1}
+                                            onClick={() => onReorder(rule.id, 'DOWN')}
+                                        >
+                                            <ArrowDown className="w-3 h-3" />
+                                        </Button>
+                                    </div>
+                                )}
                                 {onEdit && (
                                     <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-indigo-600" onClick={() => onEdit(rule)}>
                                         <Edit2 className="w-4 h-4" />
                                     </Button>
                                 )}
-                                <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteClick(rule.id)}>
+                                <Button size="icon" variant="ghost" data-testid="delete-rule-btn" className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteClick(rule.id)}>
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
                             </div>
