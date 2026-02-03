@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { createWebAuthnController } from "../src/adapters/primary/WebAuthnController";
 import { InMemoryPasskeyRepository } from "../src/adapters/secondary/InMemoryPasskeyRepository";
+import { RealDateProvider } from "../src/adapters/secondary/RealDateProvider";
 import { Elysia } from "elysia";
 
 // Mock auth module
@@ -16,7 +17,7 @@ mock.module("../src/lib/auth", () => ({
 
 describe("WebAuthnController", () => {
     const repo = new InMemoryPasskeyRepository();
-    const controller = createWebAuthnController(repo);
+    const controller = createWebAuthnController(repo, new RealDateProvider());
     const app = new Elysia().use(controller);
 
     it("should generate registration options", async () => {

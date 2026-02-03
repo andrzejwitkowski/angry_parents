@@ -2,9 +2,10 @@ import { CustodyEntry } from "../CustodyEntry";
 import { CustodyPatternConfig } from "../CustodyPatternConfig";
 import { CustodyStrategy } from "./CustodyStrategy";
 import { TimeUtils } from "../TimeUtils";
+import { UuidProvider } from "../../../ports/UuidProvider";
 
 export class TwoTwoThreeStrategy implements CustodyStrategy {
-    generate(config: CustodyPatternConfig): CustodyEntry[] {
+    generate(config: CustodyPatternConfig, uuidProvider: UuidProvider): CustodyEntry[] {
         const entries: CustodyEntry[] = [];
         const dates = TimeUtils.getDatesInRange(config.startDate, config.endDate);
 
@@ -48,7 +49,7 @@ export class TwoTwoThreeStrategy implements CustodyStrategy {
             // For simplicity and per Test Case 2 (checking full day assignedTo), we output full days.
 
             entries.push({
-                id: crypto.randomUUID(),
+                id: uuidProvider.generate(),
                 childId: config.childId,
                 date: date,
                 startTime: "00:00",

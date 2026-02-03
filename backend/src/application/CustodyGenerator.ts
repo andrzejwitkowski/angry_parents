@@ -5,23 +5,26 @@ import { TwoTwoThreeStrategy } from "../core/domain/child/strategies/TwoTwoThree
 import { HolidayStrategy } from "../core/domain/child/strategies/HolidayStrategy";
 
 import { CustomSequenceStrategy } from "../core/domain/child/strategies/CustomSequenceStrategy";
+import { UuidProvider } from "../core/ports/UuidProvider";
 
 export class CustodyGenerator {
+    constructor(private readonly uuidProvider: UuidProvider) { }
+
     generate(config: CustodyPatternConfig): CustodyEntry[] {
         let entries: CustodyEntry[] = [];
 
         if (config.type === 'ALTERNATING_WEEKEND') {
             const strategy = new AlternatingWeekendStrategy();
-            entries = strategy.generate(config);
+            entries = strategy.generate(config, this.uuidProvider);
         } else if (config.type === 'TWO_TWO_THREE') {
             const strategy = new TwoTwoThreeStrategy();
-            entries = strategy.generate(config);
+            entries = strategy.generate(config, this.uuidProvider);
         } else if (config.type === 'CUSTOM_SEQUENCE' && config.sequence) {
             const strategy = new CustomSequenceStrategy();
-            entries = strategy.generate(config);
+            entries = strategy.generate(config, this.uuidProvider);
         } else if (config.type === 'HOLIDAY') {
             const strategy = new HolidayStrategy();
-            entries = strategy.generate(config);
+            entries = strategy.generate(config, this.uuidProvider);
         }
 
         return entries;

@@ -3,10 +3,15 @@ import { auth } from "./lib/auth";
 import { InMemoryTimelineRepository } from "./adapters/secondary/InMemoryTimelineRepository";
 import { TimelineServiceImpl } from "./application/TimelineService";
 import { createTimelineController } from "./adapters/primary/TimelineController";
+import { RealDateProvider } from "./adapters/secondary/RealDateProvider";
+import { RealUuidProvider } from "./adapters/secondary/RealUuidProvider";
+
+const dateProvider = new RealDateProvider();
+const uuidProvider = new RealUuidProvider();
 
 // Dependency Injection - Composition Root
 const timelineRepository = new InMemoryTimelineRepository();
-const timelineService = new TimelineServiceImpl(timelineRepository);
+const timelineService = new TimelineServiceImpl(timelineRepository, dateProvider, uuidProvider);
 const timelineController = createTimelineController(timelineService);
 
 import { InMemoryCustodyRepository } from "./adapters/secondary/InMemoryCustodyRepository";
@@ -18,23 +23,23 @@ import { PropagationService } from "./application/PropagationService";
 
 const custodyRepository = new InMemoryCustodyRepository();
 const scheduleRepository = new InMemoryScheduleRepository();
-const scheduleService = new ScheduleService(scheduleRepository, custodyRepository);
+const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
 const propagationService = new PropagationService(scheduleRepository);
-const custodyController = createCustodyController(custodyRepository, scheduleService, propagationService);
+const custodyController = createCustodyController(custodyRepository, scheduleService, propagationService, uuidProvider);
 
 import { InMemoryChildRepository } from "./adapters/secondary/InMemoryChildRepository";
 import { ChildService } from "./application/ChildService";
 import { createChildController } from "./adapters/primary/ChildController";
 
 const childRepository = new InMemoryChildRepository();
-const childService = new ChildService(childRepository, timelineRepository);
+const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
 const childController = createChildController(childService);
 
 import { InMemoryPasskeyRepository } from "./adapters/secondary/InMemoryPasskeyRepository";
 import { createWebAuthnController } from "./adapters/primary/WebAuthnController";
 
 const passkeyRepository = new InMemoryPasskeyRepository();
-const webAuthnController = createWebAuthnController(passkeyRepository);
+const webAuthnController = createWebAuthnController(passkeyRepository, dateProvider);
 
 import { cors } from "@elysiajs/cors";
 
@@ -57,7 +62,7 @@ const app = new Elysia()
         // console.log(`Auth request: ${request.method} ${path}`);
         return await auth.handler(request);
     })
-    .get("/api/health", () => ({ status: "ok", timestamp: new Date().toISOString() }))
+    .get("/api/health", () => ({ status: "ok", timestamp: dateProvider.getIsoString() }))
     .listen({
         port: 3000,
         hostname: "0.0.0.0" // Ensure it's reachable

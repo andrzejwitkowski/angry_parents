@@ -1,11 +1,13 @@
 import { Child } from "../core/domain/child/Child";
 import { ChildRepository } from "../core/ports/ChildRepository";
 import { TimelineRepository } from "../core/ports/TimelineRepository";
+import { UuidProvider } from "../core/ports/UuidProvider";
 
 export class ChildService {
     constructor(
         private childRepository: ChildRepository,
-        private timelineRepository: TimelineRepository
+        private timelineRepository: TimelineRepository,
+        private uuidProvider: UuidProvider
     ) { }
 
     async getAllChildren(): Promise<Child[]> {
@@ -15,7 +17,7 @@ export class ChildService {
     async addChild(child: Omit<Child, "id">): Promise<Child> {
         const newChild: Child = {
             ...child,
-            id: crypto.randomUUID()
+            id: this.uuidProvider.generate()
         };
         return await this.childRepository.save(newChild);
     }

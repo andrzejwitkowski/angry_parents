@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { TimelineServiceImpl } from "../src/application/TimelineService";
 import { InMemoryTimelineRepository } from "../src/adapters/secondary/InMemoryTimelineRepository";
+import { RealDateProvider } from "../src/adapters/secondary/RealDateProvider";
+import { RealUuidProvider } from "../src/adapters/secondary/RealUuidProvider";
 import type { TimelineItem } from "../src/core/domain/TimelineItem";
 
 describe("TimelineService - getItemsByDateRange", () => {
@@ -9,7 +11,7 @@ describe("TimelineService - getItemsByDateRange", () => {
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
-        service = new TimelineServiceImpl(repository);
+        service = new TimelineServiceImpl(repository, new RealDateProvider(), new RealUuidProvider());
     });
 
     it("should validate date format and throw error for invalid dates", async () => {
@@ -40,6 +42,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             content: "Later date, earlier time",
             createdAt: earlier.toISOString(),
             createdBy: "user1",
+            auditTrail: [],
+            isDeleted: false,
+            childIds: [],
         };
 
         const item2: TimelineItem = {
@@ -49,6 +54,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             content: "Earlier date",
             createdAt: now.toISOString(),
             createdBy: "user1",
+            auditTrail: [],
+            isDeleted: false,
+            childIds: [],
         };
 
         const item3: TimelineItem = {
@@ -58,6 +66,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             content: "Later date, later time",
             createdAt: later.toISOString(),
             createdBy: "user1",
+            auditTrail: [],
+            isDeleted: false,
+            childIds: [],
         };
 
         await repository.save(item1);
@@ -87,6 +98,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             attachments: [],
             createdAt: new Date().toISOString(),
             createdBy: "user1",
+            auditTrail: [],
+            isDeleted: false,
+            childIds: [],
         };
 
         const medication: TimelineItem = {
@@ -98,6 +112,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             administered: true,
             createdAt: new Date().toISOString(),
             createdBy: "user1",
+            auditTrail: [],
+            isDeleted: false,
+            childIds: [],
         };
 
         const handover: TimelineItem = {
@@ -109,6 +126,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             status: "COMPLETED",
             createdAt: new Date().toISOString(),
             createdBy: "user1",
+            auditTrail: [],
+            isDeleted: false,
+            childIds: [],
         };
 
         await repository.save(medicalVisit);

@@ -3,9 +3,10 @@ import { CustodyGenerator } from "../src/application/CustodyGenerator";
 import { CustodyPatternConfig } from "../src/core/domain/child/CustodyPatternConfig";
 import { CustodyEntry } from "../src/core/domain/child/CustodyEntry";
 import { ConflictService } from "../src/core/domain/child/ConflictService";
+import { RealUuidProvider } from "../src/adapters/secondary/RealUuidProvider";
 
 describe("CustodyGenerator", () => {
-    const generator = new CustodyGenerator();
+    const generator = new CustodyGenerator(new RealUuidProvider());
 
     // Helper to find entries by date
     const getEntriesForDate = (entries: CustodyEntry[], date: string) =>
@@ -196,8 +197,8 @@ describe("CustodyGenerator", () => {
         // We use the ConflictService (assuming it's available or we skip if strictly unit testing Generator)
         // But the Prompt mandated "Conflict Resolution" logic.
         // Importing here via relative path
-
-        const resolved = ConflictService.resolve([momEntry, dadEntry]);
+        const conflictService = new ConflictService(new RealUuidProvider());
+        const resolved = conflictService.resolve([momEntry, dadEntry]);
 
         expect(resolved).toHaveLength(3);
 

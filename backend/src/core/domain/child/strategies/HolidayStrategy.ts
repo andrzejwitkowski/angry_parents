@@ -2,9 +2,10 @@ import { CustodyEntry } from "../CustodyEntry";
 import { CustodyPatternConfig } from "../CustodyPatternConfig";
 import { CustodyStrategy } from "./CustodyStrategy";
 import { TimeUtils } from "../TimeUtils";
+import { UuidProvider } from "../../../ports/UuidProvider";
 
 export class HolidayStrategy implements CustodyStrategy {
-    generate(config: CustodyPatternConfig): CustodyEntry[] {
+    generate(config: CustodyPatternConfig, uuidProvider: UuidProvider): CustodyEntry[] {
         const entries: CustodyEntry[] = [];
         // If holidays array is provided, iterate specific dates.
         // If not, use date range.
@@ -15,7 +16,7 @@ export class HolidayStrategy implements CustodyStrategy {
 
         targetDates.forEach(date => {
             entries.push({
-                id: crypto.randomUUID(),
+                id: uuidProvider.generate(),
                 childId: config.childId,
                 date: date,
                 startTime: "00:00",

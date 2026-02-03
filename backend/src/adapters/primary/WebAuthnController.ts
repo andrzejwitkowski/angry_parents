@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { type PasskeyRepository } from "../../core/ports/PasskeyRepository";
+import { DateProvider } from "../../core/ports/DateProvider";
 import { auth } from "../../lib/auth";
 import {
     generateRegistrationOptions,
@@ -11,15 +12,18 @@ import type { AuthenticatorTransport } from "@simplewebauthn/typescript-types";
 // Challenge storage (Memory)
 const challenges = new Map<string, string>();
 
-export const createWebAuthnController = (passkeyRepo: PasskeyRepository) => {
+export const createWebAuthnController = (passkeyRepo: PasskeyRepository, dateProvider: DateProvider) => {
     const rpName = "Angry Parents Co-Parenting";
     const rpID = "localhost";
     const origin = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
 
     return new Elysia({ prefix: "/api/auth/webauthn" })
-        .get("/register/options", async ({ request, error }) => {
+        .get("/register/options", async ({ request, set }) => {
             const session = await auth.api.getSession({ headers: request.headers });
-            if (!session) return error(401, "Unauthorized");
+            if (!session) {
+                set.status = 401;
+                return { message: "Unauthorized" };
+            }
 
             const userId = session.user.id;
             const userPasskeys = await passkeyRepo.findByUserId(userId);
@@ -45,9 +49,12 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository) => {
 
             return options;
         })
-        .post("/register/verify", async ({ request, body, error }) => {
+        .post("/register/verify", async ({ request, body, set }) => {
             const session = await auth.api.getSession({ headers: request.headers });
-            if (!session) return error(401, "Unauthorized");
+            if (!session) {
+                set.status = 401;
+                return { message: "Unauthorized" };
+            }
 
             const userId = session.user.id;
             // Mock Handling (Dev/Test only)
@@ -63,7 +70,7 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository) => {
                     counter: 0,
                     transports: [],
                     name: "Mock Key",
-                    createdAt: new Date()
+                    createdAt: dateProvider.getNow()
                 });
                 return { verified: true };
             }
@@ -71,7 +78,8 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository) => {
             const expectedChallenge = challenges.get(userId);
 
             if (!expectedChallenge) {
-                return error(400, "Challenge not found or expired");
+                set.status = 400;
+                return { message: "Challenge not found or expired" };
             }
 
             try {
@@ -93,7 +101,7 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository) => {
                         counter,
                         transports: (body as any).response.transports || [],
                         name: "Hardware Key",
-                        createdAt: new Date()
+                        createdAt: dateProvider.getNow()
                     });
 
                     challenges.delete(userId);

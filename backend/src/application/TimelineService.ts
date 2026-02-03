@@ -1,6 +1,8 @@
 import type { TimelineRepository } from "../core/ports/TimelineRepository";
 import type { TimelineItem, CreateTimelineItemDto, AuditEntry } from "../core/domain/TimelineItem";
 import { TimelineItemSchema } from "../core/domain/TimelineItem";
+import { DateProvider } from "../core/ports/DateProvider";
+import { UuidProvider } from "../core/ports/UuidProvider";
 
 /**
  * TimelineService Implementation
@@ -8,10 +10,14 @@ import { TimelineItemSchema } from "../core/domain/TimelineItem";
  * Follows Hexagonal Architecture - depends only on ports, not adapters.
  */
 export class TimelineServiceImpl {
-    constructor(private readonly repository: TimelineRepository) { }
+    constructor(
+        private readonly repository: TimelineRepository,
+        private readonly dateProvider: DateProvider,
+        private readonly uuidProvider: UuidProvider
+    ) { }
 
     async createItem(dto: CreateTimelineItemDto): Promise<TimelineItem> {
-        const timestamp = new Date().toISOString();
+        const timestamp = this.dateProvider.getIsoString();
 
         // Initial audit entry
         const initialAudit: AuditEntry = {
@@ -24,7 +30,7 @@ export class TimelineServiceImpl {
         // Generate ID and timestamp
         const item: TimelineItem = {
             ...dto,
-            id: crypto.randomUUID(),
+            id: this.uuidProvider.generate(),
             createdAt: timestamp,
             auditTrail: [initialAudit],
             isDeleted: false,
@@ -36,7 +42,9 @@ export class TimelineServiceImpl {
         // Business rule: Validate handover dates
         if (validated.type === "HANDOVER") {
             const itemDate = new Date(validated.date);
-            if (itemDate < new Date(new Date().setHours(0, 0, 0, 0))) {
+            const today = this.dateProvider.getNow();
+            today.setHours(0, 0, 0, 0);
+            if (itemDate < today) {
                 throw new Error("Handover date cannot be in the past");
             }
         }
@@ -107,7 +115,7 @@ export class TimelineServiceImpl {
         }
 
         const auditEntry: AuditEntry = {
-            timestamp: new Date().toISOString(),
+            timestamp: this.dateProvider.getIsoString(),
             userId,
             userName,
             action: "UPDATED",
@@ -139,7 +147,7 @@ export class TimelineServiceImpl {
         }
 
         const auditEntry: AuditEntry = {
-            timestamp: new Date().toISOString(),
+            timestamp: this.dateProvider.getIsoString(),
             userId,
             userName,
             action: "DELETED",

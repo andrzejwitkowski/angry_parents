@@ -4,6 +4,8 @@ import { InMemoryScheduleRepository } from "../src/adapters/secondary/InMemorySc
 import { InMemoryCustodyRepository } from "../src/adapters/secondary/InMemoryCustodyRepository";
 import { CustodyPatternConfig } from "../src/core/domain/child/CustodyPatternConfig";
 import { CustodyEntry } from "../src/core/domain/child/CustodyEntry";
+import { RealDateProvider } from "../src/adapters/secondary/RealDateProvider";
+import { RealUuidProvider } from "../src/adapters/secondary/RealUuidProvider";
 
 describe("Rule Priority Engine (Formal Verification)", () => {
     let scheduleService: ScheduleService;
@@ -13,7 +15,7 @@ describe("Rule Priority Engine (Formal Verification)", () => {
     beforeEach(() => {
         scheduleRepository = new InMemoryScheduleRepository();
         custodyRepository = new InMemoryCustodyRepository();
-        scheduleService = new ScheduleService(scheduleRepository, custodyRepository);
+        scheduleService = new ScheduleService(scheduleRepository, custodyRepository, new RealDateProvider(), new RealUuidProvider());
     });
 
     /**

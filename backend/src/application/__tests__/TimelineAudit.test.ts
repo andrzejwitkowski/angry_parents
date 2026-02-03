@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { TimelineServiceImpl } from "../TimelineService";
 import { InMemoryTimelineRepository } from "../../adapters/secondary/InMemoryTimelineRepository";
+import { RealDateProvider } from "../../adapters/secondary/RealDateProvider";
+import { RealUuidProvider } from "../../adapters/secondary/RealUuidProvider";
 import type { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
 
 describe("Timeline Audit System", () => {
@@ -9,7 +11,7 @@ describe("Timeline Audit System", () => {
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
-        service = new TimelineServiceImpl(repository);
+        service = new TimelineServiceImpl(repository, new RealDateProvider(), new RealUuidProvider());
     });
 
     it("should create an item with initial audit trail", async () => {

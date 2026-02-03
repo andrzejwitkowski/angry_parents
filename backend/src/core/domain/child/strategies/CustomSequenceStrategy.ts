@@ -2,9 +2,10 @@ import { CustodyEntry } from "../CustodyEntry";
 import { CustodyPatternConfig } from "../CustodyPatternConfig";
 import { CustodyStrategy } from "./CustodyStrategy";
 import { TimeUtils } from "../TimeUtils";
+import { UuidProvider } from "../../../ports/UuidProvider";
 
 export class CustomSequenceStrategy implements CustodyStrategy {
-    generate(config: CustodyPatternConfig): CustodyEntry[] {
+    generate(config: CustodyPatternConfig, uuidProvider: UuidProvider): CustodyEntry[] {
         const entries: CustodyEntry[] = [];
         const dates = TimeUtils.getDatesInRange(config.startDate, config.endDate);
         const sequence = config.sequence || [1, 1]; // Default 1-1 if missing
@@ -67,9 +68,9 @@ export class CustomSequenceStrategy implements CustodyStrategy {
             }
 
             // We assume full days for Custom Sequence for now.
-            // Split days would require more complex config (start/end times per block?)
+            // Split days would require            // Assign current parent for the day
             entries.push({
-                id: crypto.randomUUID(),
+                id: uuidProvider.generate(),
                 childId: config.childId,
                 date: date,
                 startTime: "00:00",

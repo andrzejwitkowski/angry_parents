@@ -5,6 +5,8 @@ import { InMemoryTimelineRepository } from "../../adapters/secondary/InMemoryTim
 import { Child } from "../../core/domain/child/Child";
 import { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
 import { TimelineServiceImpl } from "../TimelineService";
+import { RealDateProvider } from "../../adapters/secondary/RealDateProvider";
+import { RealUuidProvider } from "../../adapters/secondary/RealUuidProvider";
 
 describe("Child Management Service Enhancements", () => {
     let childService: ChildService;
@@ -13,10 +15,12 @@ describe("Child Management Service Enhancements", () => {
     let timelineRepo: InMemoryTimelineRepository;
 
     beforeEach(() => {
+        const dateProvider = new RealDateProvider();
+        const uuidProvider = new RealUuidProvider();
         childRepo = new InMemoryChildRepository();
         timelineRepo = new InMemoryTimelineRepository();
-        childService = new ChildService(childRepo, timelineRepo);
-        timelineService = new TimelineServiceImpl(timelineRepo);
+        childService = new ChildService(childRepo, timelineRepo, uuidProvider);
+        timelineService = new TimelineServiceImpl(timelineRepo, dateProvider, uuidProvider);
     });
 
     it("should update child color correctly", async () => {

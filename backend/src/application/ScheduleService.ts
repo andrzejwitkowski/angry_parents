@@ -4,11 +4,15 @@ import { CustodyPatternConfig } from "../core/domain/child/CustodyPatternConfig"
 import { ScheduleRule } from "../core/domain/child/ScheduleRule";
 import { CustodyEntry } from "../core/domain/child/CustodyEntry";
 import { CustodyGenerator } from "./CustodyGenerator";
+import { DateProvider } from "../core/ports/DateProvider";
+import { UuidProvider } from "../core/ports/UuidProvider";
 
 export class ScheduleService {
     constructor(
         private scheduleRepository: ScheduleRepository,
-        private custodyRepository: CustodyRepository
+        private custodyRepository: CustodyRepository,
+        private dateProvider: DateProvider,
+        private uuidProvider: UuidProvider
     ) { }
 
     async createRule(config: CustodyPatternConfig): Promise<ScheduleRule> {
@@ -19,7 +23,7 @@ export class ScheduleService {
             : 0;
         const newPriority = maxPriority + 1;
 
-        const ruleId = `rule-${Date.now()}`;
+        const ruleId = `rule-${this.uuidProvider.generate()}`;
         const rule: ScheduleRule = {
             id: ruleId,
             childId: config.childId,
@@ -27,11 +31,11 @@ export class ScheduleService {
             config: config,
             priority: newPriority,
             isOneTime: !!config.isOneTime,
-            createdAt: new Date().toISOString()
+            createdAt: this.dateProvider.getIsoString()
         };
 
         // 1. Generate Entries
-        const generator = new CustodyGenerator();
+        const generator = new CustodyGenerator(this.uuidProvider);
         const entries = generator.generate(config);
 
         // 2. Tag Entries with Rule ID and Priority
@@ -171,7 +175,7 @@ export class ScheduleService {
 
     async checkConflicts(config: CustodyPatternConfig, excludeRuleId?: string): Promise<ScheduleRule[]> {
         // 1. Generate temp entries for the new config
-        const generator = new CustodyGenerator();
+        const generator = new CustodyGenerator(this.uuidProvider);
         const newEntries = generator.generate(config);
 
         if (newEntries.length === 0) return [];

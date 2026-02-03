@@ -1,7 +1,10 @@
 import { CustodyEntry } from "./CustodyEntry";
+import { UuidProvider } from "../../ports/UuidProvider";
 
 export class ConflictService {
-    static resolve(entries: CustodyEntry[]): CustodyEntry[] {
+    constructor(private readonly uuidProvider: UuidProvider) { }
+
+    resolve(entries: CustodyEntry[]): CustodyEntry[] {
         // Sort by priority (asc) then creation/sequence?
         // We want higher priority to OVERWRITE lower priority.
         // "Last Write Wins" if priority equal.
@@ -29,7 +32,7 @@ export class ConflictService {
         return resolved.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
     }
 
-    private static mergeEntry(existingList: CustodyEntry[], candidate: CustodyEntry): CustodyEntry[] {
+    private mergeEntry(existingList: CustodyEntry[], candidate: CustodyEntry): CustodyEntry[] {
         const result: CustodyEntry[] = [];
 
         // We iterate through existing resolved items and see if 'candidate' affects them.
@@ -68,7 +71,7 @@ export class ConflictService {
             if (eStart < cStart) {
                 result.push({
                     ...existing,
-                    id: crypto.randomUUID(), // New ID for split
+                    id: this.uuidProvider.generate(), // New ID for split
                     endTime: candidate.startTime // Clip end
                 });
             }
@@ -77,7 +80,7 @@ export class ConflictService {
             if (eEnd > cEnd) {
                 result.push({
                     ...existing,
-                    id: crypto.randomUUID(), // New ID for split
+                    id: this.uuidProvider.generate(), // New ID for split
                     startTime: candidate.endTime // Clip start
                 });
             }
@@ -89,7 +92,7 @@ export class ConflictService {
         return result;
     }
 
-    private static toMinutes(time: string): number {
+    private toMinutes(time: string): number {
         const [h, m] = time.split(':').map(Number);
         return h * 60 + m;
     }

@@ -2,9 +2,10 @@ import { CustodyEntry } from "../CustodyEntry";
 import { CustodyPatternConfig } from "../CustodyPatternConfig";
 import { CustodyStrategy } from "./CustodyStrategy";
 import { TimeUtils } from "../TimeUtils";
+import { UuidProvider } from "../../../ports/UuidProvider";
 
 export class AlternatingWeekendStrategy implements CustodyStrategy {
-    generate(config: CustodyPatternConfig): CustodyEntry[] {
+    generate(config: CustodyPatternConfig, uuidProvider: UuidProvider): CustodyEntry[] {
         const entries: CustodyEntry[] = [];
         const dates = TimeUtils.getDatesInRange(config.startDate, config.endDate);
 
@@ -62,7 +63,7 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
             // Create entries
             assignments.forEach((assign, index) => {
                 entries.push({
-                    id: crypto.randomUUID(),
+                    id: uuidProvider.generate(),
                     childId: config.childId,
                     date: date,
                     startTime: assign.start,

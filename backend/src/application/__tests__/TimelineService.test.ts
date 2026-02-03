@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { TimelineServiceImpl } from "../TimelineService";
 import { InMemoryTimelineRepository } from "../../adapters/secondary/InMemoryTimelineRepository";
+import { RealDateProvider } from "../../adapters/secondary/RealDateProvider";
+import { RealUuidProvider } from "../../adapters/secondary/RealUuidProvider";
 import type { CreateTimelineItemDto, MedicalVisitItem, MedsItem, NoteItem, HandoverItem, IncidentItem } from "../../core/domain/TimelineItem";
 
 describe("TimelineService", () => {
@@ -9,7 +11,7 @@ describe("TimelineService", () => {
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
-        service = new TimelineServiceImpl(repository);
+        service = new TimelineServiceImpl(repository, new RealDateProvider(), new RealUuidProvider());
     });
 
     describe("createItem", () => {
@@ -22,6 +24,7 @@ describe("TimelineService", () => {
                 diagnosis: "Common cold",
                 recommendations: "Rest and fluids",
                 attachments: [],
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             const item = await service.createItem(dto);
@@ -34,14 +37,15 @@ describe("TimelineService", () => {
         });
 
         it("should create a medication item", async () => {
-            const dto: CreateTimelineItemDto = {
+            const dto = {
                 type: "MEDS",
                 date: "2026-01-27",
                 createdBy: "user-123",
                 medicineName: "Aspirin",
                 dosage: "500mg",
                 administered: false,
-            };
+                childIds: ["child-1"],
+            } as any as CreateTimelineItemDto;
 
             const item = await service.createItem(dto);
             const medicationItem = item as MedsItem;
@@ -62,6 +66,7 @@ describe("TimelineService", () => {
                 location: "School",
                 time: "15:00",
                 status: "PENDING",
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             await expect(service.createItem(dto)).rejects.toThrow(
@@ -79,6 +84,7 @@ describe("TimelineService", () => {
                 location: "School",
                 time: "15:00",
                 status: "PENDING",
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             const item = await service.createItem(dto);
@@ -106,6 +112,7 @@ describe("TimelineService", () => {
                 createdBy: "user-123",
                 severity: "HIGH",
                 description: "Child fell from swing",
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             const item = await service.createItem(dto);
@@ -122,6 +129,7 @@ describe("TimelineService", () => {
                 date: "2026-01-27",
                 createdBy: "user-123",
                 content: "First note",
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             const dto2 = {
@@ -129,6 +137,7 @@ describe("TimelineService", () => {
                 date: "2026-01-27",
                 createdBy: "user-123",
                 content: "Second note",
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             await service.createItem(dto1);
@@ -156,14 +165,15 @@ describe("TimelineService", () => {
 
     describe("updateItem", () => {
         it("should update medication administered status", async () => {
-            const dto: CreateTimelineItemDto = {
+            const dto = {
                 type: "MEDS",
                 date: "2026-01-27",
                 createdBy: "user-123",
                 medicineName: "Aspirin",
                 dosage: "500mg",
                 administered: false,
-            };
+                childIds: ["child-1"],
+            } as any as CreateTimelineItemDto;
 
             const created = await service.createItem(dto);
             const updated = await service.updateItem(created.id, { administered: true }, "user-123");
@@ -184,6 +194,7 @@ describe("TimelineService", () => {
                 date: "2026-01-27",
                 createdBy: "owner-id",
                 content: "Secret note",
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             const created = await service.createItem(dto);
@@ -200,6 +211,7 @@ describe("TimelineService", () => {
                 date: "2026-01-27",
                 createdBy: "user-123",
                 content: "Test note",
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             const created = await service.createItem(dto);
@@ -221,6 +233,7 @@ describe("TimelineService", () => {
                 date: "2026-01-27",
                 createdBy: "owner-id",
                 content: "To be deleted",
+                childIds: ["child-1"],
             } as CreateTimelineItemDto;
 
             const created = await service.createItem(dto);

@@ -6,12 +6,13 @@ import { CustodyEntry } from "../../core/domain/child/CustodyEntry";
 
 import { ScheduleService } from "../../application/ScheduleService";
 import { PropagationService } from "../../application/PropagationService";
+import { UuidProvider } from "../../core/ports/UuidProvider";
 
-export const createCustodyController = (custodyRepository: CustodyRepository, scheduleService: ScheduleService, propagationService: PropagationService) => new Elysia({ prefix: "/api" })
+export const createCustodyController = (custodyRepository: CustodyRepository, scheduleService: ScheduleService, propagationService: PropagationService, uuidProvider: UuidProvider) => new Elysia({ prefix: "/api" })
     .post("/custody/preview", ({ body, set }) => {
         try {
             const config = body as unknown as CustodyPatternConfig;
-            const generator = new CustodyGenerator();
+            const generator = new CustodyGenerator(uuidProvider);
             return generator.generate(config);
         } catch (e) {
             console.error("Error generating custody preview:", e);
