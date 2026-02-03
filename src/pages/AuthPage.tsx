@@ -50,9 +50,9 @@ export default function AuthPage() {
             password,
             name,
             username,
-        }, {
+        } as any, {
             onSuccess: () => {
-                navigate('/dashboard');
+                navigate('/setup-passkey');
             },
             onError: (ctx) => {
                 setError(ctx.error.message || "Registration failed");
@@ -112,7 +112,7 @@ export default function AuthPage() {
                                 </CardContent>
                                 <CardFooter>
                                     <Button className="w-full" type="submit" disabled={isLoading}>
-                                        {isLoading ? "..." : t('auth.submit')}
+                                        {isLoading ? "..." : "Sign In"}
                                     </Button>
                                 </CardFooter>
                             </form>
@@ -171,7 +171,7 @@ export default function AuthPage() {
                                 </CardContent>
                                 <CardFooter>
                                     <Button className="w-full" type="submit" disabled={isLoading}>
-                                        {isLoading ? "..." : t('auth.submit')}
+                                        {isLoading ? "..." : "Sign Up"}
                                     </Button>
                                 </CardFooter>
                             </form>

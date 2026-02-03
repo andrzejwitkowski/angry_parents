@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { authClient } from '@/lib/auth-client';
+import { checkHasPasskey } from '@/lib/webauthn-client';
 import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { BetterCalendar } from '@/components/BetterCalendar';
@@ -22,31 +23,29 @@ export default function Dashboard() {
     const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
 
     useEffect(() => {
-        // AUTH DISABLED FOR MANUAL TESTING
-        const MOCK_USER: User = {
-            id: 'mock-user-id',
-            email: 'test@example.com',
-            emailVerified: true,
-            name: 'Test User',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            username: 'testuser'
-        };
-        setUser(MOCK_USER);
-        setLoading(false);
+        const checkAuth = async () => {
+            try {
+                const session = await authClient.getSession();
+                if (!session.data) {
+                    navigate('/auth');
+                    return;
+                }
 
-        /* 
-        const checkSession = async () => {
-            const session = await authClient.getSession();
-            if (!session.data) {
-                navigate('/auth');
-            } else {
                 setUser(session.data.user);
+
+                // Check if user has registered a hardware key
+                const hasKey = await checkHasPasskey();
+                if (!hasKey) {
+                    navigate('/setup-passkey');
+                }
+            } catch (error) {
+                console.error("Auth check failed", error);
+                navigate('/auth');
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
-        checkSession();
-        */
+        checkAuth();
     }, [navigate]);
 
     if (loading) {

@@ -22,6 +22,12 @@ const scheduleService = new ScheduleService(scheduleRepository, custodyRepositor
 const propagationService = new PropagationService(scheduleRepository);
 const custodyController = createCustodyController(custodyRepository, scheduleService, propagationService);
 
+import { InMemoryPasskeyRepository } from "./adapters/secondary/InMemoryPasskeyRepository";
+import { createWebAuthnController } from "./adapters/primary/WebAuthnController";
+
+const passkeyRepository = new InMemoryPasskeyRepository();
+const webAuthnController = createWebAuthnController(passkeyRepository);
+
 import { cors } from "@elysiajs/cors";
 
 // Create Elysia app
@@ -35,6 +41,7 @@ const app = new Elysia()
     // Mount timeline controller (already has /api prefix)
     .use(timelineController)
     .use(custodyController)
+    .use(webAuthnController)
     // Mount better-auth handler with a more robust catch-all
     .all("/api/auth/*", async ({ request, path }) => {
         // Log for debugging (optional, can be removed once verified)

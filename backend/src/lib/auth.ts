@@ -21,9 +21,11 @@ const getDatabaseConfig = () => {
 };
 
 export const auth = betterAuth({
+    baseURL: "http://localhost:3000",
     ...getDatabaseConfig(),
     emailAndPassword: {
         enabled: true,
+        autoSignIn: true,
     },
     user: {
         additionalFields: {
