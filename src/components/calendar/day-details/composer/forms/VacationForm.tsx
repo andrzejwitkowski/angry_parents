@@ -5,33 +5,49 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plane } from "lucide-react";
+import { ChildSelector } from "../components/ChildSelector";
 
 const vacationSchema = z.object({
     status: z.string().min(1, "Status is required"),
+    childIds: z.array(z.string()),
 });
 
 type VacationFormData = z.infer<typeof vacationSchema>;
 
 interface VacationFormProps {
+    initialData?: VacationFormData;
     onSubmit: (data: VacationFormData) => void;
     isSubmitting?: boolean;
 }
 
-export function VacationForm({ onSubmit, isSubmitting }: VacationFormProps) {
+export function VacationForm({ initialData, onSubmit, isSubmitting }: VacationFormProps) {
     const {
         register,
         handleSubmit,
+        setValue,
+        watch,
         formState: { errors },
     } = useForm<VacationFormData>({
         resolver: zodResolver(vacationSchema),
+        defaultValues: {
+            status: initialData?.status || "",
+            childIds: initialData?.childIds || [],
+        },
     });
 
+    const selectedChildIds = watch("childIds");
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-amber-600 mb-2">
                 <Plane className="w-5 h-5" />
                 <h3 className="font-semibold text-lg">Vacation Status</h3>
             </div>
+
+            <ChildSelector
+                selectedIds={selectedChildIds}
+                onChange={(ids) => setValue("childIds", ids, { shouldValidate: true })}
+            />
 
             <div className="space-y-2">
                 <Label htmlFor="status">Vacation Status*</Label>
@@ -52,7 +68,7 @@ export function VacationForm({ onSubmit, isSubmitting }: VacationFormProps) {
                 disabled={isSubmitting}
                 data-testid="submit-vacation"
             >
-                {isSubmitting ? "Adding..." : "Add Vacation Status"}
+                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Vacation Status" : "Add Vacation Status")}
             </Button>
         </form>
     );

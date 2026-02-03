@@ -29,6 +29,9 @@ describe("IncidentCard", () => {
         description: "Test incident description",
         createdAt: new Date().toISOString(),
         createdBy: "user-owner",
+        auditTrail: [],
+        isDeleted: false,
+        childIds: [],
     };
 
     beforeEach(() => {
@@ -47,13 +50,15 @@ describe("IncidentCard", () => {
     it("renders delete button for the owner", () => {
         const user = createMockUser("user-owner");
         renderWithi18n(<IncidentCard item={mockItem} user={user} />);
-        expect(screen.getByRole("button")).toBeInTheDocument();
+        expect(screen.getByTestId("delete-button")).toBeInTheDocument();
+        expect(screen.getByTestId("edit-button")).toBeInTheDocument();
     });
 
     it("hides delete button for non-owners", () => {
         const user = createMockUser("user-other");
         renderWithi18n(<IncidentCard item={mockItem} user={user} />);
-        expect(screen.queryByRole("button")).not.toBeInTheDocument();
+        expect(screen.queryByTestId("delete-button")).not.toBeInTheDocument();
+        expect(screen.queryByTestId("edit-button")).not.toBeInTheDocument();
     });
 
     it("calls delete API when delete button is clicked by owner", async () => {
@@ -62,7 +67,7 @@ describe("IncidentCard", () => {
 
         renderWithi18n(<IncidentCard item={mockItem} user={user} onDelete={onDelete} />);
 
-        const deleteBtn = screen.getByRole("button");
+        const deleteBtn = screen.getByTestId("delete-button");
         fireEvent.click(deleteBtn);
 
         // Find the confirm button in the AlertDialog

@@ -1,5 +1,6 @@
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,9 @@ import type { IncidentItem } from "@/types/timeline.types";
 import type { User } from "@/types/user";
 import { timelineApi } from "@/lib/api/timeline";
 import { cn } from "@/lib/utils";
+import { AuditIndicator } from "../AuditIndicator";
+import { TimelineEditDialog } from "../TimelineEditDialog";
+import { ChildIndicators } from "../ChildIndicators";
 
 import {
     AlertDialog,
@@ -49,8 +53,9 @@ interface IncidentCardProps {
     onDelete?: () => void;
 }
 
-export function IncidentCard({ item, user, onUpdate: _onUpdate, onDelete }: IncidentCardProps) {
+export function IncidentCard({ item, user, onUpdate, onDelete }: IncidentCardProps) {
     const { t } = useTranslation();
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const isOwner = user?.id === item.createdBy;
     const config = severityConfig[item.severity];
 
@@ -75,41 +80,56 @@ export function IncidentCard({ item, user, onUpdate: _onUpdate, onDelete }: Inci
                         <div className={cn("p-2 rounded-lg", config.icon)}>
                             <AlertTriangle className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="font-bold text-red-900">Incident Report</h3>
+                        <div className="flex flex-col">
+                            <h3 className="font-bold text-red-900">Incident Report</h3>
+                            <ChildIndicators childIds={item.childIds} />
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className={config.color}>
                             {item.severity}
                         </Badge>
                         {isOwner && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            {t("incident.confirmDelete")}
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={handleDelete}
-                                            className="bg-red-600 hover:bg-red-700"
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-blue-500 hover:bg-blue-50"
+                                    onClick={() => setIsEditDialogOpen(true)}
+                                    data-testid="edit-button"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                            data-testid="delete-button"
                                         >
-                                            {t("common.confirm")}
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {t("incident.confirmDelete")}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={handleDelete}
+                                                className="bg-red-600 hover:bg-red-700"
+                                            >
+                                                {t("common.confirm")}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -136,8 +156,15 @@ export function IncidentCard({ item, user, onUpdate: _onUpdate, onDelete }: Inci
                             Reported by {item.createdByName}
                         </p>
                     )}
+                    <AuditIndicator item={item} />
                 </div>
             </CardContent>
+            <TimelineEditDialog
+                item={item}
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+                onSuccess={(updated) => onUpdate?.(updated as IncidentItem)}
+            />
         </Card>
     );
 }

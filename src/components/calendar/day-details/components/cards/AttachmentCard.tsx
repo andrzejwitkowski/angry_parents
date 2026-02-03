@@ -1,9 +1,12 @@
-import { Paperclip, FileText, Trash2 } from "lucide-react";
+import { Paperclip, FileText, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { AttachmentItem } from "@/types/timeline.types";
 import { timelineApi } from "@/lib/api/timeline";
+import { AuditIndicator } from "../AuditIndicator";
+import { ChildIndicators } from "../ChildIndicators";
+// import { TimelineEditDialog } from "../TimelineEditDialog"; // File form not yet implemented
 
 import {
     AlertDialog,
@@ -31,7 +34,7 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function AttachmentCard({ item, user, onUpdate: _onUpdate, onDelete }: AttachmentCardProps) {
+export function AttachmentCard({ item, user, onDelete }: AttachmentCardProps) {
     const { t } = useTranslation();
     const isOwner = user?.id === item.createdBy;
     const isImage = item.mimeType?.startsWith("image/");
@@ -53,37 +56,51 @@ export function AttachmentCard({ item, user, onUpdate: _onUpdate, onDelete }: At
                         <div className="p-2 bg-gray-500 rounded-lg">
                             <Paperclip className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="font-bold text-gray-900">Attachment</h3>
+                        <div className="flex flex-col">
+                            <h3 className="font-bold text-gray-900">Attachment</h3>
+                            <ChildIndicators childIds={item.childIds} />
+                        </div>
                     </div>
                     {isOwner && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        {t("attachment.confirmDelete")}
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={handleDelete}
-                                        className="bg-red-600 hover:bg-red-700"
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-blue-500 hover:bg-blue-50"
+                                disabled
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                        data-testid="delete-button"
                                     >
-                                        {t("common.confirm")}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {t("attachment.confirmDelete")}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={handleDelete}
+                                            className="bg-red-600 hover:bg-red-700"
+                                        >
+                                            {t("common.confirm")}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     )}
                 </div>
             </CardHeader>
@@ -123,6 +140,7 @@ export function AttachmentCard({ item, user, onUpdate: _onUpdate, onDelete }: At
                             Uploaded by {item.createdByName}
                         </p>
                     )}
+                    <AuditIndicator item={item} />
                 </div>
             </CardContent>
         </Card>

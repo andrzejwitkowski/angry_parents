@@ -107,7 +107,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     if (!session?.user) {
                         return { error: "Unauthorized", status: 401 };
                     }
-                    const updated = await service.updateItem(params.id, body as any, session.user.id);
+                    const userName = session.user.name || (session.user as any)?.username || "Unknown";
+                    const updated = await service.updateItem(params.id, body as any, session.user.id, userName);
                     return updated;
                 } catch (error) {
                     return {
@@ -132,7 +133,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         set.status = 401;
                         return { error: "Unauthorized" };
                     }
-                    await service.deleteItem(params.id, session.user.id);
+                    const userName = session.user.name || (session.user as any)?.username || "Unknown";
+                    await service.deleteItem(params.id, session.user.id, userName);
                     set.status = 204;
                     return null;
                 } catch (error) {

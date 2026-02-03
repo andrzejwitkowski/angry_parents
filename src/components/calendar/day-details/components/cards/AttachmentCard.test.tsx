@@ -31,6 +31,9 @@ describe("AttachmentCard", () => {
         mimeType: "application/pdf",
         createdAt: new Date().toISOString(),
         createdBy: "user-owner",
+        auditTrail: [],
+        isDeleted: false,
+        childIds: [],
     };
 
     beforeEach(() => {
@@ -57,12 +60,12 @@ describe("AttachmentCard", () => {
 
     it("renders delete button for the owner", () => {
         renderWithi18n(<AttachmentCard item={mockItem} user={mockUser} />);
-        expect(screen.getByRole("button")).toBeInTheDocument();
+        expect(screen.getByTestId("delete-button")).toBeInTheDocument();
     });
 
     it("hides delete button for non-owners", () => {
         renderWithi18n(<AttachmentCard item={mockItem} user={otherUser} />);
-        expect(screen.queryByRole("button")).not.toBeInTheDocument();
+        expect(screen.queryByTestId("delete-button")).not.toBeInTheDocument();
     });
 
     it("calls delete API when delete button is clicked by owner", async () => {
@@ -70,7 +73,7 @@ describe("AttachmentCard", () => {
 
         renderWithi18n(<AttachmentCard item={mockItem} user={mockUser} onDelete={onDelete} />);
 
-        const deleteBtn = screen.getByRole("button");
+        const deleteBtn = screen.getByTestId("delete-button");
         fireEvent.click(deleteBtn);
 
         // Find the confirm button in the AlertDialog

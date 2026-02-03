@@ -38,6 +38,11 @@ export interface TimelineRepository {
      * Delete a timeline item
      */
     delete(id: string): Promise<void>;
+
+    /**
+     * Count items associated with a specific child
+     */
+    countByChildId(childId: string): Promise<number>;
 }
 
 /**
@@ -64,11 +69,11 @@ export interface TimelineService {
      * Update a timeline item (e.g., toggle medication checkbox)
      * Only the creator can update their own items
      */
-    updateItem(id: string, updates: Partial<TimelineItem>, userId: string): Promise<TimelineItem>;
+    updateItem(id: string, updates: Partial<TimelineItem>, userId: string, userName?: string): Promise<TimelineItem>;
 
     /**
      * Delete a timeline item
      * Only the creator can delete their own items
      */
-    deleteItem(id: string, userId: string): Promise<void>;
+    deleteItem(id: string, userId: string, userName?: string): Promise<void>;
 }

@@ -22,6 +22,14 @@ const scheduleService = new ScheduleService(scheduleRepository, custodyRepositor
 const propagationService = new PropagationService(scheduleRepository);
 const custodyController = createCustodyController(custodyRepository, scheduleService, propagationService);
 
+import { InMemoryChildRepository } from "./adapters/secondary/InMemoryChildRepository";
+import { ChildService } from "./application/ChildService";
+import { createChildController } from "./adapters/primary/ChildController";
+
+const childRepository = new InMemoryChildRepository();
+const childService = new ChildService(childRepository, timelineRepository);
+const childController = createChildController(childService);
+
 import { InMemoryPasskeyRepository } from "./adapters/secondary/InMemoryPasskeyRepository";
 import { createWebAuthnController } from "./adapters/primary/WebAuthnController";
 
@@ -42,6 +50,7 @@ const app = new Elysia()
     .use(timelineController)
     .use(custodyController)
     .use(webAuthnController)
+    .use(childController)
     // Mount better-auth handler with a more robust catch-all
     .all("/api/auth/*", async ({ request, path }) => {
         // Log for debugging (optional, can be removed once verified)

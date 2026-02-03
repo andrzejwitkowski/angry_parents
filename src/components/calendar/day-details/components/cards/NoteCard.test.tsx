@@ -20,6 +20,9 @@ const mockItem: NoteItem = {
     createdAt: new Date().toISOString(),
     createdBy: 'user-1',
     content: 'This is a test note',
+    auditTrail: [],
+    isDeleted: false,
+    childIds: [],
 };
 
 const ownerUser = {
@@ -51,7 +54,8 @@ describe('NoteCard', () => {
             </I18nextProvider>
         );
         expect(screen.getByText('This is a test note')).toBeInTheDocument();
-        expect(screen.getByRole('button')).toBeInTheDocument(); // Trash button
+        expect(screen.getByTestId('delete-button')).toBeInTheDocument();
+        expect(screen.getByTestId('edit-button')).toBeInTheDocument();
     });
 
     it('renders correctly for non-owner', () => {
@@ -60,7 +64,8 @@ describe('NoteCard', () => {
                 <NoteCard item={mockItem} user={otherUser} />
             </I18nextProvider>
         );
-        expect(screen.queryByRole('button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('delete-button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('edit-button')).not.toBeInTheDocument();
     });
 
     it('calls delete API when delete button is clicked by owner', async () => {
@@ -72,7 +77,7 @@ describe('NoteCard', () => {
             </I18nextProvider>
         );
 
-        const deleteBtn = screen.getByRole('button');
+        const deleteBtn = screen.getByTestId('delete-button');
         fireEvent.click(deleteBtn);
 
         // Find the confirm button in the AlertDialog

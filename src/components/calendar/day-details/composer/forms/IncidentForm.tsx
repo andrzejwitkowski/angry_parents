@@ -7,38 +7,52 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle } from "lucide-react";
 import { Controller } from "react-hook-form";
+import { ChildSelector } from "../components/ChildSelector";
 
 const incidentSchema = z.object({
     severity: z.enum(["LOW", "MEDIUM", "HIGH"]),
     description: z.string().min(1, "Description is required"),
+    childIds: z.array(z.string()),
 });
 
 type IncidentFormData = z.infer<typeof incidentSchema>;
 
 interface IncidentFormProps {
+    initialData?: IncidentFormData;
     onSubmit: (data: IncidentFormData) => void;
     isSubmitting?: boolean;
 }
 
-export function IncidentForm({ onSubmit, isSubmitting }: IncidentFormProps) {
+export function IncidentForm({ initialData, onSubmit, isSubmitting }: IncidentFormProps) {
     const {
         handleSubmit,
         control,
+        setValue,
+        watch,
         register,
         formState: { errors },
     } = useForm<IncidentFormData>({
         resolver: zodResolver(incidentSchema),
         defaultValues: {
-            severity: "LOW",
+            severity: initialData?.severity || "LOW",
+            description: initialData?.description || "",
+            childIds: initialData?.childIds || [],
         },
     });
 
+    const selectedChildIds = watch("childIds");
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-red-600 mb-2">
                 <AlertTriangle className="w-5 h-5" />
                 <h3 className="font-semibold text-lg">Incident Report</h3>
             </div>
+
+            <ChildSelector
+                selectedIds={selectedChildIds}
+                onChange={(ids) => setValue("childIds", ids, { shouldValidate: true })}
+            />
 
             <div className="space-y-2">
                 <Label>Severity*</Label>
@@ -46,7 +60,7 @@ export function IncidentForm({ onSubmit, isSubmitting }: IncidentFormProps) {
                     name="severity"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select severity" />
                             </SelectTrigger>
@@ -79,7 +93,7 @@ export function IncidentForm({ onSubmit, isSubmitting }: IncidentFormProps) {
                 disabled={isSubmitting}
                 data-testid="submit-incident"
             >
-                {isSubmitting ? "Adding..." : "Add Incident"}
+                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Incident" : "Add Incident")}
             </Button>
         </form>
     );

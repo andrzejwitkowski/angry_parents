@@ -7,39 +7,54 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRightLeft } from "lucide-react";
 import { Controller } from "react-hook-form";
+import { ChildSelector } from "../components/ChildSelector";
 
 const handoverSchema = z.object({
     location: z.string().min(1, "Location is required"),
     time: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
     status: z.enum(["PENDING", "COMPLETED"]),
+    childIds: z.array(z.string()),
 });
 
 type HandoverFormData = z.infer<typeof handoverSchema>;
 
 interface HandoverFormProps {
+    initialData?: HandoverFormData;
     onSubmit: (data: HandoverFormData) => void;
     isSubmitting?: boolean;
 }
 
-export function HandoverForm({ onSubmit, isSubmitting }: HandoverFormProps) {
+export function HandoverForm({ initialData, onSubmit, isSubmitting }: HandoverFormProps) {
     const {
         register,
         handleSubmit,
         control,
+        setValue,
+        watch,
         formState: { errors },
     } = useForm<HandoverFormData>({
         resolver: zodResolver(handoverSchema),
         defaultValues: {
-            status: "PENDING",
+            location: initialData?.location || "",
+            time: initialData?.time || "",
+            status: initialData?.status || "PENDING",
+            childIds: initialData?.childIds || [],
         },
     });
 
+    const selectedChildIds = watch("childIds");
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-indigo-600 mb-2">
                 <ArrowRightLeft className="w-5 h-5" />
                 <h3 className="font-semibold text-lg">Handover Details</h3>
             </div>
+
+            <ChildSelector
+                selectedIds={selectedChildIds}
+                onChange={(ids) => setValue("childIds", ids, { shouldValidate: true })}
+            />
 
             <div className="space-y-2">
                 <Label htmlFor="location">Location*</Label>
@@ -74,7 +89,7 @@ export function HandoverForm({ onSubmit, isSubmitting }: HandoverFormProps) {
                         name="status"
                         control={control}
                         render={({ field }) => (
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
@@ -94,7 +109,7 @@ export function HandoverForm({ onSubmit, isSubmitting }: HandoverFormProps) {
                 disabled={isSubmitting}
                 data-testid="submit-handover"
             >
-                {isSubmitting ? "Adding..." : "Add Handover"}
+                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Handover" : "Add Handover")}
             </Button>
         </form>
     );

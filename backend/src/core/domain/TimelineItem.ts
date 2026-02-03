@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+const AuditEntrySchema = z.object({
+    timestamp: z.string().datetime(),
+    userId: z.string(),
+    userName: z.string().optional(),
+    action: z.enum(["CREATED", "UPDATED", "DELETED"]),
+    changes: z.any().optional(), // Field name to new value mapping
+});
+
 // Base schema for all timeline items
 const BaseTimelineItemSchema = z.object({
     id: z.string().uuid(),
@@ -7,6 +15,9 @@ const BaseTimelineItemSchema = z.object({
     createdAt: z.string().datetime(),
     createdBy: z.string(),
     createdByName: z.string().optional(),
+    auditTrail: z.array(AuditEntrySchema).default([]),
+    isDeleted: z.boolean().default(false),
+    childIds: z.array(z.string()).default([]),
 });
 
 // NOTE: Standard text message
@@ -75,6 +86,7 @@ export const TimelineItemSchema = z.discriminatedUnion("type", [
 ]);
 
 // TypeScript types inferred from Zod schemas
+export type AuditEntry = z.infer<typeof AuditEntrySchema>;
 export type BaseTimelineItem = z.infer<typeof BaseTimelineItemSchema>;
 export type NoteItem = z.infer<typeof NoteItemSchema>;
 export type HandoverItem = z.infer<typeof HandoverItemSchema>;
@@ -85,5 +97,7 @@ export type VacationItem = z.infer<typeof VacationItemSchema>;
 export type AttachmentItem = z.infer<typeof AttachmentItemSchema>;
 export type TimelineItem = z.infer<typeof TimelineItemSchema>;
 
-// Helper type for creating new items (without id, createdAt)
-export type CreateTimelineItemDto = Omit<TimelineItem, "id" | "createdAt">;
+// Helper type for creating new items (without id, createdAt, auditTrail, isDeleted)
+export type CreateTimelineItemDto = TimelineItem extends any
+    ? Omit<TimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted">
+    : never;

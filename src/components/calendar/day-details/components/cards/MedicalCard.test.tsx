@@ -23,6 +23,9 @@ const mockItem: MedicalVisitItem = {
     diagnosis: 'Lupus (it is never lupus)',
     recommendations: 'Sarcasm and vicodin',
     attachments: [],
+    auditTrail: [],
+    isDeleted: false,
+    childIds: [],
 };
 
 const ownerUser = {
@@ -56,7 +59,8 @@ describe('MedicalCard', () => {
         );
         expect(screen.getByText('Dr. House')).toBeInTheDocument();
         expect(screen.getByText('Lupus (it is never lupus)')).toBeInTheDocument();
-        expect(screen.getByRole('button')).toBeInTheDocument(); // Trash button
+        expect(screen.getByTestId('delete-button')).toBeInTheDocument();
+        expect(screen.getByTestId('edit-button')).toBeInTheDocument();
     });
 
     it('renders correctly for non-owner', () => {
@@ -65,7 +69,8 @@ describe('MedicalCard', () => {
                 <MedicalCard item={mockItem} user={otherUser} />
             </I18nextProvider>
         );
-        expect(screen.queryByRole('button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('delete-button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('edit-button')).not.toBeInTheDocument();
     });
 
     it('calls delete API when delete button is clicked by owner', async () => {
@@ -77,7 +82,7 @@ describe('MedicalCard', () => {
             </I18nextProvider>
         );
 
-        const deleteBtn = screen.getByRole('button');
+        const deleteBtn = screen.getByTestId('delete-button');
         fireEvent.click(deleteBtn);
 
         // Find the confirm button in the AlertDialog

@@ -23,6 +23,9 @@ const mockItem: MedsItem = {
     medicineName: 'Paracetamol',
     dosage: '500mg',
     administered: false,
+    auditTrail: [],
+    isDeleted: false,
+    childIds: [],
 };
 
 const ownerUser = {
@@ -56,7 +59,8 @@ describe('MedsCard', () => {
         );
         expect(screen.getByText('Paracetamol')).toBeInTheDocument();
         expect(screen.getByRole('checkbox')).not.toBeDisabled();
-        expect(screen.getByRole('button')).toBeInTheDocument(); // Trash button
+        expect(screen.getByTestId('delete-button')).toBeInTheDocument();
+        expect(screen.getByTestId('edit-button')).toBeInTheDocument();
     });
 
     it('renders correctly for non-owner', () => {
@@ -65,8 +69,9 @@ describe('MedsCard', () => {
                 <MedsCard item={mockItem} user={otherUser} />
             </I18nextProvider>
         );
-        expect(screen.getByRole('checkbox')).toBeDisabled();
-        expect(screen.queryByRole('button')).not.toBeInTheDocument();
+        expect(screen.getByRole('checkbox')).not.toBeDisabled();
+        expect(screen.queryByTestId('delete-button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('edit-button')).not.toBeInTheDocument();
     });
 
     it('calls onUpdate when checkbox is toggled by owner', async () => {
@@ -98,7 +103,7 @@ describe('MedsCard', () => {
             </I18nextProvider>
         );
 
-        const deleteBtn = screen.getByRole('button');
+        const deleteBtn = screen.getByTestId('delete-button');
         fireEvent.click(deleteBtn);
 
         // Find the confirm button in the AlertDialog

@@ -88,6 +88,16 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         }
     }
 
+    async countByChildId(childId: string): Promise<number> {
+        let count = 0;
+        for (const item of this.itemsById.values()) {
+            if (item.childIds?.includes(childId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /**
      * Utility method for testing - clears all data
      */

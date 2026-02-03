@@ -6,36 +6,55 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Stethoscope } from "lucide-react";
+import { ChildSelector } from "../components/ChildSelector";
 
 const medicalSchema = z.object({
     doctor: z.string().min(1, "Doctor name is required"),
     specialization: z.string().optional(),
     diagnosis: z.string().min(3, "Diagnosis must be at least 3 characters"),
     recommendations: z.string().optional(),
+    childIds: z.array(z.string()),
 });
 
 type MedicalFormData = z.infer<typeof medicalSchema>;
 
 interface MedicalFormProps {
+    initialData?: MedicalFormData;
     onSubmit: (data: MedicalFormData) => void;
     isSubmitting?: boolean;
 }
 
-export function MedicalForm({ onSubmit, isSubmitting }: MedicalFormProps) {
+export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalFormProps) {
     const {
         register,
         handleSubmit,
+        setValue,
+        watch,
         formState: { errors },
     } = useForm<MedicalFormData>({
         resolver: zodResolver(medicalSchema),
+        defaultValues: {
+            doctor: initialData?.doctor || "",
+            specialization: initialData?.specialization || "",
+            diagnosis: initialData?.diagnosis || "",
+            recommendations: initialData?.recommendations || "",
+            childIds: initialData?.childIds || [],
+        },
     });
 
+    const selectedChildIds = watch("childIds");
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-emerald-600 mb-2">
                 <Stethoscope className="w-5 h-5" />
                 <h3 className="font-semibold text-lg">Medical Visit Details</h3>
             </div>
+
+            <ChildSelector
+                selectedIds={selectedChildIds}
+                onChange={(ids) => setValue("childIds", ids, { shouldValidate: true })}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -90,7 +109,7 @@ export function MedicalForm({ onSubmit, isSubmitting }: MedicalFormProps) {
                 disabled={isSubmitting}
                 data-testid="submit-medical"
             >
-                {isSubmitting ? "Adding..." : "Add Medical Visit"}
+                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Medical Visit" : "Add Medical Visit")}
             </Button>
         </form>
     );

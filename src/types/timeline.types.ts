@@ -1,12 +1,23 @@
 // Frontend mirror of backend domain types
 // Keep in sync with backend/src/core/domain/TimelineItem.ts
 
+export type AuditEntry = {
+    timestamp: string;
+    userId: string;
+    userName?: string;
+    action: "CREATED" | "UPDATED" | "DELETED";
+    changes?: Record<string, any>;
+};
+
 export type BaseTimelineItem = {
     id: string;
     date: string; // YYYY-MM-DD
     createdAt: string;
     createdBy: string;
     createdByName?: string;
+    auditTrail: AuditEntry[];
+    isDeleted: boolean;
+    childIds: string[];
 };
 
 export type NoteItem = BaseTimelineItem & {
@@ -66,5 +77,5 @@ export type TimelineItem =
     | VacationItem
     | AttachmentItem;
 
-// DTO for creating new items (without id, createdAt)
-export type CreateTimelineItemDto = Omit<TimelineItem, "id" | "createdAt">;
+// DTO for creating new items (without id, createdAt, auditTrail, isDeleted)
+export type CreateTimelineItemDto = Omit<TimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted">;

@@ -20,13 +20,22 @@ const resources = {
             "common.confirm": "Confirm",
             "common.cancel": "Cancel",
             "common.deleteTitle": "Delete Entry",
+            "common.history": "History",
+            "common.modified": "Modified",
+            "common.anonymous": "Anonymous",
             "meds.confirmDelete": "Are you sure you want to delete this medication?",
             "note.confirmDelete": "Are you sure you want to delete this note?",
             "attachment.confirmDelete": "Are you sure you want to delete this attachment?",
             "medical.confirmDelete": "Are you sure you want to delete this medical visit?",
             "handover.confirmDelete": "Are you sure you want to delete this handover?",
             "incident.confirmDelete": "Are you sure you want to delete this incident?",
-            "vacation.confirmDelete": "Are you sure you want to delete this vacation?"
+            "vacation.confirmDelete": "Are you sure you want to delete this vacation?",
+            "timeline.auditLog": "Modification History",
+            "timeline.clickToShowHistory": "Click to show full history",
+            "timeline.fieldChanges": "Changed fields",
+            "timeline.action.CREATED": "Created",
+            "timeline.action.UPDATED": "Modified",
+            "timeline.action.DELETED": "Deleted"
         }
     }
 };

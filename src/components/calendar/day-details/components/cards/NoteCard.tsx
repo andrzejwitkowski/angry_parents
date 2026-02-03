@@ -1,9 +1,13 @@
-import { StickyNote, Trash2 } from "lucide-react";
+import { StickyNote, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { NoteItem } from "@/types/timeline.types";
 import { timelineApi } from "@/lib/api/timeline";
+import { AuditIndicator } from "../AuditIndicator";
+import { TimelineEditDialog } from "../TimelineEditDialog";
+import { ChildIndicators } from "../ChildIndicators";
 
 import {
     AlertDialog,
@@ -25,8 +29,9 @@ interface NoteCardProps {
     onDelete?: () => void;
 }
 
-export function NoteCard({ item, user, onUpdate: _onUpdate, onDelete }: NoteCardProps) {
+export function NoteCard({ item, user, onUpdate, onDelete }: NoteCardProps) {
     const { t } = useTranslation();
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const isOwner = user?.id === item.createdBy;
 
     const handleDelete = async () => {
@@ -46,37 +51,52 @@ export function NoteCard({ item, user, onUpdate: _onUpdate, onDelete }: NoteCard
                         <div className="p-2 bg-slate-500 rounded-lg">
                             <StickyNote className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="font-bold text-slate-900">Note</h3>
+                        <div className="flex flex-col">
+                            <h3 className="font-bold text-slate-900">Note</h3>
+                            <ChildIndicators childIds={item.childIds} />
+                        </div>
                     </div>
                     {isOwner && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        {t("note.confirmDelete")}
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={handleDelete}
-                                        className="bg-red-600 hover:bg-red-700"
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-blue-500 hover:bg-blue-50"
+                                onClick={() => setIsEditDialogOpen(true)}
+                                data-testid="edit-button"
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                        data-testid="delete-button"
                                     >
-                                        {t("common.confirm")}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {t("note.confirmDelete")}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={handleDelete}
+                                            className="bg-red-600 hover:bg-red-700"
+                                        >
+                                            {t("common.confirm")}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     )}
                 </div>
             </CardHeader>
@@ -88,10 +108,19 @@ export function NoteCard({ item, user, onUpdate: _onUpdate, onDelete }: NoteCard
                     </p>
                 </div>
 
-                <p className="text-xs text-gray-500 pt-2">
-                    {new Date(item.createdAt).toLocaleString()}
-                </p>
+                <div className="flex items-center justify-between pt-2">
+                    <p className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleString()}
+                    </p>
+                    <AuditIndicator item={item} />
+                </div>
             </CardContent>
+            <TimelineEditDialog
+                item={item}
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+                onSuccess={(updated) => onUpdate?.(updated as NoteItem)}
+            />
         </Card>
     );
 }

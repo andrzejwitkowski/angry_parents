@@ -1,5 +1,6 @@
-import { ArrowRightLeft, MapPin, Clock, Trash2 } from "lucide-react";
+import { ArrowRightLeft, MapPin, Clock, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,9 @@ import type { HandoverItem } from "@/types/timeline.types";
 import type { User } from "@/types/user";
 import { timelineApi } from "@/lib/api/timeline";
 import { cn } from "@/lib/utils";
+import { AuditIndicator } from "../AuditIndicator";
+import { TimelineEditDialog } from "../TimelineEditDialog";
+import { ChildIndicators } from "../ChildIndicators";
 
 import {
     AlertDialog,
@@ -27,8 +31,9 @@ interface HandoverCardProps {
     onDelete?: () => void;
 }
 
-export function HandoverCard({ item, user, onUpdate: _onUpdate, onDelete }: HandoverCardProps) {
+export function HandoverCard({ item, user, onUpdate, onDelete }: HandoverCardProps) {
     const { t } = useTranslation();
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const isOwner = user?.id === item.createdBy;
     const isCompleted = item.status === "COMPLETED";
 
@@ -58,7 +63,10 @@ export function HandoverCard({ item, user, onUpdate: _onUpdate, onDelete }: Hand
                         )}>
                             <ArrowRightLeft className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="font-bold text-indigo-900">Child Handover</h3>
+                        <div className="flex flex-col">
+                            <h3 className="font-bold text-indigo-900">Child Handover</h3>
+                            <ChildIndicators childIds={item.childIds} />
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge
@@ -72,34 +80,46 @@ export function HandoverCard({ item, user, onUpdate: _onUpdate, onDelete }: Hand
                             {item.status}
                         </Badge>
                         {isOwner && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            {t("handover.confirmDelete")}
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={handleDelete}
-                                            className="bg-red-600 hover:bg-red-700"
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-blue-500 hover:bg-blue-50"
+                                    onClick={() => setIsEditDialogOpen(true)}
+                                    data-testid="edit-button"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                            data-testid="delete-button"
                                         >
-                                            {t("common.confirm")}
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>{t("common.deleteTitle")}</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {t("handover.confirmDelete")}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={handleDelete}
+                                                className="bg-red-600 hover:bg-red-700"
+                                            >
+                                                {t("common.confirm")}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -142,8 +162,15 @@ export function HandoverCard({ item, user, onUpdate: _onUpdate, onDelete }: Hand
                             Added by {item.createdByName}
                         </p>
                     )}
+                    <AuditIndicator item={item} />
                 </div>
             </CardContent>
+            <TimelineEditDialog
+                item={item}
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+                onSuccess={(updated) => onUpdate?.(updated as HandoverItem)}
+            />
         </Card>
     );
 }

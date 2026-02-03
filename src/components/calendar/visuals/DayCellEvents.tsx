@@ -10,6 +10,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TimelineItemFactory } from "../day-details/components/TimelineItemFactory";
 import { format } from "date-fns";
+import { History } from "lucide-react";
 
 import type { User } from '@/types/user';
 
@@ -44,8 +45,19 @@ export function DayCellEvents({ events, maxVisible = 3, onDayClick, user }: DayC
     const overflowItems = sortedEvents.slice(maxVisible);
     const dateStr = events[0].date;
 
+    const hasModifiedEvents = events.some(e => e.auditTrail.length > 1);
+
     return (
-        <div className="flex flex-wrap gap-1 mt-auto pt-2">
+        <div className="flex flex-wrap gap-1 mt-auto pt-2 relative">
+            {hasModifiedEvents && (
+                <div
+                    className="absolute -top-1 -right-1 p-0.5 bg-amber-100 rounded-sm border border-amber-200 shadow-sm animate-in zoom-in duration-300"
+                    title="Contains modified entries"
+                >
+                    <History className="w-2.5 h-2.5 text-amber-600 animate-pulse" />
+                </div>
+            )}
+
             {visibleItems.map((event) => (
                 <EventIndicator key={event.id} event={event} onViewDetails={onDayClick} />
             ))}
