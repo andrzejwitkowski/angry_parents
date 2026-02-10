@@ -35,7 +35,8 @@ const resources = {
             "timeline.fieldChanges": "Changed fields",
             "timeline.action.CREATED": "Created",
             "timeline.action.UPDATED": "Modified",
-            "timeline.action.DELETED": "Deleted"
+            "timeline.action.DELETED": "Deleted",
+            "timeline.noChildrenAssigned": "No children assigned"
         }
     }
 };

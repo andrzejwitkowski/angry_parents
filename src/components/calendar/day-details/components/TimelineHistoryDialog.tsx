@@ -17,8 +17,13 @@ interface TimelineHistoryDialogProps {
     trigger?: React.ReactNode;
 }
 
+import { useChildren } from "@/hooks/useChildren";
+import type { Child } from "@/lib/api/children";
+
 export function TimelineHistoryDialog({ item, trigger }: TimelineHistoryDialogProps) {
     const { t } = useTranslation();
+    const { children } = useChildren(); // Fetch children for mapping
+
     const sortedAudit = [...item.auditTrail].sort((a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
@@ -43,7 +48,7 @@ export function TimelineHistoryDialog({ item, trigger }: TimelineHistoryDialogPr
                 <ScrollArea className="pr-4 mt-4">
                     <div className="space-y-6 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
                         {sortedAudit.map((entry, index) => (
-                            <AuditEntryRow key={index} entry={entry} isLatest={index === 0} />
+                            <AuditEntryRow key={index} entry={entry} isLatest={index === 0} childrenMap={children} />
                         ))}
                     </div>
                 </ScrollArea>
@@ -52,7 +57,7 @@ export function TimelineHistoryDialog({ item, trigger }: TimelineHistoryDialogPr
     );
 }
 
-function AuditEntryRow({ entry, isLatest }: { entry: AuditEntry; isLatest: boolean }) {
+function AuditEntryRow({ entry, isLatest, childrenMap }: { entry: AuditEntry; isLatest: boolean; childrenMap: Child[] }) {
     const { t } = useTranslation();
 
     const getActionColor = () => {
@@ -62,6 +67,22 @@ function AuditEntryRow({ entry, isLatest }: { entry: AuditEntry; isLatest: boole
             case "DELETED": return "bg-red-100 text-red-700 border-red-200";
             default: return "bg-slate-100 text-slate-700 border-slate-200";
         }
+    };
+
+    const formatValue = (field: string, value: unknown) => {
+        if (field === "childIds" && Array.isArray(value)) {
+            const ids = value as string[];
+            if (ids.length === 0) return t("timeline.noChildrenAssigned");
+
+            const names = ids.map(id => {
+                const child = childrenMap.find(c => c.id === id);
+                return child ? child.name : id;
+            });
+            return names.join(", ");
+        }
+
+        return typeof value === "boolean" ? (value ? "Yes" : "No") :
+            typeof value === "object" ? JSON.stringify(value) : String(value);
     };
 
     return (
@@ -100,8 +121,7 @@ function AuditEntryRow({ entry, isLatest }: { entry: AuditEntry; isLatest: boole
                                         {field}
                                     </span>
                                     <span className="text-[11px] text-slate-800 break-all pl-1.5 border-l-2 border-slate-200">
-                                        {typeof value === "boolean" ? (value ? "Yes" : "No") :
-                                            typeof value === "object" ? JSON.stringify(value) : String(value)}
+                                        {formatValue(field, value)}
                                     </span>
                                 </div>
                             ))}

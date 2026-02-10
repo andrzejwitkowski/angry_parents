@@ -31,6 +31,11 @@ globalAny.TextEncoder = dom.window.TextEncoder;
 globalAny.TextDecoder = dom.window.TextDecoder;
 globalAny.Event = dom.window.Event;
 globalAny.CustomEvent = dom.window.CustomEvent;
+globalAny.NodeFilter = dom.window.NodeFilter;
+globalAny.HTMLInputElement = dom.window.HTMLInputElement;
+globalAny.HTMLElement = dom.window.HTMLElement;
+globalAny.Element = dom.window.Element;
+globalAny.Node = dom.window.Node;
 globalAny.localStorage = dom.window.localStorage;
 globalAny.sessionStorage = dom.window.sessionStorage;
 
