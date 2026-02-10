@@ -1,5 +1,5 @@
-import type { TimelineRepository } from "../../core/ports/TimelineRepository";
-import type { TimelineItem } from "../../core/domain/TimelineItem";
+// import type { TimelineRepository } from "../../core/ports/TimelineRepository";
+// import type { TimelineItem } from "../../core/domain/TimelineItem";
 
 /**
  * MongoDB Timeline Repository (Future Implementation)
@@ -73,7 +73,7 @@ export class MongoTimelineRepository implements TimelineRepository {
 
 // Placeholder export to prevent TypeScript errors
 export class MongoTimelineRepository {
-    constructor() {
-        throw new Error("MongoTimelineRepository not yet implemented. Use InMemoryTimelineRepository for now.");
-    }
+  constructor() {
+    throw new Error("MongoTimelineRepository not yet implemented. Use InMemoryTimelineRepository for now.");
+  }
 }

@@ -65,6 +65,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                 try {
                     const userId = session?.user?.id || "anonymous";
                     // Fallback to username if name is not set (Better Auth additional fields)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const userName = session?.user?.name || (session?.user as any)?.username || "Unknown";
 
                     const item = await service.createItem({
@@ -107,7 +108,9 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     if (!session?.user) {
                         return { error: "Unauthorized", status: 401 };
                     }
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const userName = session.user.name || (session.user as any)?.username || "Unknown";
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const updated = await service.updateItem(params.id, body as any, session.user.id, userName);
                     return updated;
                 } catch (error) {
@@ -133,6 +136,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         set.status = 401;
                         return { error: "Unauthorized" };
                     }
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const userName = session.user.name || (session.user as any)?.username || "Unknown";
                     await service.deleteItem(params.id, session.user.id, userName);
                     set.status = 204;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TimelineFeed } from "./TimelineFeed";
 import { LogComposer } from "./composer/LogComposer";
@@ -24,7 +24,7 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, onUpdate }: DayDe
     const formattedDate = date ? format(date, "yyyy-MM-dd") : "";
     const displayDate = date ? format(date, "EEEE, MMMM do, yyyy") : "";
 
-    const fetchItems = async () => {
+    const fetchItems = useCallback(async () => {
         if (!formattedDate) return;
         setLoading(true);
         setError(null);
@@ -36,13 +36,13 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, onUpdate }: DayDe
         } finally {
             setLoading(false);
         }
-    };
+    }, [formattedDate]);
 
     useEffect(() => {
         if (isOpen && formattedDate) {
             fetchItems();
         }
-    }, [isOpen, formattedDate]);
+    }, [isOpen, formattedDate, fetchItems]);
 
     const handleItemUpdate = (updatedItem: TimelineItem) => {
         if (!updatedItem?.id) return;

@@ -35,6 +35,7 @@ export function NoteForm({ initialData, onSubmit, isSubmitting }: NoteFormProps)
         },
     });
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedChildIds = watch("childIds");
 
     return (

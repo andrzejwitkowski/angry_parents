@@ -103,8 +103,9 @@ export class TimelineServiceImpl {
         }
 
         // Calculate changes for audit trail
-        const changes: Record<string, any> = {};
+        const changes: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(updates)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if (JSON.stringify((existing as any)[key]) !== JSON.stringify(value)) {
                 changes[key] = value;
             }

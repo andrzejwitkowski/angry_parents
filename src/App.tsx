@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
+
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import PasskeySetup from './pages/PasskeySetup';

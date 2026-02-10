@@ -2,7 +2,7 @@ import type { TimelineItem } from "@/types/timeline.types";
 import { TimelineItemFactory } from "./components/TimelineItemFactory";
 import { Calendar, AlertCircle } from "lucide-react";
 import type { User } from '@/types/user';
-import { useTranslation } from "react-i18next";
+
 
 interface TimelineFeedProps {
     items: TimelineItem[];
@@ -12,7 +12,7 @@ interface TimelineFeedProps {
 }
 
 export function TimelineFeed({ items, onItemUpdate, onItemDelete, user }: TimelineFeedProps) {
-    const { t } = useTranslation();
+
 
     if (items.length === 0) {
         return (

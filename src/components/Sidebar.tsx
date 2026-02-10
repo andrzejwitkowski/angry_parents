@@ -5,7 +5,7 @@ import { SidebarNav } from "./sidebar/SidebarNav";
 import { SidebarFooter } from "./sidebar/SidebarFooter";
 
 interface SidebarProps {
-    user: any;
+    user: import("@/types/user").User | null;
 }
 
 export function Sidebar({ user }: SidebarProps) {

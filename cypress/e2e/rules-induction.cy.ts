@@ -34,7 +34,7 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
         cy.contains('Generate Schedule', { timeout: 10000 }).should('be.visible');
     });
 
-    const TARGET_DATE = '2030-01-15'; // Far future to ensure no conflicts
+
 
     it('Visually proves the Tower of Overrides (Blue -> Pink -> Blue -> Pink -> Revert)', () => {
         // Step 0: Ensure we are on the dashboard

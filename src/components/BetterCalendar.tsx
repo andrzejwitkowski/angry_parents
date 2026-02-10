@@ -1,12 +1,10 @@
-import { useState } from "react";
-import { addMonths, subMonths } from "date-fns";
+import { useState, useEffect, useCallback } from "react";
+import { addMonths, subMonths, startOfMonth, endOfMonth, format } from "date-fns";
 import { getCalendarDays } from "@/lib/calendar-utils";
 import { CalendarHeader } from "./calendar/CalendarHeader";
 import { CalendarWeekDays } from "./calendar/CalendarWeekDays";
 import { CalendarGrid } from "./calendar/CalendarGrid";
 import { DayDetailsSheet } from "./calendar/day-details/DayDetailsSheet";
-import { useEffect } from "react";
-import { startOfMonth, endOfMonth, format } from "date-fns";
 import { timelineApi } from "@/lib/api/timeline";
 import type { TimelineItem } from "@/types/timeline.types";
 import type { User } from '@/types/user';
@@ -21,11 +19,11 @@ export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
     const [selectedDateForSheet, setSelectedDateForSheet] = useState<Date | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [monthEvents, setMonthEvents] = useState<TimelineItem[]>([]);
-    const [custodyEntries, setCustodyEntries] = useState<any[]>([]); // Using any[] for now or import CustodyEntry
+    const [custodyEntries, setCustodyEntries] = useState<unknown[]>([]); // Using any[] for now or import CustodyEntry
 
     const daysInMonth = getCalendarDays(currentDate);
 
-    const fetchMonthData = async () => {
+    const fetchMonthData = useCallback(async () => {
         const start = format(startOfMonth(currentDate), "yyyy-MM-dd");
         const end = format(endOfMonth(currentDate), "yyyy-MM-dd");
 
@@ -37,15 +35,16 @@ export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
             ]);
 
             setMonthEvents(events);
-            setCustodyEntries(custody as any[]);
+            setCustodyEntries(custody as unknown[]);
         } catch (error) {
             console.error("Failed to fetch month data:", error);
         }
-    };
+    }, [currentDate]);
 
     useEffect(() => {
+        // eslint-disable-next-line
         fetchMonthData();
-    }, [currentDate, refreshKey]);
+    }, [currentDate, refreshKey, fetchMonthData]);
 
     const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));

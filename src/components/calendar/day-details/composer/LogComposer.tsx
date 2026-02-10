@@ -23,7 +23,7 @@ export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
         setSelectedMode(prev => (prev === mode ? null : mode));
     };
 
-    const handleFormSubmit = async (formData: any) => {
+    const handleFormSubmit = async (formData: Record<string, unknown>) => {
         if (!selectedMode) return;
 
         setIsSubmitting(true);
@@ -32,7 +32,7 @@ export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
                 type: selectedMode,
                 date,
                 createdBy,
-                ...formData,
+                ...(formData as Omit<CreateTimelineItemDto, "type" | "date" | "createdBy">),
             };
 
             await timelineApi.create(dto);

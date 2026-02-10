@@ -132,13 +132,13 @@ describe("CustodyGenerator", () => {
         // 2027-12-25 is a Saturday.
 
         // Step 1: Generate Standard Weekend Entry for Dad
-        const weekendConfig: CustodyPatternConfig = {
+        /* const weekendConfig: CustodyPatternConfig = {
             childId: "child-1",
             startDate: "2027-12-01",
             endDate: "2027-12-31",
             type: "WEEKEND",
             startingParent: "DAD"
-        };
+        }; */
 
         // We assume generator allows merging/overwriting. 
         // In a real app, we might call generate twice and merge.

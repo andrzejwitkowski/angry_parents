@@ -1,16 +1,16 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { I18nextProvider } from "react-i18next";
 import i18n from "@/i18n";
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, jest, mock, beforeEach } from 'bun:test';
 import { MedsCard } from './MedsCard';
 import type { MedsItem } from '@/types/timeline.types';
 import { timelineApi } from '@/lib/api/timeline';
 
 // Mock the API
-vi.mock('@/lib/api/timeline', () => ({
+mock.module('@/lib/api/timeline', () => ({
     timelineApi: {
-        update: vi.fn(),
-        delete: vi.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
     },
 }));
 
@@ -48,7 +48,7 @@ const otherUser = {
 
 describe('MedsCard', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
+        jest.clearAllMocks();
     });
 
     it('renders correctly for owner', () => {
@@ -75,8 +75,9 @@ describe('MedsCard', () => {
     });
 
     it('calls onUpdate when checkbox is toggled by owner', async () => {
-        const onUpdate = vi.fn();
-        (timelineApi.update as any).mockResolvedValue({ ...mockItem, administered: true });
+        const onUpdate = jest.fn();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (timelineApi.update as import("bun:test").Mock<any>).mockResolvedValue({ ...mockItem, administered: true });
 
         render(
             <I18nextProvider i18n={i18n}>
@@ -87,15 +88,15 @@ describe('MedsCard', () => {
         const checkbox = screen.getByRole('checkbox');
         fireEvent.click(checkbox);
 
-        await vi.waitFor(() => {
+        await waitFor(() => {
             expect(timelineApi.update).toHaveBeenCalledWith('1', { administered: true });
             expect(onUpdate).toHaveBeenCalled();
         });
     });
 
     it('calls delete API when delete button is clicked by owner', async () => {
-        const onUpdate = vi.fn();
-        const onDelete = vi.fn();
+        const onUpdate = jest.fn();
+        const onDelete = jest.fn();
 
         render(
             <I18nextProvider i18n={i18n}>
@@ -110,7 +111,7 @@ describe('MedsCard', () => {
         const confirmBtn = await screen.findByText('Confirm');
         fireEvent.click(confirmBtn);
 
-        await vi.waitFor(() => {
+        await waitFor(() => {
             expect(timelineApi.delete).toHaveBeenCalledWith('1');
             expect(onDelete).toHaveBeenCalled();
         }, { timeout: 2000 });

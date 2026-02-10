@@ -25,7 +25,7 @@ describe("WebAuthnController", () => {
         expect(response.status).toBe(200);
         const json = await response.json();
         expect(json.challenge).toBeDefined();
-        // @ts-ignore
+        // @ts-expect-error Testing mock response
         expect(json.user.id).toBeDefined();
     });
 
@@ -45,7 +45,7 @@ describe("WebAuthnController", () => {
 
         expect(response.status).toBe(200);
         const json = await response.json();
-        // @ts-ignore
+        // @ts-expect-error Testing mock response
         expect(json.verified).toBe(true);
 
         const saved = await repo.findByUserId("user-123");
@@ -57,7 +57,7 @@ describe("WebAuthnController", () => {
         const response = await app.handle(new Request("http://localhost/api/auth/webauthn/status"));
         expect(response.status).toBe(200);
         const json = await response.json();
-        // @ts-ignore
+        // @ts-expect-error Testing mock response
         expect(json.hasPasskey).toBe(true);
     });
 });

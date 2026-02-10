@@ -3,7 +3,7 @@ import { TimelineServiceImpl } from "../TimelineService";
 import { InMemoryTimelineRepository } from "../../adapters/secondary/InMemoryTimelineRepository";
 import { RealDateProvider } from "../../adapters/secondary/RealDateProvider";
 import { RealUuidProvider } from "../../adapters/secondary/RealUuidProvider";
-import type { CreateTimelineItemDto, MedicalVisitItem, MedsItem, NoteItem, HandoverItem, IncidentItem } from "../../core/domain/TimelineItem";
+import type { CreateTimelineItemDto, MedicalVisitItem, MedsItem, NoteItem, IncidentItem } from "../../core/domain/TimelineItem";
 
 describe("TimelineService", () => {
     let service: TimelineServiceImpl;
@@ -45,6 +45,7 @@ describe("TimelineService", () => {
                 dosage: "500mg",
                 administered: false,
                 childIds: ["child-1"],
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any as CreateTimelineItemDto;
 
             const item = await service.createItem(dto);
@@ -173,6 +174,7 @@ describe("TimelineService", () => {
                 dosage: "500mg",
                 administered: false,
                 childIds: ["child-1"],
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any as CreateTimelineItemDto;
 
             const created = await service.createItem(dto);

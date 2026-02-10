@@ -34,7 +34,7 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
             const isWeek1 = cycleDay < 7;
             const dayOfWeek = current.getDay(); // 0=Sun, 5=Fri, 6=Sat, 1=Mon
 
-            let assignments: { start: string, end: string, parent: 'MOM' | 'DAD' }[] = [];
+            const assignments: { start: string, end: string, parent: 'MOM' | 'DAD' }[] = [];
 
             // Logic for "Standard" Alternating Weekend starting on Friday
             // Week 1: Weekend Parent ON.
@@ -61,7 +61,7 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
             }
 
             // Create entries
-            assignments.forEach((assign, index) => {
+            assignments.forEach((assign) => {
                 entries.push({
                     id: uuidProvider.generate(),
                     childId: config.childId,

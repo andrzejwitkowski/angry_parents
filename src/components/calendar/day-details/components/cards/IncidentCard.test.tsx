@@ -1,14 +1,15 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, jest, mock, beforeEach } from "bun:test";
 import { IncidentCard } from "./IncidentCard";
 import { I18nextProvider } from "react-i18next";
 import i18n from "@/i18n";
 import { timelineApi } from "@/lib/api/timeline";
 
 // Mock the API
-vi.mock("@/lib/api/timeline", () => ({
+// Mock the API
+mock.module("@/lib/api/timeline", () => ({
     timelineApi: {
-        delete: vi.fn(),
+        delete: jest.fn(),
     },
 }));
 
@@ -35,7 +36,7 @@ describe("IncidentCard", () => {
     };
 
     beforeEach(() => {
-        vi.clearAllMocks();
+        jest.clearAllMocks();
     });
 
     const createMockUser = (id: string) => ({
@@ -62,7 +63,7 @@ describe("IncidentCard", () => {
     });
 
     it("calls delete API when delete button is clicked by owner", async () => {
-        const onDelete = vi.fn();
+        const onDelete = jest.fn();
         const user = createMockUser("user-owner");
 
         renderWithi18n(<IncidentCard item={mockItem} user={user} onDelete={onDelete} />);
@@ -74,7 +75,7 @@ describe("IncidentCard", () => {
         const confirmBtn = await screen.findByText("Confirm");
         fireEvent.click(confirmBtn);
 
-        await vi.waitFor(() => {
+        await waitFor(() => {
             expect(timelineApi.delete).toHaveBeenCalledWith("incident-1");
             expect(onDelete).toHaveBeenCalled();
         }, { timeout: 2000 });

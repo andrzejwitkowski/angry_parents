@@ -22,8 +22,8 @@ export const registerPasskey = async () => {
     let registrationResponse;
     try {
         registrationResponse = await startRegistration(options);
-    } catch (error: any) {
-        if (error.name === 'InvalidStateError') {
+    } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'InvalidStateError') {
             throw new Error('Authenticator was probably already registered by this user');
         }
         throw error;

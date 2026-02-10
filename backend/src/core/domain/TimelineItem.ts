@@ -98,6 +98,7 @@ export type AttachmentItem = z.infer<typeof AttachmentItemSchema>;
 export type TimelineItem = z.infer<typeof TimelineItemSchema>;
 
 // Helper type for creating new items (without id, createdAt, auditTrail, isDeleted)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CreateTimelineItemDto = TimelineItem extends any
     ? Omit<TimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted">
     : never;

@@ -24,9 +24,10 @@ export default function PasskeySetup() {
             await registerPasskey();
             // Success
             navigate('/dashboard');
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            setError(e.message || "Failed to register key");
+            const msg = e instanceof Error ? e.message : "Failed to register key";
+            setError(msg);
         } finally {
             setLoading(false);
         }
@@ -72,8 +73,9 @@ export default function PasskeySetup() {
                                 try {
                                     await mockRegisterPasskey();
                                     navigate('/dashboard');
-                                } catch (e: any) {
-                                    setError(`Mock registration failed: ${e.message}`);
+                                } catch (e: unknown) {
+                                    const msg = e instanceof Error ? e.message : "Unknown error";
+                                    setError(`Mock registration failed: ${msg}`);
                                 } finally {
                                     setLoading(false);
                                 }

@@ -50,6 +50,7 @@ export default function AuthPage() {
             password,
             name,
             username,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any, {
             onSuccess: () => {
                 navigate('/setup-passkey');

@@ -1,15 +1,17 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { I18nextProvider } from "react-i18next";
 import i18n from "@/i18n";
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, jest, mock, beforeEach } from 'bun:test';
 import { MedicalCard } from './MedicalCard';
 import type { MedicalVisitItem } from '@/types/timeline.types';
 import { timelineApi } from '@/lib/api/timeline';
 
 // Mock the API
-vi.mock('@/lib/api/timeline', () => ({
+// Mock the API
+// Mock the API
+mock.module('@/lib/api/timeline', () => ({
     timelineApi: {
-        delete: vi.fn(),
+        delete: jest.fn(),
     },
 }));
 
@@ -48,7 +50,7 @@ const otherUser = {
 
 describe('MedicalCard', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
+        jest.clearAllMocks();
     });
 
     it('renders correctly for owner', () => {
@@ -74,7 +76,7 @@ describe('MedicalCard', () => {
     });
 
     it('calls delete API when delete button is clicked by owner', async () => {
-        const onDelete = vi.fn();
+        const onDelete = jest.fn();
 
         render(
             <I18nextProvider i18n={i18n}>
@@ -89,7 +91,7 @@ describe('MedicalCard', () => {
         const confirmBtn = await screen.findByText('Confirm');
         fireEvent.click(confirmBtn);
 
-        await vi.waitFor(() => {
+        await waitFor(() => {
             expect(timelineApi.delete).toHaveBeenCalledWith('medical-1');
             expect(onDelete).toHaveBeenCalled();
         }, { timeout: 2000 });

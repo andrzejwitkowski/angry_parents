@@ -30,7 +30,7 @@ export interface CustodySchedulerProps {
 }
 
 export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
-    const [step, setStep] = useState(1);
+    const [, setStep] = useState(1);
     const [config, setConfig] = useState<Partial<CustodyPatternConfig>>({
         childId: MOCK_CHILD.id,
         type: "ALTERNATING_WEEKEND",

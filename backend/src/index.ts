@@ -57,7 +57,7 @@ const app = new Elysia()
     .use(webAuthnController)
     .use(childController)
     // Mount better-auth handler with a more robust catch-all
-    .all("/api/auth/*", async ({ request, path }) => {
+    .all("/api/auth/*", async ({ request }) => {
         // Log for debugging (optional, can be removed once verified)
         // console.log(`Auth request: ${request.method} ${path}`);
         return await auth.handler(request);

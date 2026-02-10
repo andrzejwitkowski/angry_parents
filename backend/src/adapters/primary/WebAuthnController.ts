@@ -6,7 +6,7 @@ import {
     generateRegistrationOptions,
     verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import { isoUint8Array } from "@simplewebauthn/server/helpers";
+import { isoUint8Array, isoBase64URL } from "@simplewebauthn/server/helpers";
 import type { AuthenticatorTransport } from "@simplewebauthn/typescript-types";
 
 // Challenge storage (Memory)
@@ -35,7 +35,8 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository, datePro
                 userName: session.user.email,
                 attestationType: 'none',
                 excludeCredentials: userPasskeys.map(passkey => ({
-                    id: passkey.credentialID,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    id: isoBase64URL.fromBuffer(passkey.credentialID as any),
                     type: 'public-key',
                     transports: passkey.transports as AuthenticatorTransport[],
                 })),
@@ -61,6 +62,7 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository, datePro
             const nodeEnv = process.env.NODE_ENV || 'development';
             const isTestOrDev = nodeEnv === "test" || nodeEnv === "development" || !process.env.NODE_ENV;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if (isTestOrDev && (body as any).mock === true) {
                 await passkeyRepo.save({
                     userId,
@@ -84,6 +86,7 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository, datePro
 
             try {
                 const verification = await verifyRegistrationResponse({
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     response: body as any,
                     expectedChallenge,
                     expectedOrigin: origin,
@@ -91,7 +94,8 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository, datePro
                 });
 
                 if (verification.verified && verification.registrationInfo) {
-                    const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const { credentialID, credentialPublicKey, counter } = verification.registrationInfo as any;
 
                     await passkeyRepo.save({
                         userId,
@@ -99,6 +103,7 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository, datePro
                         credentialID,
                         credentialPublicKey,
                         counter,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         transports: (body as any).response.transports || [],
                         name: "Hardware Key",
                         createdAt: dateProvider.getNow()
@@ -110,6 +115,7 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository, datePro
                     set.status = 400;
                     return { message: "Verification failed" };
                 }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (e: any) {
                 console.error("Verification error", e);
                 set.status = 400;

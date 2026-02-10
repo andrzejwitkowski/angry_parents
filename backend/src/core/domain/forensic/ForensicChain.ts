@@ -3,13 +3,15 @@ import { ForensicDocument } from "./ForensicDocument";
 
 export class ForensicChain {
     // Canonicalize JSON: Sort keys authentically to ensure identical hash
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static canonicalize(obj: any): string {
         if (obj === null || typeof obj !== "object") {
             return JSON.stringify(obj);
         }
 
         if (Array.isArray(obj)) {
-            return "[" + obj.map(item => ForensicChain.canonicalize(item)).join(",") + "]";
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return "[" + obj.map((item: any) => ForensicChain.canonicalize(item)).join(",") + "]";
         }
 
         const keys = Object.keys(obj).sort();
@@ -19,6 +21,7 @@ export class ForensicChain {
         return `{${parts.join(",")}}`;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static async calculateHash(payload: any): Promise<string> {
         const canonicalString = ForensicChain.canonicalize(payload);
         const hasher = new Bun.CryptoHasher("sha256");

@@ -38,7 +38,7 @@ describe("ForensicService Idempotency", () => {
         const signerId = "UserA";
 
         // 1. First Call: Should save
-        const doc1 = await service.createPendingDocument(content, key, sig, keyId, timestamp, signerId);
+        await service.createPendingDocument(content, key, sig, keyId, timestamp, signerId);
         expect(mockRepo.saveDocument).toHaveBeenCalled();
 
         // 2. Setup mock to return the doc as if it exists
@@ -53,7 +53,7 @@ describe("ForensicService Idempotency", () => {
         doc.status = "FINALIZED";
 
         // Mock repo to return this doc
-        // @ts-ignore
+        // @ts-expect-error Mocking internals
         mockRepo.getDocumentByIndex = mock(async () => doc);
 
         const res = await service.finalizeDocument(1, "key", "sig", "id", "AdminUser");

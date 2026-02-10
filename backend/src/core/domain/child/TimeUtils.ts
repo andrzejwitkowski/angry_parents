@@ -1,7 +1,7 @@
 export class TimeUtils {
     static getDatesInRange(startDate: string, endDate: string): string[] {
         const dates: string[] = [];
-        let current = new Date(startDate);
+        const current = new Date(startDate);
         const end = new Date(endDate);
 
         while (current <= end) {

@@ -1,4 +1,3 @@
-import { describe, it, expect } from "bun:test";
 
 const BASE = "http://localhost:3000/api";
 const CHILD_ID = "c1";
@@ -35,6 +34,7 @@ async function verify() {
     const listRes = await fetch(`${BASE}/rules?childId=${CHILD_ID}`);
     const rules = await listRes.json();
     console.log("Found Rules:", rules.length);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const found = rules.find((r: any) => r.id === createData.ruleId);
     if (!found) {
         console.error("Rule not found in list!");
@@ -55,6 +55,7 @@ async function verify() {
     console.log("4. Verifying Gone...");
     const listRes2 = await fetch(`${BASE}/rules?childId=${CHILD_ID}`);
     const rules2 = await listRes2.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const found2 = rules2.find((r: any) => r.id === createData.ruleId);
     if (found2) {
         console.error("Rule still exists!");

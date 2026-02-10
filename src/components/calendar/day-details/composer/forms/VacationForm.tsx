@@ -35,6 +35,7 @@ export function VacationForm({ initialData, onSubmit, isSubmitting }: VacationFo
         },
     });
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedChildIds = watch("childIds");
 
     return (

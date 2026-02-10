@@ -1,11 +1,13 @@
 
-import { createWalletClient, http, publicActions, parseEther, toHex } from 'viem'
+import { createWalletClient, http, publicActions, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { polygon, base } from 'viem/chains'
+import { polygon } from 'viem/chains'
 import { IBlockchainAnchor } from '../../core/ports/IBlockchainAnchor'
 
 export class ViemBlockchainAnchor implements IBlockchainAnchor {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private client: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private account: any;
 
     constructor() {

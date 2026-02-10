@@ -6,7 +6,7 @@ export type AuditEntry = {
     userId: string;
     userName?: string;
     action: "CREATED" | "UPDATED" | "DELETED";
-    changes?: Record<string, any>;
+    changes?: Record<string, unknown>;
 };
 
 export type BaseTimelineItem = {

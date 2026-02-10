@@ -37,6 +37,7 @@ export function MedsForm({ initialData, onSubmit, isSubmitting }: MedsFormProps)
         },
     });
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedChildIds = watch("childIds");
 
     return (

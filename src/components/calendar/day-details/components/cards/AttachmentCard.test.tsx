@@ -1,14 +1,15 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, jest, mock, beforeEach } from "bun:test";
 import { AttachmentCard } from "./AttachmentCard";
 import { I18nextProvider } from "react-i18next";
 import i18n from "@/i18n";
 import { timelineApi } from "@/lib/api/timeline";
 
 // Mock the API
-vi.mock("@/lib/api/timeline", () => ({
+// Mock the API
+mock.module("@/lib/api/timeline", () => ({
     timelineApi: {
-        delete: vi.fn(),
+        delete: jest.fn(),
     },
 }));
 
@@ -37,7 +38,7 @@ describe("AttachmentCard", () => {
     };
 
     beforeEach(() => {
-        vi.clearAllMocks();
+        jest.clearAllMocks();
     });
 
     const mockUser = {
@@ -69,7 +70,7 @@ describe("AttachmentCard", () => {
     });
 
     it("calls delete API when delete button is clicked by owner", async () => {
-        const onDelete = vi.fn();
+        const onDelete = jest.fn();
 
         renderWithi18n(<AttachmentCard item={mockItem} user={mockUser} onDelete={onDelete} />);
 
@@ -80,7 +81,7 @@ describe("AttachmentCard", () => {
         const confirmBtn = await screen.findByText("Confirm");
         fireEvent.click(confirmBtn);
 
-        await vi.waitFor(() => {
+        await waitFor(() => {
             expect(timelineApi.delete).toHaveBeenCalledWith("attachment-1");
             expect(onDelete).toHaveBeenCalled();
         }, { timeout: 2000 });

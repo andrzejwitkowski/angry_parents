@@ -24,7 +24,7 @@ interface TimelineEditDialogProps {
 export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: TimelineEditDialogProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleFormSubmit = async (formData: any) => {
+    const handleFormSubmit = async (formData: Record<string, unknown>) => {
         setIsSubmitting(true);
         try {
             const updated = await timelineApi.update(item.id, formData);
@@ -47,42 +47,42 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
                 <div className="py-4">
                     {item.type === "MEDICAL_VISIT" && (
                         <MedicalForm
-                            initialData={item as any}
+                            initialData={item as import("@/types/timeline.types").MedicalVisitItem}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
                     {item.type === "HANDOVER" && (
                         <HandoverForm
-                            initialData={item as any}
+                            initialData={item as import("@/types/timeline.types").HandoverItem}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
                     {item.type === "MEDS" && (
                         <MedsForm
-                            initialData={item as any}
+                            initialData={item as import("@/types/timeline.types").MedsItem}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
                     {item.type === "INCIDENT" && (
                         <IncidentForm
-                            initialData={item as any}
+                            initialData={item as import("@/types/timeline.types").IncidentItem}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
                     {item.type === "NOTE" && (
                         <NoteForm
-                            initialData={item as any}
+                            initialData={item as import("@/types/timeline.types").NoteItem}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
                     {item.type === "VACATION" && (
                         <VacationForm
-                            initialData={item as any}
+                            initialData={item as import("@/types/timeline.types").VacationItem}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />

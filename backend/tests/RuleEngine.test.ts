@@ -71,13 +71,11 @@ describe("Rule Priority Engine (Formal Verification)", () => {
      * Proves that inserting a rule in the middle (Low Priority) does NOT override a Higher Priority rule.
      */
     it("should respect priority even when rules are inserted out of order (Sandwich Test)", async () => {
-        const TEST_HOURLY = "2024-01-01";
-
         // Manual Setup to simulate "Sandwich"
         const entries: CustodyEntry[] = [
-            { id: "e1", childId: "c1", date: "2024-01-01", startTime: "00:00", endTime: "23:59", assignedTo: "DAD", priority: 1, isRecurring: true } as any, // Low
-            { id: "e2", childId: "c1", date: "2024-01-01", startTime: "00:00", endTime: "23:59", assignedTo: "MOM", priority: 10, isRecurring: true } as any, // High
-            { id: "e3", childId: "c1", date: "2024-01-01", startTime: "00:00", endTime: "23:59", assignedTo: "DAD", priority: 5, isRecurring: true } as any  // Med
+            { id: "e1", childId: "c1", date: "2024-01-01", startTime: "00:00", endTime: "23:59", assignedTo: "DAD", priority: 1, isRecurring: true } as unknown as CustodyEntry, // Low
+            { id: "e2", childId: "c1", date: "2024-01-01", startTime: "00:00", endTime: "23:59", assignedTo: "MOM", priority: 10, isRecurring: true } as unknown as CustodyEntry, // High
+            { id: "e3", childId: "c1", date: "2024-01-01", startTime: "00:00", endTime: "23:59", assignedTo: "DAD", priority: 5, isRecurring: true } as unknown as CustodyEntry  // Med
         ].map(e => ({ ...e }));
 
         const resolved = resolveConflicts(entries);

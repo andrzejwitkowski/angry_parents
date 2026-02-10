@@ -28,7 +28,7 @@ describe('DayCellBackground', () => {
         const el = screen.getByTestId('day-cell-background');
         // Check for specific color or style property
         // Note: Computed style might differ, let's check basic style attribute
-        const style = window.getComputedStyle(el);
+        window.getComputedStyle(el);
         // In JSDOM, background color might be set
         // Or check inline style
         expect(el.style.backgroundColor).toContain('rgba(236, 72, 153, 0.15)');

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryTimelineRepository } from "../InMemoryTimelineRepository";
-import type { TimelineItem, MedicalVisitItem, MedsItem } from "../../../core/domain/TimelineItem";
+import type { MedicalVisitItem, MedsItem } from "../../../core/domain/TimelineItem";
 
 describe("InMemoryTimelineRepository", () => {
     let repository: InMemoryTimelineRepository;
@@ -19,6 +19,9 @@ describe("InMemoryTimelineRepository", () => {
             doctor: "Dr. Smith",
             diagnosis: "Common cold",
             attachments: [],
+            auditTrail: [],
+            isDeleted: false,
+            childIds: []
         };
 
         await repository.save(item);
@@ -44,6 +47,9 @@ describe("InMemoryTimelineRepository", () => {
             medicineName: "Aspirin",
             dosage: "500mg",
             administered: false,
+            auditTrail: [],
+            isDeleted: false,
+            childIds: []
         };
 
         await repository.save(item);
@@ -69,13 +75,16 @@ describe("InMemoryTimelineRepository", () => {
             medicineName: "Aspirin",
             dosage: "500mg",
             administered: false,
+            auditTrail: [],
+            isDeleted: false,
+            childIds: []
         };
 
         await repository.save(item);
         const updated = await repository.update(item.id, { administered: true });
 
-        expect(updated.administered).toBe(true);
-        expect(updated.medicineName).toBe("Aspirin");
+        expect((updated as MedsItem).administered).toBe(true);
+        expect((updated as MedsItem).medicineName).toBe("Aspirin");
     });
 
     it("should throw error when updating non-existent item", async () => {
@@ -94,6 +103,9 @@ describe("InMemoryTimelineRepository", () => {
             medicineName: "Aspirin",
             dosage: "500mg",
             administered: false,
+            auditTrail: [],
+            isDeleted: false,
+            childIds: []
         };
 
         await repository.save(item);
@@ -122,6 +134,9 @@ describe("InMemoryTimelineRepository", () => {
             medicineName: "Aspirin",
             dosage: "500mg",
             administered: false,
+            auditTrail: [],
+            isDeleted: false,
+            childIds: []
         };
 
         const item2: MedicalVisitItem = {
@@ -133,6 +148,9 @@ describe("InMemoryTimelineRepository", () => {
             doctor: "Dr. House",
             diagnosis: "Flu",
             attachments: [],
+            auditTrail: [],
+            isDeleted: false,
+            childIds: []
         };
 
         await repository.save(item1);

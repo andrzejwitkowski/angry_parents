@@ -40,6 +40,7 @@ export function IncidentForm({ initialData, onSubmit, isSubmitting }: IncidentFo
         },
     });
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedChildIds = watch("childIds");
 
     return (

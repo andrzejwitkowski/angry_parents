@@ -1,7 +1,7 @@
 import { ScheduleRepository } from "../core/ports/ScheduleRepository";
 import { ScheduleRule } from "../core/domain/child/ScheduleRule";
 import { CustodyPatternConfig } from "../core/domain/child/CustodyPatternConfig";
-import { addMonths, startOfMonth, endOfMonth, parseISO, format, differenceInCalendarWeeks, addDays } from "date-fns";
+import { addMonths, startOfMonth, endOfMonth, parseISO, format, differenceInCalendarWeeks } from "date-fns";
 
 export interface PropagationResult {
     canProceed: boolean;
@@ -45,7 +45,7 @@ export class PropagationService {
             try {
                 const nextConfig = this.calculateNextConfig(rule, nextMonthStart, nextMonthEnd);
                 rulesToCreate.push(nextConfig);
-            } catch (e) {
+            } catch {
                 // If date calculations fail (unlikely for full month propagation but possible)
                 skippedRules.push({ ruleName: rule.name, reason: 'INVALID_DATE' });
             }

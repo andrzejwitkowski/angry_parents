@@ -8,7 +8,7 @@ import type { User } from '@/types/user';
 import { ChildrenConfigSheet } from '@/components/settings/ChildrenConfigSheet';
 import { CustodyScheduler } from '@/components/scheduler/CustodyWizard';
 import { Button } from '@/components/ui/button';
-import { Settings, CalendarPlus } from 'lucide-react';
+import { CalendarPlus } from 'lucide-react';
 import {
     Dialog,
     DialogContent,

@@ -1,30 +1,10 @@
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeAll } from "bun:test";
-import { verifyIntegrity, ForensicDocument, SystemState, Signature } from "../../src/lib/forensic/audit";
-
-// Polyfill window.crypto for Bun test environment
-// @ts-ignore
-if (typeof window === 'undefined') {
-    // @ts-ignore
-    global.window = {
-        // @ts-ignore
-        crypto: crypto,
-        // @ts-ignore
-        localStorage: {
-            getItem: (key) => null, // Mock implementation
-            setItem: (key, value) => { }
-        }
-    };
-    // @ts-ignore
-    global.localStorage = global.window.localStorage;
-}
+import { verifyIntegrity, ForensicDocument, SystemState } from "../../src/lib/forensic/audit";
 
 describe("Forensic Chain Integrity Audit", () => {
-    const adminFingerprint = "mock_fingerprint";
-
     // Setup: Create a valid chain of 3 documents
     const validDocs: ForensicDocument[] = [];
-    let lastHash = "GENESIS_HASH";
 
     const createDoc = async (index: number, content: any, prevHash: string) => {
         const doc: ForensicDocument = {
@@ -98,6 +78,7 @@ describe("Forensic Chain Integrity Audit", () => {
         };
 
         const result = await verifyIntegrity(validDocs, systemState);
+        if (!result.valid) console.log("Audit Errors:", result.errors);
         expect(result.valid).toBe(true);
         expect(result.errors).toHaveLength(0);
     });

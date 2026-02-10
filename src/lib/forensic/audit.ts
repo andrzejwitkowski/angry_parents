@@ -10,7 +10,7 @@ export interface Signature {
 
 export interface ForensicDocument {
     index: number;
-    content: any;
+    content: unknown;
     prevHash: string;
     timestamp: string;
     status: "PENDING" | "FINALIZED";
@@ -26,7 +26,7 @@ export interface SystemState {
 
 // Canonicalize JSON: Sort keys alphabetically
 // MUST match backend implementation exactly
-function canonicalize(obj: any): string {
+function canonicalize(obj: unknown): string {
     if (obj === null || typeof obj !== "object") {
         return JSON.stringify(obj);
     }
@@ -35,14 +35,15 @@ function canonicalize(obj: any): string {
         return "[" + obj.map(item => canonicalize(item)).join(",") + "]";
     }
 
-    const keys = Object.keys(obj).sort();
+    const record = obj as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
     const parts = keys.map(key => {
-        return `"${key}":${canonicalize(obj[key])}`;
+        return `"${key}":${canonicalize(record[key])}`;
     });
     return `{${parts.join(",")}}`;
 }
 
-async function calculateHash(payload: any): Promise<string> {
+async function calculateHash(payload: unknown): Promise<string> {
     const canonicalString = canonicalize(payload);
     const encoder = new TextEncoder();
     const data = encoder.encode(canonicalString);
@@ -53,10 +54,6 @@ async function calculateHash(payload: any): Promise<string> {
         .map(b => b.toString(16).padStart(2, "0"))
         .join("");
 }
-
-// Fingerprints should be available via env vars
-const ALLOWED_USER_A_FINGERPRINT = import.meta.env.VITE_ALLOWED_USER_A_FINGERPRINT;
-const ALLOWED_ADMIN_FINGERPRINT = import.meta.env.VITE_ALLOWED_ADMIN_FINGERPRINT;
 
 export async function verifyIntegrity(
     documents: ForensicDocument[],

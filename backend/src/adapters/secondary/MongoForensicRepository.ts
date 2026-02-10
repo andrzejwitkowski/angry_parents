@@ -5,6 +5,7 @@ import { ForensicDocument } from "../../core/domain/forensic/ForensicDocument";
 import { SystemState } from "../../core/domain/forensic/SystemState";
 
 export class MongoForensicRepository implements IForensicRepository {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private docCollection: Collection<ForensicDocument<any>>;
     private stateCollection: Collection<SystemState>;
 

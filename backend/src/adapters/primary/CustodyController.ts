@@ -152,6 +152,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
     .post("/rules/check-conflicts", async ({ body, set }) => {
         try {
             const { config, excludeRuleId } = body;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const conflicts = await scheduleService.checkConflicts(config as any, excludeRuleId);
             return { conflicts };
         } catch (e) {

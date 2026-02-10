@@ -25,6 +25,6 @@ if (!globalThis.PointerEvent) {
             super(type, params);
         }
     }
-    // @ts-ignore
+    // @ts-expect-error - mock property not on window type
     globalThis.PointerEvent = PointerEventMock;
 }

@@ -40,6 +40,7 @@
     "i18next": "^25.8.0",
     "lucide-react": "^0.563.0",
     "mongodb": "^7.0.0",
+    "mongoose": "^9.1.6",
     "postcss": "^8.5.6",
     "react": "^19.2.0",
     "react-day-picker": "^9.13.0",

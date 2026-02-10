@@ -1,17 +1,17 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, jest } from 'bun:test';
 import { MedicalForm } from './MedicalForm';
 
 describe('MedicalForm', () => {
     it('renders correctly', () => {
-        render(<MedicalForm onSubmit={vi.fn()} />);
+        render(<MedicalForm onSubmit={jest.fn()} />);
         expect(screen.getByText('Medical Visit Details')).toBeInTheDocument();
         expect(screen.getByLabelText(/doctor name/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/diagnosis/i)).toBeInTheDocument();
     });
 
     it('shows validation errors when fields are empty', async () => {
-        render(<MedicalForm onSubmit={vi.fn()} />);
+        render(<MedicalForm onSubmit={jest.fn()} />);
 
         fireEvent.click(screen.getByRole('button', { name: /add medical visit/i }));
 
@@ -20,7 +20,7 @@ describe('MedicalForm', () => {
     });
 
     it('calls onSubmit with correct data when valid', async () => {
-        const onSubmit = vi.fn();
+        const onSubmit = jest.fn();
         render(<MedicalForm onSubmit={onSubmit} />);
 
         fireEvent.change(screen.getByLabelText(/doctor name/i), { target: { value: 'Dr. Smith' } });
@@ -30,7 +30,7 @@ describe('MedicalForm', () => {
         fireEvent.click(screen.getByRole('button', { name: /add medical visit/i }));
 
         // Wait for form submission (async)
-        await vi.waitFor(() => {
+        await waitFor(() => {
             expect(onSubmit).toHaveBeenCalled();
         }, { timeout: 2000 });
 

@@ -2,7 +2,8 @@ describe('Event Ownership Authorization', () => {
     const today = new Date().toISOString().split('T')[0];
 
     // Prevent application crashes from failing tests
-    Cypress.on('uncaught:exception', (err, runnable) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    Cypress.on('uncaught:exception', (_err, _runnable) => {
         return false;
     });
 

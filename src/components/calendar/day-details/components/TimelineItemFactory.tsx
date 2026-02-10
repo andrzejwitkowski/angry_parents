@@ -38,10 +38,11 @@ export function TimelineItemFactory({ item, onUpdate, onDelete, user }: Timeline
         case "ATTACHMENT":
             return <AttachmentCard item={item} user={user} onUpdate={onUpdate} onDelete={onDelete} />;
 
-        default:
+        default: {
             // TypeScript exhaustiveness check
-            // @ts-ignore
             const _exhaustive: never = item;
+            void _exhaustive;
             return null;
+        }
     }
 }

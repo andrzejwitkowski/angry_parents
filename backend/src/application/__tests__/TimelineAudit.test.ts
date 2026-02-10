@@ -46,7 +46,7 @@ describe("Timeline Audit System", () => {
         const created = await service.createItem(dto);
 
         // First update
-        const updated1 = await service.updateItem(created.id, { content: "Updated once" }, "user-1", "Alice");
+        await service.updateItem(created.id, { content: "Updated once" }, "user-1", "Alice");
 
         // Second update
         const updated2 = await service.updateItem(created.id, { content: "Updated twice" }, "user-1", "Alice");

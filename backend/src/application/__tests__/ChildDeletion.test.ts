@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { ChildService } from "../ChildService";
 import { InMemoryChildRepository } from "../../adapters/secondary/InMemoryChildRepository";
 import { InMemoryTimelineRepository } from "../../adapters/secondary/InMemoryTimelineRepository";
-import { Child } from "../../core/domain/child/Child";
+// import { Child } from "../../core/domain/child/Child";
 import { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
 import { TimelineServiceImpl } from "../TimelineService";
 import { RealDateProvider } from "../../adapters/secondary/RealDateProvider";
