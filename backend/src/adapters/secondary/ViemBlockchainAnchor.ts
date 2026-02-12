@@ -1,14 +1,12 @@
 
-import { createWalletClient, http, publicActions, toHex } from 'viem'
+import { createWalletClient, http, publicActions, toHex, type WalletClient, type PublicActions, type Transport, type Chain, type LocalAccount } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { polygon } from 'viem/chains'
 import { IBlockchainAnchor } from '../../core/ports/IBlockchainAnchor'
 
 export class ViemBlockchainAnchor implements IBlockchainAnchor {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private client: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private account: any;
+    private client: (WalletClient<Transport, Chain, LocalAccount> & PublicActions<Transport, Chain, LocalAccount>) | undefined;
+    private account: LocalAccount | undefined;
 
     constructor() {
         const pk = process.env.BLOCKCHAIN_PRIVATE_KEY as `0x${string}`;
@@ -28,14 +26,17 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor {
     }
 
     async anchorHash(hash: string): Promise<string> {
-        if (!this.client) {
+        const client = this.client;
+        const account = this.account;
+
+        if (!client || !account) {
             throw new Error("Blockchain client not initialized");
         }
 
         try {
             // Send a 0 value transaction to self with the hash in data
-            const txHash = await this.client.sendTransaction({
-                to: this.account.address,
+            const txHash = await client.sendTransaction({
+                to: account.address,
                 value: 0n,
                 data: toHex(hash)
             });
@@ -47,12 +48,13 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor {
     }
 
     async verifyAnchor(hash: string, txHash: string): Promise<boolean> {
-        if (!this.client) {
+        const client = this.client;
+        if (!client) {
             throw new Error("Blockchain client not initialized");
         }
 
         try {
-            const tx = await this.client.getTransaction({ hash: txHash as `0x${string}` });
+            const tx = await client.getTransaction({ hash: txHash as `0x${string}` });
             // Check if data matches the hash
             return tx.input === toHex(hash);
         } catch (error) {

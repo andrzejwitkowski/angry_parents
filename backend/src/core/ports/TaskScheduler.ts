@@ -1,19 +1,22 @@
-export enum TaskStatus {
-    NEW = 'new',
-    PENDING = 'pending',
-    SUCCESS = 'success',
-    FAILED = 'failed'
+export enum TaskType {
+    SYNC_USER_PENDING_DOCS = 'SYNC_USER_PENDING_DOCS',
+    PROCESS_DOCUMENT_INTEGRITY = 'PROCESS_DOCUMENT_INTEGRITY',
+    BLOCKCHAIN_PUBLISH = 'BLOCKCHAIN_PUBLISH',
 }
 
-// Strict JSON type
-export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export enum TaskStatus {
+    NEW = 'NEW',
+    PENDING = 'PENDING',
+    PROCESSING = 'PROCESSING',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+}
 
-export type ITaskPayload = { [key: string]: JsonValue } | JsonValue;
-
-export interface ITask<T = JsonValue> {
-    id: string;
-    type: string;
+export interface ITask<T> {
+    id?: string;
+    type: TaskType;
     payload: T;
+    payloadHash: string;
     status: TaskStatus;
     scheduledAt: Date;
     retryCount: number;
@@ -24,13 +27,23 @@ export interface ITask<T = JsonValue> {
     workerId?: string | null;
     lockedUntil?: Date | null;
     error?: string | null;
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+export type TaskHandler<T> = (payload: T) => Promise<void>;
+
+export interface ScheduleOptions {
+    scheduledAt?: Date;
+    retryPolicy?: {
+        maxRetries: number;
+        initialDelayMinutes: number;
+    };
 }
 
 export interface ITaskManager {
-    registerHandler<T>(type: string, handler: (payload: T) => Promise<void>): void;
+    registerHandler<T>(type: TaskType, handler: (payload: T) => Promise<void>): void;
     start(): Promise<void>;
     stop(): Promise<void>;
-    scheduleTask<T>(type: string, payload: T, options?: Partial<ITask<T>>): Promise<ITask<T>>;
+    schedule<T>(type: TaskType, payload: T, options?: ScheduleOptions): Promise<ITask<T>>;
 }

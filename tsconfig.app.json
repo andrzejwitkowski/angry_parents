@@ -39,6 +39,10 @@
   ],
   "exclude": [
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "**/*.test.tsx",
+    "**/*.spec.tsx",
+    "src/setupGlobals.ts",
+    "src/setupTests.ts"
   ]
 }

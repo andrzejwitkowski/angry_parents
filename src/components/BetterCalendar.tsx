@@ -8,6 +8,7 @@ import { DayDetailsSheet } from "./calendar/day-details/DayDetailsSheet";
 import { timelineApi } from "@/lib/api/timeline";
 import type { TimelineItem } from "@/types/timeline.types";
 import type { User } from '@/types/user';
+import type { CustodyEntry } from "@/types/custody";
 
 interface BetterCalendarProps {
     user: User | null;
@@ -19,7 +20,7 @@ export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
     const [selectedDateForSheet, setSelectedDateForSheet] = useState<Date | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [monthEvents, setMonthEvents] = useState<TimelineItem[]>([]);
-    const [custodyEntries, setCustodyEntries] = useState<unknown[]>([]); // Using any[] for now or import CustodyEntry
+    const [custodyEntries, setCustodyEntries] = useState<CustodyEntry[]>([]);
 
     const daysInMonth = getCalendarDays(currentDate);
 
@@ -35,7 +36,7 @@ export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
             ]);
 
             setMonthEvents(events);
-            setCustodyEntries(custody as unknown[]);
+            setCustodyEntries(custody as CustodyEntry[]);
         } catch (error) {
             console.error("Failed to fetch month data:", error);
         }

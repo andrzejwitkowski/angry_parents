@@ -1,6 +1,8 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
+import { taskManager } from "../scheduler/instance";
+import { TaskType } from "../scheduler/types";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -37,4 +39,28 @@ export const auth = betterAuth({
         },
     },
     trustedOrigins: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
+    plugins: [
+        {
+            id: "task-scheduler-hook",
+            hooks: {
+                after: [
+                    {
+                        matcher: (context: { path?: string }) => context.path?.startsWith("/api/auth/sign-in") || false,
+                        handler: async (ctx: unknown) => {
+                            const c = ctx as { context?: { user?: { id: string } } };
+                            try {
+                                if (c.context?.user) {
+                                    console.log(`[Auth] User ${c.context.user.id} logged in. Scheduling Sync Task...`);
+                                    await taskManager.schedule(TaskType.SYNC_USER_PENDING_DOCS, { userId: c.context.user.id });
+                                }
+                            } catch (e) {
+                                console.error("[Auth] Failed to schedule sync task on login", e);
+                            }
+                            return ctx;
+                        },
+                    },
+                ],
+            },
+        },
+    ],
 });

@@ -1,4 +1,13 @@
 import { Elysia } from "elysia";
+import mongoose from "mongoose";
+import { taskManager } from "./scheduler/instance";
+import { TaskType } from "./scheduler/types";
+import { createSyncUserPendingDocsHandler } from "./scheduler/handlers/SyncUserPendingDocs";
+import { createProcessDocumentIntegrityHandler } from "./scheduler/handlers/ProcessDocumentIntegrity";
+import { createBlockchainPublishHandler } from "./scheduler/handlers/BlockchainPublish";
+import { MongoForensicRepository } from "./adapters/secondary/MongoForensicRepository";
+import { BunCryptoService } from "./adapters/secondary/BunCryptoService";
+import { ViemBlockchainAnchor } from "./adapters/secondary/ViemBlockchainAnchor";
 import { auth } from "./lib/auth";
 import { InMemoryTimelineRepository } from "./adapters/secondary/InMemoryTimelineRepository";
 import { TimelineServiceImpl } from "./application/TimelineService";
@@ -40,6 +49,47 @@ import { createWebAuthnController } from "./adapters/primary/WebAuthnController"
 
 const passkeyRepository = new InMemoryPasskeyRepository();
 const webAuthnController = createWebAuthnController(passkeyRepository, dateProvider);
+
+// --- Task Scheduler & Forensic Pipeline Setup ---
+// Ensure MongoDB connection (required for TaskManager and ForensicRepo)
+try {
+    const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/angry_parents";
+    await mongoose.connect(mongoUri);
+    console.log("[MongoDB] Connected");
+} catch (e) {
+    console.warn("[MongoDB] Connection failed, Task Scheduler may not function:", e);
+}
+
+// Initialize Secondary Adapters for Pipeline
+if (!mongoose.connection.db) {
+    throw new Error("MongoDB connection not established");
+}
+const forensicRepository = new MongoForensicRepository(mongoose.connection.db);
+const cryptoService = new BunCryptoService();
+const blockchainAnchor = new ViemBlockchainAnchor();
+
+// Register Handlers
+taskManager.registerHandler(
+    TaskType.SYNC_USER_PENDING_DOCS,
+    createSyncUserPendingDocsHandler(forensicRepository, taskManager)
+);
+
+taskManager.registerHandler(
+    TaskType.PROCESS_DOCUMENT_INTEGRITY,
+    createProcessDocumentIntegrityHandler(forensicRepository, cryptoService, passkeyRepository, taskManager)
+);
+
+taskManager.registerHandler(
+    TaskType.BLOCKCHAIN_PUBLISH,
+    createBlockchainPublishHandler(forensicRepository, blockchainAnchor)
+);
+
+// Start Scheduler
+taskManager.start().catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[TaskManager] Failed to start:", message);
+});
+
 
 import { cors } from "@elysiajs/cors";
 
