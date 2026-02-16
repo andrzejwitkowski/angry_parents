@@ -31,7 +31,17 @@ export class MongoForensicRepository implements IForensicRepository {
 
     async getDocumentByIndex<T>(index: number): Promise<ForensicDocument<T> | null> {
         const doc = await this.docCollection.findOne({ index });
-        return doc as ForensicDocument<T> | null;
+        if (!doc) return null;
+        return new ForensicDocument(
+            doc.index,
+            doc.content,
+            doc.prevHash,
+            doc.timestamp,
+            doc.status,
+            doc.signatures,
+            doc.hash,
+            doc.blockchainTxId
+        );
     }
 
     async getLastFinalizedDocument<T>(): Promise<ForensicDocument<T> | null> {

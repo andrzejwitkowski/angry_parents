@@ -20,7 +20,7 @@ export const forensicController = (deps: ForensicDeps) => new Elysia({ prefix: "
     })
     .post("/pending", async ({ body }) => {
         const { content, publicKey, signature, keyId, timestamp, signerId } = body;
-        return await deps.forensicService.createPendingDocument(
+        const doc = await deps.forensicService.createPendingDocument(
             content,
             publicKey,
             signature,
@@ -28,6 +28,9 @@ export const forensicController = (deps: ForensicDeps) => new Elysia({ prefix: "
             timestamp,
             signerId
         );
+        return new Response(JSON.stringify(doc), {
+            headers: { "Content-Type": "application/json" }
+        });
     }, {
         body: t.Object({
             content: t.Any(),
@@ -40,7 +43,7 @@ export const forensicController = (deps: ForensicDeps) => new Elysia({ prefix: "
     })
     .post("/finalize", async ({ body }) => {
         const { index, publicKey, signature, keyId, existingTxHash, signerId } = body;
-        return await deps.forensicService.finalizeDocument(
+        const doc = await deps.forensicService.finalizeDocument(
             index,
             publicKey,
             signature,
@@ -48,6 +51,9 @@ export const forensicController = (deps: ForensicDeps) => new Elysia({ prefix: "
             signerId,
             existingTxHash
         );
+        return new Response(JSON.stringify(doc), {
+            headers: { "Content-Type": "application/json" }
+        });
     }, {
         body: t.Object({
             index: t.Number(),

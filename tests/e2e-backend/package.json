@@ -1,0 +1,15 @@
+{
+    "name": "e2e-backend",
+    "version": "1.0.0",
+    "description": "E2E Backend Tests",
+    "main": "index.ts",
+    "scripts": {
+        "test": "bun run scripts/run-tests.ts"
+    },
+    "dependencies": {
+        "node-fetch": "^3.3.2"
+    },
+    "devDependencies": {
+        "@types/bun": "latest"
+    }
+}

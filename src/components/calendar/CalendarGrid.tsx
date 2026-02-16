@@ -15,8 +15,13 @@ interface CalendarGridProps {
 }
 
 export function CalendarGrid({ days, currentDate, events, onDayClick, user, custodyEntries = [] }: CalendarGridProps) {
+    const weeks = Math.ceil(days.length / 7);
+
     return (
-        <div className="flex-1 grid grid-cols-7 h-full overflow-hidden">
+        <div
+            className="flex-1 grid grid-cols-7 h-full overflow-hidden"
+            style={{ gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))` }}
+        >
             {days.map((day, i) => {
                 const dateStr = format(day, "yyyy-MM-dd");
                 const dayEvents = events.filter((e) => e.date === dateStr);

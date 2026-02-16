@@ -16,8 +16,8 @@ export class BunCryptoService implements ICryptoService {
             // Or if it's a raw PEM. Bun.crypto can handle various formats.
             // For simplicity, we assume standard PEM or attempt to import.
 
-            // Note: Bun.crypto usage for verification:
-            const key = await Bun.crypto.subtle.importKey(
+            // Note: Use global crypto.subtle (Web Crypto API standard)
+            const key = await crypto.subtle.importKey(
                 "spki",
                 Buffer.from(publicKeyPem, "base64"), // Assuming the stored pk is base64 encoded SPKI
                 {
@@ -28,7 +28,7 @@ export class BunCryptoService implements ICryptoService {
                 ["verify"]
             );
 
-            return await Bun.crypto.subtle.verify(
+            return await crypto.subtle.verify(
                 {
                     name: "ECDSA",
                     hash: "SHA-256",

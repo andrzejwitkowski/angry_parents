@@ -30,7 +30,7 @@ export function CalendarDay({ day, currentDate, events, onClick, user, custodyEn
         <div
             onClick={onClick}
             className={cn(
-                "min-h-[140px] p-4 border-r border-b border-slate-100 transition-all duration-300 group relative text-left flex flex-col hover:z-10",
+                "h-full min-h-0 p-2 lg:p-4 border-r border-b border-slate-100 transition-all duration-300 group relative text-left flex flex-col hover:z-10",
                 !isSelectedMonth && "bg-slate-50/50 opacity-40 grayscale-[0.5]",
                 isDayWeekend && isSelectedMonth && "bg-slate-50/70",
                 isSelectedMonth && "hover:bg-white/80 hover:shadow-2xl hover:border-indigo-100 cursor-pointer active:scale-[0.98]"

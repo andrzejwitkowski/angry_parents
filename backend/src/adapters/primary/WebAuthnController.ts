@@ -64,11 +64,27 @@ export const createWebAuthnController = (passkeyRepo: PasskeyRepository, datePro
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if (isTestOrDev && (body as any).mock === true) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mockBody = body as any;
+
+                // Use provided mock values or fall back to defaults
+                const credentialID = mockBody.mockCredentialID
+                    ? (typeof mockBody.mockCredentialID === 'string'
+                        ? isoBase64URL.toBuffer(mockBody.mockCredentialID)
+                        : new Uint8Array(mockBody.mockCredentialID))
+                    : new Uint8Array([1, 2, 3, 4]);
+
+                const credentialPublicKey = mockBody.mockCredentialPublicKey
+                    ? (typeof mockBody.mockCredentialPublicKey === 'string'
+                        ? isoBase64URL.toBuffer(mockBody.mockCredentialPublicKey)
+                        : new Uint8Array(mockBody.mockCredentialPublicKey))
+                    : new Uint8Array([5, 6, 7, 8]);
+
                 await passkeyRepo.save({
                     userId,
                     webauthnUserId: userId,
-                    credentialID: new Uint8Array([1, 2, 3, 4]),
-                    credentialPublicKey: new Uint8Array([5, 6, 7, 8]),
+                    credentialID,
+                    credentialPublicKey,
                     counter: 0,
                     transports: [],
                     name: "Mock Key",

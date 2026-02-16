@@ -22,7 +22,7 @@ export function CalendarHeader({
     onDateSelect,
 }: CalendarHeaderProps) {
     return (
-        <div className="flex items-center justify-between p-8 bg-slate-50 border-b border-slate-200">
+        <div className="flex items-center justify-between px-8 py-6 bg-transparent">
             <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight capitalize">
                 {format(currentDate, "MMMM yyyy")}
             </h2>

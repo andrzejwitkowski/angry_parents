@@ -9,6 +9,8 @@ import { MongoForensicRepository } from "./adapters/secondary/MongoForensicRepos
 import { BunCryptoService } from "./adapters/secondary/BunCryptoService";
 import { ViemBlockchainAnchor } from "./adapters/secondary/ViemBlockchainAnchor";
 import { auth } from "./lib/auth";
+import { ForensicService } from "./application/ForensicService";
+import { forensicController as createForensicController } from "./adapters/primary/ForensicController";
 import { InMemoryTimelineRepository } from "./adapters/secondary/InMemoryTimelineRepository";
 import { TimelineServiceImpl } from "./application/TimelineService";
 import { createTimelineController } from "./adapters/primary/TimelineController";
@@ -66,7 +68,13 @@ if (!mongoose.connection.db) {
 }
 const forensicRepository = new MongoForensicRepository(mongoose.connection.db);
 const cryptoService = new BunCryptoService();
-const blockchainAnchor = new ViemBlockchainAnchor();
+// Use Mock for now to avoid gas fees/RPC issues in E2E
+// const blockchainAnchor = new ViemBlockchainAnchor();
+import { MockBlockchainAnchor } from "./adapters/secondary/MockBlockchainAnchor";
+const blockchainAnchor = new MockBlockchainAnchor();
+
+const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService);
+const forensicController = createForensicController({ forensicService, forensicRepository });
 
 // Register Handlers
 taskManager.registerHandler(
@@ -105,16 +113,26 @@ const app = new Elysia()
     .use(timelineController)
     .use(custodyController)
     .use(webAuthnController)
+    .use(forensicController)
     .use(childController)
     // Mount better-auth handler with a more robust catch-all
     .all("/api/auth/*", async ({ request }) => {
         // Log for debugging (optional, can be removed once verified)
-        // console.log(`Auth request: ${request.method} ${path}`);
-        return await auth.handler(request);
+        console.log(`Auth request: ${request.method} ${request.url}`);
+        const res = await auth.handler(request);
+        console.log(`Auth response status: ${res.status}`);
+        return res;
     })
     .get("/api/health", () => ({ status: "ok", timestamp: dateProvider.getIsoString() }))
+    .get("/api/test", () => "test-ok")
+    .post("/api/test/trigger-sync", async ({ body }) => {
+        const { userId } = body as { userId: string };
+        console.log(`[Test] Manually triggering Sync for User ${userId}`);
+        await taskManager.schedule(TaskType.SYNC_USER_PENDING_DOCS, { userId });
+        return { status: "triggered" };
+    })
     .listen({
-        port: 3000,
+        port: parseInt(process.env.PORT || "3000"),
         hostname: "0.0.0.0" // Ensure it's reachable
     });
 

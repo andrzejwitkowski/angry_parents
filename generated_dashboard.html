@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Angry Parents Premium Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b2bee",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101022",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 min-h-screen font-display">
+<!-- Mobile Container (Phone Form Factor) -->
+<div class="max-w-md mx-auto min-h-screen bg-background-light dark:bg-background-dark relative pb-24">
+<!-- Header -->
+<header class="px-6 pt-12 pb-6 flex justify-between items-center sticky top-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md z-30">
+<div>
+<h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Dashboard</h1>
+<p class="text-sm font-medium text-primary/80 dark:text-primary/60">Premium Access</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 rounded-full bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-slate-600 dark:text-slate-300">
+<span class="material-icons text-[20px]">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full border-2 border-primary overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Close up of a professional male smiling" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBksfyYISHi356PychCfVShbES5UO7L97Tq6WwpjaCHsO7USJOIZqKmHbIxAp9JBkVPEl35EGcf0YNTW8sJAdqwY7XGNRQuxx5DCaVhDB6KGhbER-Ngg1vvlhFdejKs7eZItxPSa7rffIi1kpz9cag7XSmAuoLBGRLolaBABpxGEReLjHEKYujiGFuP6-f3qHrxOaW2dEXtnWZ6wkrWBGnkRuie591jByahaEx9qB6hsHb__kCtfTzKy3fj1jlj6-dzxARzYdng-sM"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="px-6 space-y-8">
+<!-- Quick Action -->
+<button class="w-full py-4 px-6 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 flex items-center justify-between font-semibold active:scale-95 transition-transform">
+<div class="flex items-center gap-3">
+<span class="material-icons">auto_awesome</span>
+<span>Generate AI Schedule</span>
+</div>
+<span class="material-icons">chevron_right</span>
+</button>
+<!-- Today's Overview -->
+<section>
+<h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-primary rounded-full"></span>
+                    Today's Overview
+                </h2>
+<div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-3">
+<span class="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-full">Upcoming</span>
+</div>
+<div class="flex gap-4 items-start">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+<span class="material-icons">transfer_within_a_station</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-bold text-slate-900 dark:text-white">Handover at 4:00 PM</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400">Central Park South Entrance</p>
+<div class="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50 dark:border-slate-700">
+<span class="material-icons text-xs text-slate-400">child_care</span>
+<span class="text-xs font-medium text-slate-600 dark:text-slate-300">With: Leo &amp; Maya</span>
+</div>
+</div>
+</div>
+<!-- Mini Map View -->
+<div class="mt-4 h-24 w-full rounded-lg overflow-hidden relative">
+<img alt="Map location" class="w-full h-full object-cover" data-alt="Abstract aerial view of a city park layout" data-location="New York, Central Park" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDg4BLl4KIi-g1u9JoMuR-OFKnPvEwaE6NZPeQg5acGGToXiIOH454P4xqteGUKzpd8M4iO2LsXoDphYrtU617XW8OCJf7bTVkrGTgLNlCN6KOLj8LdaaJpHTFeVy-lf9IxIL-oyP8R53vazTBGTpS9cQ30exclc6jbqqNOqE427HY6N8XcwYHlshiSTtaEaoh0TrekpJTqnMU44hQ4uQxQB2EYutXAKxk9-8ZeDBOjtyfjMEGXT6uzdAmgwu3pP7hc_rxKRQZM5QI"/>
+<div class="absolute inset-0 bg-primary/10"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+<span class="material-icons text-primary drop-shadow-md">location_on</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Calendar Container -->
+<section class="pb-8">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-lg font-bold flex items-center gap-2">
+<span class="w-1.5 h-6 bg-primary/40 rounded-full"></span>
+                        Custody Calendar
+                    </h2>
+<button class="text-primary text-sm font-semibold">View Monthly</button>
+</div>
+<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4">
+<!-- Week Header -->
+<div class="grid grid-cols-7 mb-4">
+<div class="text-center text-[10px] font-bold text-slate-400 uppercase">Mon</div>
+<div class="text-center text-[10px] font-bold text-slate-400 uppercase">Tue</div>
+<div class="text-center text-[10px] font-bold text-slate-400 uppercase">Wed</div>
+<div class="text-center text-[10px] font-bold text-slate-400 uppercase">Thu</div>
+<div class="text-center text-[10px] font-bold text-slate-400 uppercase">Fri</div>
+<div class="text-center text-[10px] font-bold text-slate-400 uppercase">Sat</div>
+<div class="text-center text-[10px] font-bold text-slate-400 uppercase">Sun</div>
+</div>
+<!-- Week Days -->
+<div class="grid grid-cols-7 gap-y-2">
+<!-- Past -->
+<div class="flex flex-col items-center py-2 opacity-30">
+<span class="text-sm font-medium">12</span>
+</div>
+<div class="flex flex-col items-center py-2 opacity-30">
+<span class="text-sm font-medium">13</span>
+</div>
+<!-- Current Selection -->
+<div class="flex flex-col items-center py-2 bg-primary/5 rounded-lg border border-primary/20">
+<span class="text-sm font-bold text-primary">14</span>
+<div class="w-1 h-1 bg-primary rounded-full mt-1"></div>
+</div>
+<div class="flex flex-col items-center py-2">
+<span class="text-sm font-medium">15</span>
+<div class="w-1 h-1 bg-slate-300 rounded-full mt-1"></div>
+</div>
+<div class="flex flex-col items-center py-2">
+<span class="text-sm font-medium">16</span>
+</div>
+<!-- Weekend Range -->
+<div class="flex flex-col items-center py-2 bg-slate-50 dark:bg-slate-700/50 rounded-l-lg">
+<span class="text-sm font-medium">17</span>
+</div>
+<div class="flex flex-col items-center py-2 bg-slate-50 dark:bg-slate-700/50 rounded-r-lg">
+<span class="text-sm font-medium">18</span>
+</div>
+</div>
+<!-- Custody Split Info -->
+<div class="mt-6 flex items-center justify-between px-2">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span class="text-[11px] font-medium text-slate-600 dark:text-slate-400">Your Days</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-600"></div>
+<span class="text-[11px] font-medium text-slate-600 dark:text-slate-400">Co-Parent Days</span>
+</div>
+</div>
+</div>
+<!-- Upcoming Events List -->
+<div class="mt-4 space-y-3">
+<div class="flex items-center gap-4 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
+<div class="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
+<span class="material-icons text-sm">event_note</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-slate-400">Tomorrow</p>
+<h4 class="text-sm font-semibold">Doctor's Appointment - Leo</h4>
+</div>
+<span class="text-xs font-bold text-slate-500">9:30 AM</span>
+</div>
+<div class="flex items-center gap-4 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
+<div class="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+<span class="material-icons text-sm">payments</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-slate-400">Friday, Oct 17</p>
+<h4 class="text-sm font-semibold">Shared Expense Approval</h4>
+</div>
+<span class="text-xs font-bold text-primary">$45.00</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Phone Form Factor) -->
+<nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-6 py-3 pb-8 flex justify-between items-center z-50">
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-icons">dashboard</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Dash</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-icons">calendar_today</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Plan</span>
+</button>
+<div class="relative -top-6">
+<button class="w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center border-4 border-background-light dark:border-background-dark">
+<span class="material-icons text-2xl">add</span>
+</button>
+</div>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-icons">chat_bubble_outline</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Talk</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-icons">gavel</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Legal</span>
+</button>
+</nav>
+<!-- Premium Toast Notification -->
+<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+<div class="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-full shadow-xl flex items-center gap-2">
+<span class="material-icons text-amber-400 text-sm">stars</span>
+<span class="text-xs font-bold whitespace-nowrap">Premium Mode Active</span>
+</div>
+</div>
+</div>
+</body></html>

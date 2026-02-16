@@ -23,7 +23,7 @@ const getDatabaseConfig = () => {
 };
 
 export const auth = betterAuth({
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3000/api/auth",
     ...getDatabaseConfig(),
     emailAndPassword: {
         enabled: true,
@@ -45,7 +45,7 @@ export const auth = betterAuth({
             hooks: {
                 after: [
                     {
-                        matcher: (context: { path?: string }) => context.path?.startsWith("/api/auth/sign-in") || false,
+                        matcher: (context: { path?: string }) => context.path?.includes("sign-in") || false,
                         handler: async (ctx: unknown) => {
                             const c = ctx as { context?: { user?: { id: string } } };
                             try {

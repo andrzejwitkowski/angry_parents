@@ -59,7 +59,7 @@ export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="flex flex-col h-full overflow-hidden bg-transparent">
             <CalendarHeader
                 currentDate={currentDate}
                 onPrevMonth={prevMonth}
