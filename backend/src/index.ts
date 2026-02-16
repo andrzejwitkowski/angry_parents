@@ -73,7 +73,7 @@ const cryptoService = new BunCryptoService();
 import { MockBlockchainAnchor } from "./adapters/secondary/MockBlockchainAnchor";
 const blockchainAnchor = new MockBlockchainAnchor();
 
-const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService);
+const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService, taskManager);
 const forensicController = createForensicController({ forensicService, forensicRepository });
 
 // Register Handlers
@@ -130,6 +130,57 @@ const app = new Elysia()
         console.log(`[Test] Manually triggering Sync for User ${userId}`);
         await taskManager.schedule(TaskType.SYNC_USER_PENDING_DOCS, { userId });
         return { status: "triggered" };
+    })
+    .delete("/api/test/database", async ({ set }) => {
+        if (process.env.NODE_ENV === "production") {
+            set.status = 403;
+            return { message: "Not allowed in production" };
+        }
+        console.log("[Test] Clearing Test Database...");
+
+        // Clear MongoDB Collections
+        if (mongoose.connection.db) {
+            const collections = await mongoose.connection.db.collections();
+            for (const collection of collections) {
+                await collection.deleteMany({});
+                console.log(`[Test] Cleared collection: ${collection.collectionName}`);
+            }
+        }
+
+        // Clear In-Memory Repositories
+        // We cast to any or the specific implementation if we know it has a clear method/property.
+
+        // MockBlockchainAnchor: reset()
+        if ((blockchainAnchor as any).reset) {
+            (blockchainAnchor as any).reset();
+        }
+
+        // InMemoryTimelineRepository: clear()
+        if ((timelineRepository as any).clear) {
+            (timelineRepository as any).clear();
+        }
+
+        // InMemoryCustodyRepository: deleteAll()
+        if ((custodyRepository as any).deleteAll) {
+            await (custodyRepository as any).deleteAll();
+        }
+
+        // InMemoryScheduleRepository: clear()
+        if ((scheduleRepository as any).clear) {
+            (scheduleRepository as any).clear();
+        }
+
+        // InMemoryPasskeyRepository: clear()
+        if ((passkeyRepository as any).clear) {
+            (passkeyRepository as any).clear();
+        }
+
+        // InMemoryChildRepository: clear()
+        if ((childRepository as any).clear) {
+            (childRepository as any).clear();
+        }
+
+        return { status: "cleared" };
     })
     .listen({
         port: parseInt(process.env.PORT || "3000"),

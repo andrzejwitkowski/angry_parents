@@ -1,16 +1,17 @@
 import { spawn } from "bun";
 import { MongoClient } from "mongodb";
+import fs from "fs";
 
-const ROOT_DIR = "../../";
-const TEST_MONGO_URI = "mongodb://localhost:27017/angry_parents_test";
-const TEST_PORT = 3001;
-const TEST_API_URL = `http://localhost:${TEST_PORT}`;
+const ROOT_DIR = ".";
+const TEST_MONGO_URI = "mongodb://127.0.0.1:27017/angry_parents_test_e2e_isolated";
+const TEST_PORT = 3002;
+const TEST_API_URL = `http://127.0.0.1:${TEST_PORT}`;
 
 async function isPortOpen(port: number): Promise<boolean> {
     try {
         return new Promise((resolve) => {
             const socket = Bun.connect({
-                hostname: "localhost",
+                hostname: "127.0.0.1",
                 port: port,
                 socket: {
                     open(socket) {
@@ -101,7 +102,7 @@ async function killPort(port: number) {
     }
 }
 
-async function startBackend() {
+async function startBackend(): Promise<any> {
     console.log(`Checking Backend (${TEST_PORT})...`);
 
     // Always start fresh
@@ -116,8 +117,10 @@ async function startBackend() {
         stderr: "inherit",
         env: {
             ...process.env,
-            PORT: String(TEST_PORT),
+            PORT: TEST_PORT.toString(),
             MONGODB_URI: TEST_MONGO_URI,
+            NODE_ENV: "test",
+            E2E_TEST: "true",
             BLOCKCHAIN_PRIVATE_KEY: "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             SCHEDULER_POLL_INTERVAL: "100" // Fast polling for tests
         }
@@ -132,40 +135,88 @@ async function startBackend() {
     return proc;
 }
 
-async function runTests() {
+async function runTests(): Promise<any> {
+    // Create lock file for E2E mode
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (fs as any).writeFileSync("e2e_mode.lock", "");
+
+    // Run tests
     console.log("🧪 Running Tests...");
-    const proc = spawn(["bun", "test"], {
-        cwd: process.cwd(),
+    const proc = spawn(["bun", "test", "tests/e2e-backend"], {
+        stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",
         env: {
             ...process.env,
+            PORT: TEST_PORT.toString(),
+            MONGODB_URI: TEST_MONGO_URI,
+            NODE_ENV: "test",
+            E2E_TEST: "true",
+            BLOCKCHAIN_PRIVATE_KEY: "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            SCHEDULER_POLL_INTERVAL: "100", // Fast polling for tests
             API_URL: TEST_API_URL
         }
     });
 
-    return await proc.exited;
+    return proc;
 }
 
+// Main Execution
 async function main() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let backendProc: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let testProc: any;
+
     try {
         await startMongo();
         await resetTestDb();
-        const backendProc = await startBackend();
+        backendProc = await startBackend();
 
         // Give backend a moment to settle
         if (backendProc) await new Promise(r => setTimeout(r, 2000));
 
-        const exitCode = await runTests();
+        testProc = await runTests();
+
+        // Wait for tests to finish
+        const exitCode = await testProc.exited;
+        console.log(`Tests finished with code ${exitCode}`);
+
+        // Remove lock file
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((fs as any).existsSync("e2e_mode.lock")) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (fs as any).unlinkSync("e2e_mode.lock");
+            }
+        } catch (e) {
+            console.error("Failed to remove lock file", e);
+        }
 
         if (backendProc) {
             console.log("🛑 Stopping Backend...");
             backendProc.kill();
         }
-
         process.exit(exitCode);
+
     } catch (e) {
         console.error("Test Automation Failed:", e);
+        if (backendProc) {
+            console.log("🛑 Stopping Backend due to error...");
+            backendProc.kill();
+        }
+        if (testProc) {
+            console.log("🛑 Stopping Test process due to error...");
+            testProc.kill();
+        }
+        // Remove lock file on error too
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((fs as any).existsSync("e2e_mode.lock")) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (fs as any).unlinkSync("e2e_mode.lock");
+            }
+        } catch { }
         process.exit(1);
     }
 }

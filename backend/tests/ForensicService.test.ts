@@ -26,8 +26,12 @@ const mockCrypto = {
     getFingerprint: mock(async () => "fingerprint")
 } as unknown as ICryptoService;
 
+const mockTaskManager = {
+    schedule: mock(async () => ({ id: "task_1" }))
+} as any;
+
 describe("ForensicService Idempotency", () => {
-    const service = new ForensicService(mockRepo, mockBlockchain, mockCrypto);
+    const service = new ForensicService(mockRepo, mockBlockchain, mockCrypto, mockTaskManager);
 
     it("createPendingDocument is idempotent", async () => {
         const content = { foo: "bar" };

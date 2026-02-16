@@ -34,4 +34,8 @@ export class InMemoryPasskeyRepository implements PasskeyRepository {
             passkey.counter = newCounter;
         }
     }
+
+    clear(): void {
+        this.passkeys = [];
+    }
 }

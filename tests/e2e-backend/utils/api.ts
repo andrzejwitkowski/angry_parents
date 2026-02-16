@@ -68,6 +68,16 @@ export class TestApi {
         return res;
     }
 
+    async delete(path: string) {
+        const res = await fetch(`${this.baseUrl}${path}`, {
+            method: "DELETE",
+            headers: {
+                "Cookie": this.cookieJar
+            }
+        });
+        return res;
+    }
+
     private updateCookies(res: Response) {
         const setCookie = res.headers.get("set-cookie");
         if (setCookie) {

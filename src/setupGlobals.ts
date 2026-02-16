@@ -16,14 +16,19 @@ globalAny.requestAnimationFrame = (callback: FrameRequestCallback) => setTimeout
 globalAny.cancelAnimationFrame = (id: number) => clearTimeout(id);
 
 // Mock fetch
-globalAny.fetch = jest.fn(() =>
-    Promise.resolve({
-        json: () => Promise.resolve([]),
-        ok: true,
-        status: 200,
-        headers: new Headers(),
-    })
-);
+import fs from 'fs';
+const isE2E = fs.existsSync("e2e_mode.lock");
+
+if (!isE2E) {
+    globalAny.fetch = jest.fn(() =>
+        Promise.resolve({
+            json: () => Promise.resolve([]),
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+        })
+    );
+}
 
 globalAny.getComputedStyle = dom.window.getComputedStyle;
 globalAny.MutationObserver = dom.window.MutationObserver;

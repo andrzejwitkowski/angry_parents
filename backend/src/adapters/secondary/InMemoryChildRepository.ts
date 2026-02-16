@@ -20,4 +20,8 @@ export class InMemoryChildRepository implements ChildRepository {
     async delete(id: string): Promise<void> {
         this.children.delete(id);
     }
+
+    clear(): void {
+        this.children.clear();
+    }
 }

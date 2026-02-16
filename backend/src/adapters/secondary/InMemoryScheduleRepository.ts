@@ -24,4 +24,8 @@ export class InMemoryScheduleRepository implements ScheduleRepository {
     async delete(id: string): Promise<void> {
         this.rules = this.rules.filter(r => r.id !== id);
     }
+
+    clear(): void {
+        this.rules = [];
+    }
 }

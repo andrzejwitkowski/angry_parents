@@ -69,7 +69,8 @@ export const createProcessDocumentIntegrityHandler = (
         TaskType.BLOCKCHAIN_PUBLISH,
         {
             documentIndex: doc.index,
-            documentHash: doc.hash
+            documentHash: doc.hash,
+            existingTxHash: payload.existingTxHash
         },
         {
             retryPolicy: { maxRetries: 5, initialDelayMinutes: 2 } // Longer backoff for blockchain

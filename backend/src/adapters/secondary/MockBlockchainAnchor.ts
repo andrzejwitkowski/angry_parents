@@ -16,4 +16,9 @@ export class MockBlockchainAnchor implements IBlockchainAnchor {
         console.log(`[MockBlockchain] Verifying hash ${hash} with tx ${txHash}: ${isValid}`);
         return isValid;
     }
+
+    reset() {
+        this.anchors.clear();
+        console.log("[MockBlockchain] Reset.");
+    }
 }

@@ -8,9 +8,11 @@ export interface SyncUserPendingDocsPayload {
 
 export interface ProcessDocumentIntegrityPayload {
     documentIndex: number;
+    existingTxHash?: string;
 }
 
 export interface BlockchainPublishPayload {
     documentIndex: number;
     documentHash: string;
+    existingTxHash?: string;
 }

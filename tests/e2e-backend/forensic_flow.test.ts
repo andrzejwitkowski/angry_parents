@@ -24,6 +24,10 @@ describe("Forensic Document Pipeline E2E", () => {
         apiUserA = new TestApi(BASE_URL);
         apiUserB = new TestApi(BASE_URL);
 
+        // Reset Test Database to ensure clean state (Index 0 availability)
+        console.log("Resetting DB at", BASE_URL);
+        await apiUserA.delete("/api/test/database");
+
         // Generate Keys
         keyPairA = await TestCrypto.generateKeyPair();
         keyPairB = await TestCrypto.generateKeyPair();

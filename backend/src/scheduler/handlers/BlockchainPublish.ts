@@ -19,14 +19,22 @@ export const createBlockchainPublishHandler = (
 
     // Idempotency: Check if already anchored
     if (!doc.blockchainTxId) {
-        console.log(`[BlockchainPublish] Anchoring hash ${doc.hash}...`);
-        // Simulating network call, task manager handles timeout/retry
-        const txHash = await blockchain.anchorHash(doc.hash);
+        let txHash = payload.existingTxHash;
+
+        if (!txHash) {
+            console.log(`[BlockchainPublish] Anchoring hash ${doc.hash}...`);
+            // Simulating network call, task manager handles timeout/retry
+            txHash = await blockchain.anchorHash(doc.hash);
+        } else {
+            console.log(`[BlockchainPublish] Verifying existing TxHash ${txHash}...`);
+            const isMatch = await blockchain.verifyAnchor(doc.hash, txHash);
+            if (!isMatch) throw new Error("Provided existingTxHash does not match document hash on-chain!");
+        }
 
         doc.blockchainTxId = txHash;
         // Save checkpoint 1: TxId obtained
         await forensicRepo.saveDocument(doc);
-        console.log(`[BlockchainPublish] Anchored. TxId: ${txHash}`);
+        console.log(`[BlockchainPublish] Anchored/Verified. TxId: ${txHash}`);
     } else {
         console.log(`[BlockchainPublish] Already anchored. TxId: ${doc.blockchainTxId}`);
     }

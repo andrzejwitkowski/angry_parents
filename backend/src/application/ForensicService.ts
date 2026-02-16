@@ -5,12 +5,15 @@ import { ICryptoService } from "../core/ports/ICryptoService";
 import { ForensicDocument, Signature } from "../core/domain/forensic/ForensicDocument";
 import { ForensicChain } from "../core/domain/forensic/ForensicChain";
 import { SystemState } from "../core/domain/forensic/SystemState";
+import { ITaskManager, TaskType } from "../core/ports/TaskScheduler";
+import { ProcessDocumentIntegrityPayload } from "../scheduler/types";
 
 export class ForensicService {
     constructor(
         private repository: IForensicRepository,
         private blockchain: IBlockchainAnchor,
-        private crypto: ICryptoService
+        private crypto: ICryptoService,
+        private taskManager: ITaskManager
     ) { }
 
     async initialize(adminPublicKey: string) {
@@ -50,13 +53,6 @@ export class ForensicService {
         tempDoc.hash = hash;
 
         // IDEMPOTENCY CHECK: Check if this exact document already exists
-        // (Same content, same place in chain, same timestamp)
-        // We can check by Hash if we trust collision resistance.
-        // Or we can check by Signature to be even safer against partial saves?
-        // Hash is the primary identity.
-        // We can use getDocumentByIndex, but that might be a DIFFERENT pending doc.
-        // So we need to check if *this* hash exists.
-        // We don't have getDocumentByHash in interface, but we can check if index exists and has same hash.
         const existingAtIndex = await this.repository.getDocumentByIndex<T>(index);
         if (existingAtIndex) {
             if (existingAtIndex.hash === hash) {
@@ -74,21 +70,12 @@ export class ForensicService {
                 }
                 return existingAtIndex;
             } else {
-                // Conflict: Key collision or Race condition (someone else took the spot)
-                // If it's PENDING, maybe we can overwrite? No, "Immutable Chain".
-                // If it's FINALIZED, definitely not.
-                // Throw error, client must re-base.
                 throw new Error(`Conflict: Index ${index} is already occupied by a different document (Hash mismatch). Fetch latest head and retry.`);
             }
         }
 
-        // 4. Verify Signature A
-        const isValid = await this.crypto.verifySignature(userPublicKey, hash, signatureBase64);
-        if (!isValid) {
-            throw new Error("Invalid User Signature. Ensure you signed the correct payload (index, prevHash, content, timestamp).");
-        }
-
-        // 5. Add Signature A
+        // 4. Add Signature A (WITHOUT User Verification - Offloaded to Worker)
+        // We trust the structure for now, integrity check will validate signature later.
         const sigA: Signature = {
             signerId: signerId,
             signature: signatureBase64,
@@ -98,9 +85,20 @@ export class ForensicService {
         tempDoc.signatures.push(sigA);
         tempDoc.status = "PENDING";
 
-        // 6. Save
+        // 5. Save
         await this.repository.saveDocument(tempDoc);
         console.log(`[Forensic] Pending Document created at index ${index}.`);
+
+        // 6. Schedule Integrity Check (Async)
+        await this.taskManager.schedule<ProcessDocumentIntegrityPayload>(
+            TaskType.PROCESS_DOCUMENT_INTEGRITY,
+            { documentIndex: index },
+            {
+                retryPolicy: { maxRetries: 3, initialDelayMinutes: 0 } // Immediate retry if busy
+            }
+        );
+        console.log(`[Forensic] Scheduled Integrity Check for index ${index}.`);
+
         return tempDoc;
     }
 
@@ -123,14 +121,10 @@ export class ForensicService {
         }
 
         // 2. Admin Signature (Idempotent Step)
-        // Check if THIS signer has already signed (or any admin? For now specific signer)
         const existingSig = doc.signatures.find(s => s.signerId === signerId);
         if (!existingSig) {
-            // Verify
-            const isValid = await this.crypto.verifySignature(adminPublicKey, doc.hash, signatureBase64);
-            if (!isValid) throw new Error("Invalid Admin Signature");
-
             // Add & SAVE (Checkpoint 1)
+            // NO Verification here (Async)
             doc.signatures.push({
                 signerId: signerId,
                 signature: signatureBase64,
@@ -143,39 +137,22 @@ export class ForensicService {
             console.log(`[Forensic] Index ${index}: Admin Signature already present. Skipping.`);
         }
 
-        // 3. Blockchain Anchor (Idempotent Step)
-        if (!doc.blockchainTxId) {
-            let txHash = existingTxHash;
-
-            if (!txHash) {
-                // Perform Anchor
-                console.log(`[Forensic] Index ${index}: Anchoring to blockchain...`);
-                txHash = await this.blockchain.anchorHash(doc.hash);
-            } else {
-                // Verify provided hash matches
-                const isMatch = await this.blockchain.verifyAnchor(doc.hash, txHash);
-                if (!isMatch) throw new Error("Provided existingTxHash does not match document hash on-chain!");
+        // 3. Schedule Processing (Integrity -> Blockchain)
+        // We schedule Integrity check again to verify the NEW signature (Admin's)
+        // And then it will trigger Blockchain Publish if valid.
+        await this.taskManager.schedule<ProcessDocumentIntegrityPayload>(
+            TaskType.PROCESS_DOCUMENT_INTEGRITY,
+            {
+                documentIndex: index,
+                existingTxHash: existingTxHash
+            }, // Pass existingTxHash if provided for recovery
+            {
+                retryPolicy: { maxRetries: 3, initialDelayMinutes: 0 }
             }
+        );
+        console.log(`[Forensic] Scheduled Finalization (Integrity Check) for index ${index}.`);
 
-            // Update & SAVE (Checkpoint 2)
-            doc.blockchainTxId = txHash;
-            // We save here so that if we crash before marking FINALIZED, we still have the TxId
-            await this.repository.saveDocument(doc);
-            console.log(`[Forensic] Index ${index}: Blockchain TxId saved (${txHash}).`);
-        } else {
-            console.log(`[Forensic] Index ${index}: Blockchain Anchor already present (${doc.blockchainTxId}). Skipping.`);
-        }
-
-        // 4. Update Status (Idempotent Step)
-        if (doc.status !== "FINALIZED") {
-            doc.status = "FINALIZED";
-            await this.repository.saveDocument(doc);
-            console.log(`[Forensic] Index ${index}: Status marked FINALIZED.`);
-        }
-
-        // 5. Update System State
-        await this.ensureSystemStateConsistency(doc.index, doc.hash);
-
+        // We do NOT wait for blockchain here. We return the document with the new signature.
         return doc;
     }
 
