@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,7 @@ interface MedsFormProps {
 }
 
 export function MedsForm({ initialData, onSubmit, isSubmitting }: MedsFormProps) {
+    const { t } = useTranslation();
     const {
         register,
         handleSubmit,
@@ -44,7 +46,7 @@ export function MedsForm({ initialData, onSubmit, isSubmitting }: MedsFormProps)
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-purple-600 mb-2">
                 <Pill className="w-5 h-5" />
-                <h3 className="font-semibold text-lg">Medication Details</h3>
+                <h3 className="font-semibold text-lg">{t("meds.details")}</h3>
             </div>
 
             <ChildSelector
@@ -53,11 +55,11 @@ export function MedsForm({ initialData, onSubmit, isSubmitting }: MedsFormProps)
             />
 
             <div className="space-y-2">
-                <Label htmlFor="medicineName">Medicine Name*</Label>
+                <Label htmlFor="medicineName">{t("meds.medicineNameLabel")}*</Label>
                 <Input
                     id="medicineName"
                     {...register("medicineName")}
-                    placeholder="e.g. Paracetamol, Ibuprofen"
+                    placeholder={t("meds.medicineNamePlaceholder")}
                     className={errors.medicineName ? "border-red-500" : ""}
                 />
                 {errors.medicineName && (
@@ -66,11 +68,11 @@ export function MedsForm({ initialData, onSubmit, isSubmitting }: MedsFormProps)
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="dosage">Dosage*</Label>
+                <Label htmlFor="dosage">{t("meds.dosageLabel")}*</Label>
                 <Input
                     id="dosage"
                     {...register("dosage")}
-                    placeholder="e.g. 500mg, 5ml"
+                    placeholder={t("meds.dosagePlaceholder")}
                     className={errors.dosage ? "border-red-500" : ""}
                 />
                 {errors.dosage && (
@@ -84,7 +86,7 @@ export function MedsForm({ initialData, onSubmit, isSubmitting }: MedsFormProps)
                 disabled={isSubmitting}
                 data-testid="submit-meds"
             >
-                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Medication" : "Add Medication")}
+                {isSubmitting ? (initialData ? t("meds.saving") : t("meds.adding")) : (initialData ? t("meds.updateSubmit") : t("meds.addSubmit"))}
             </Button>
         </form>
     );

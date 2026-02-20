@@ -16,15 +16,24 @@ describe('Authentication Flow', () => {
         cy.get('#reg-email').type(testUser.email);
         cy.get('#reg-password').type(testUser.password);
 
-        cy.get('button[type="submit"]').contains('Submit').click();
+        cy.get('button[type="submit"]').contains('Sign Up').click();
 
-        // Should be redirected to dashboard
-        cy.url().should('include', '/dashboard');
-        cy.contains('Co-Parenting Hub').should('be.visible');
+        // Should be redirected to setup passkey first
+        cy.url().should('include', '/setup-passkey');
+        cy.contains('Secure Your Account');
+
+        // Simulate Passkey
+        cy.intercept('POST', '**/api/auth/webauthn/register/verify').as('verify');
+        cy.contains('Dev: Simulate Key').click();
+        cy.wait('@verify');
+
+        // Now should be on dashboard
+        cy.url({ timeout: 15000 }).should('include', '/dashboard');
+        cy.contains('Dashboard').should('be.visible');
         cy.contains(`@${testUser.username}`).should('be.visible');
 
         // Logout
         cy.contains('Logout').click({ force: true });
-        cy.url().should('eq', Cypress.config().baseUrl + '/');
+        cy.url().should('eq', Cypress.config().baseUrl + '/auth');
     });
 });

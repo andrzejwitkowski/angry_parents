@@ -2,8 +2,7 @@ import type { TimelineItem } from "@/types/timeline.types";
 import { TimelineItemFactory } from "./components/TimelineItemFactory";
 import { Calendar, AlertCircle } from "lucide-react";
 import type { User } from '@/types/user';
-
-
+import { useTranslation } from "react-i18next";
 interface TimelineFeedProps {
     items: TimelineItem[];
     onItemUpdate: (item: TimelineItem) => void;
@@ -12,7 +11,7 @@ interface TimelineFeedProps {
 }
 
 export function TimelineFeed({ items, onItemUpdate, onItemDelete, user }: TimelineFeedProps) {
-
+    const { t } = useTranslation();
 
     if (items.length === 0) {
         return (
@@ -21,10 +20,10 @@ export function TimelineFeed({ items, onItemUpdate, onItemDelete, user }: Timeli
                     <Calendar className="w-12 h-12 text-slate-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    No events yet
+                    {t("daylog.noEvents")}
                 </h3>
                 <p className="text-sm text-slate-600 max-w-sm">
-                    Start logging your day by using the composer below. Add notes, medical visits, handovers, and more.
+                    {t("daylog.startLogging")}
                 </p>
             </div>
         );
@@ -41,8 +40,8 @@ export function TimelineFeed({ items, onItemUpdate, onItemDelete, user }: Timeli
                     </div>
                     <p className="text-sm font-medium text-amber-900">
                         {modifiedItems.length === 1
-                            ? "One entry on this day has been modified"
-                            : `${modifiedItems.length} entries on this day have been modified`}
+                            ? t("daylog.oneEntryModified")
+                            : t("daylog.entriesModified", { count: modifiedItems.length })}
                     </p>
                 </div>
             )}

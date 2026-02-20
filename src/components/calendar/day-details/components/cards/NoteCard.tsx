@@ -52,7 +52,7 @@ export function NoteCard({ item, user, onUpdate, onDelete }: NoteCardProps) {
                             <StickyNote className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex flex-col">
-                            <h3 className="font-bold text-slate-900">Note</h3>
+                            <h3 className="font-bold text-slate-900">{t("note.cardTitle")}</h3>
                             <ChildIndicators childIds={item.childIds} />
                         </div>
                     </div>
@@ -112,6 +112,11 @@ export function NoteCard({ item, user, onUpdate, onDelete }: NoteCardProps) {
                     <p className="text-xs text-gray-500">
                         {new Date(item.createdAt).toLocaleString()}
                     </p>
+                    {item.createdByName && (
+                        <p className="text-xs text-gray-400 font-medium">
+                            {t("daylog.addedBy", { name: item.createdByName })}
+                        </p>
+                    )}
                     <AuditIndicator item={item} />
                 </div>
             </CardContent>

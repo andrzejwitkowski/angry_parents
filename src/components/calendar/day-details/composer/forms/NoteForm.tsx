@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,7 @@ interface NoteFormProps {
 }
 
 export function NoteForm({ initialData, onSubmit, isSubmitting }: NoteFormProps) {
+    const { t } = useTranslation();
     const {
         register,
         handleSubmit,
@@ -42,7 +44,7 @@ export function NoteForm({ initialData, onSubmit, isSubmitting }: NoteFormProps)
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-slate-600 mb-2">
                 <StickyNote className="w-5 h-5" />
-                <h3 className="font-semibold text-lg">Daily Note</h3>
+                <h3 className="font-semibold text-lg">{t("note.details")}</h3>
             </div>
 
             <ChildSelector
@@ -51,11 +53,11 @@ export function NoteForm({ initialData, onSubmit, isSubmitting }: NoteFormProps)
             />
 
             <div className="space-y-2">
-                <Label htmlFor="content">Content*</Label>
+                <Label htmlFor="content">{t("note.contentLabel")}*</Label>
                 <Textarea
                     id="content"
                     {...register("content")}
-                    placeholder="Write your note here..."
+                    placeholder={t("note.contentPlaceholder")}
                     className={errors.content ? "border-red-500" : ""}
                 />
                 {errors.content && (
@@ -69,7 +71,7 @@ export function NoteForm({ initialData, onSubmit, isSubmitting }: NoteFormProps)
                 disabled={isSubmitting}
                 data-testid="submit-note"
             >
-                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Note" : "Add Note")}
+                {isSubmitting ? (initialData ? t("note.saving") : t("note.adding")) : (initialData ? t("note.updateSubmit") : t("note.addSubmit"))}
             </Button>
         </form>
     );

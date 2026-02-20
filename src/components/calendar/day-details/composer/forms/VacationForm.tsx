@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,7 @@ interface VacationFormProps {
 }
 
 export function VacationForm({ initialData, onSubmit, isSubmitting }: VacationFormProps) {
+    const { t } = useTranslation();
     const {
         register,
         handleSubmit,
@@ -42,7 +44,7 @@ export function VacationForm({ initialData, onSubmit, isSubmitting }: VacationFo
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-amber-600 mb-2">
                 <Plane className="w-5 h-5" />
-                <h3 className="font-semibold text-lg">Vacation Status</h3>
+                <h3 className="font-semibold text-lg">{t("vacation.details")}</h3>
             </div>
 
             <ChildSelector
@@ -51,11 +53,11 @@ export function VacationForm({ initialData, onSubmit, isSubmitting }: VacationFo
             />
 
             <div className="space-y-2">
-                <Label htmlFor="status">Vacation Status*</Label>
+                <Label htmlFor="status">{t("vacation.statusLabel")}*</Label>
                 <Input
                     id="status"
                     {...register("status")}
-                    placeholder="e.g. On holiday, Airport, Beach..."
+                    placeholder={t("vacation.statusPlaceholder")}
                     className={errors.status ? "border-red-500" : ""}
                 />
                 {errors.status && (
@@ -69,7 +71,7 @@ export function VacationForm({ initialData, onSubmit, isSubmitting }: VacationFo
                 disabled={isSubmitting}
                 data-testid="submit-vacation"
             >
-                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Vacation Status" : "Add Vacation Status")}
+                {isSubmitting ? (initialData ? t("vacation.saving") : t("vacation.adding")) : (initialData ? t("vacation.updateSubmit") : t("vacation.addSubmit"))}
             </Button>
         </form>
     );

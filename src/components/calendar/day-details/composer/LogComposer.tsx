@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActionToolbar, type ActionMode } from "./ActionToolbar";
 import { MedicalForm } from "./forms/MedicalForm";
 import { HandoverForm } from "./forms/HandoverForm";
@@ -16,6 +17,7 @@ interface LogComposerProps {
 }
 
 export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
+    const { t } = useTranslation();
     const [selectedMode, setSelectedMode] = useState<ActionMode | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -40,7 +42,7 @@ export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
             onSuccess();
         } catch (error) {
             console.error("Failed to add entry:", error);
-            alert(error instanceof Error ? error.message : "Failed to add entry");
+            alert(error instanceof Error ? error.message : t("daylog.failedToAdd"));
         } finally {
             setIsSubmitting(false);
         }
@@ -60,7 +62,7 @@ export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
                     {selectedMode === "VACATION" && <VacationForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} />}
                     {selectedMode === "ATTACHMENT" && (
                         <div className="p-4 text-center text-slate-500 italic">
-                            Attachment form coming soon...
+                            {t("daylog.attachmentComingSoon")}
                         </div>
                     )}
                 </div>

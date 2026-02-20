@@ -79,11 +79,17 @@ export class TestApi {
     }
 
     private updateCookies(res: Response) {
-        const setCookie = res.headers.get("set-cookie");
-        if (setCookie) {
-            // Simple cookie extraction, taking the first part before semicolon
-            // This might need robustness if multiple cookies
-            this.cookieJar = setCookie.split(';')[0];
+        // Use getSetCookie() to get ALL Set-Cookie headers as an array (Bun/modern fetch).
+        // Fall back to splitting get("set-cookie") for older runtimes.
+        const allCookies: string[] =
+            typeof (res.headers as any).getSetCookie === "function"
+                ? (res.headers as any).getSetCookie()
+                : (res.headers.get("set-cookie") ?? "").split(/,(?=[^ ])/).filter(Boolean);
+
+        if (allCookies.length > 0) {
+            // Extract name=value from each Set-Cookie string (strip directives after ;)
+            const pairs = allCookies.map(c => c.split(';')[0].trim()).filter(Boolean);
+            this.cookieJar = pairs.join('; ');
         }
     }
 }

@@ -1,4 +1,6 @@
 import { format } from "date-fns";
+import { enUS, pl } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -21,10 +23,13 @@ export function CalendarHeader({
     onNextMonth,
     onDateSelect,
 }: CalendarHeaderProps) {
+    const { t, i18n } = useTranslation();
+    const currentLocale = i18n.language === 'pl' ? pl : enUS;
+
     return (
         <div className="flex items-center justify-between px-8 py-6 bg-transparent">
             <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight capitalize">
-                {format(currentDate, "MMMM yyyy")}
+                {format(currentDate, "MMMM yyyy", { locale: currentLocale })}
             </h2>
             <div className="flex items-center gap-2 bg-white p-1 rounded-2xl shadow-sm border border-slate-200">
                 <Button
@@ -44,7 +49,7 @@ export function CalendarHeader({
                             className="h-10 px-4 rounded-xl font-semibold text-slate-700 hover:bg-slate-100 gap-2 border-x border-slate-100"
                         >
                             <CalendarIcon className="h-4 w-4" />
-                            Custom Month
+                            {t('calendar.customMonth')}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="center">

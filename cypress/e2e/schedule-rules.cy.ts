@@ -2,6 +2,13 @@
 
 describe('Schedule Rule Management', () => {
     beforeEach(() => {
+        // Clear database
+        cy.request({
+            method: 'DELETE',
+            url: 'http://localhost:3000/api/test/database',
+            failOnStatusCode: false
+        });
+
         cy.viewport(1280, 800);
         cy.visit('/auth');
         // Quick login/register
@@ -12,20 +19,32 @@ describe('Schedule Rule Management', () => {
         cy.get('input[placeholder="name@example.com"]').type(`ruleuser${suffix}@test.com`);
         cy.get('input[type="password"]').first().type('password123');
         cy.get('button[type="submit"]').click();
+
+        // Wait for redirect to dashboard
+        cy.url({ timeout: 15000 }).should('include', '/setup-passkey');
+        cy.contains('Dev: Simulate Key').click();
+        cy.url({ timeout: 15000 }).should('include', '/dashboard');
+
+        // Create a child
+        cy.contains('Manage Children').click();
+        cy.get('input#name').type('Rule Child');
+        cy.contains('button', 'Add Child').click();
+        cy.contains('Rule Child').should('exist');
+        cy.get('body').type('{esc}');
         cy.wait(500);
     });
 
     it('Scenario: Oops Workflow (Create and Delete Rule)', () => {
         // 1. Open Wizard
-        cy.contains('button', 'Generate Schedule').click({ force: true });
+        cy.contains('button', 'Input Court Schedule').click({ force: true });
         cy.get('[role="dialog"]').should('be.visible');
 
         // 2. Configure a Rule
         const start = '2025-01-01'; // Future date
         const end = '2025-01-14';
 
-        cy.get('[role="dialog"]').contains('Start Date').parent().find('input').type(start);
-        cy.get('[role="dialog"]').contains('End Date').parent().find('input').type(end);
+        cy.get('[role="dialog"]').contains('Start Date').parent().find('input').clear().type(start);
+        cy.get('[role="dialog"]').contains('End Date').parent().find('input').clear().type(end);
         cy.get('[role="dialog"]').contains('button', 'Generate Schedule').click({ force: true });
 
         // 3. Save (Confirm & Save)

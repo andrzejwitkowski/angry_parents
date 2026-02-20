@@ -1,6 +1,7 @@
 describe('Day Details Logbook Flow', () => {
     beforeEach(() => {
         // Mock the session request from better-auth
+        cy.intercept('GET', '**/api/auth/webauthn/status', { statusCode: 200, body: { hasPasskey: true } });
         cy.intercept('GET', '**/api/auth/get-session', {
             statusCode: 200,
             body: {
@@ -24,7 +25,7 @@ describe('Day Details Logbook Flow', () => {
 
     it('allows user to open day details and add a medical visit', () => {
         // Click on today
-        cy.contains(new Date().getDate().toString()).first().click();
+        cy.contains('Today', { matchCase: false }).click({ force: true });
 
         // Verify sheet opened
         cy.contains('Day Logbook').should('be.visible');
@@ -46,7 +47,7 @@ describe('Day Details Logbook Flow', () => {
     });
 
     it('allows user to add and toggle medication', () => {
-        cy.contains(new Date().getDate().toString()).first().click();
+        cy.contains('Today', { matchCase: false }).click({ force: true });
 
         cy.get('[data-testid="action-meds"]').click();
 

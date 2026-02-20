@@ -68,6 +68,6 @@ describe('Authentication Flow with Passkey', () => {
 
         // 5. Expect Dashboard
         cy.url({ timeout: 15000 }).should('include', '/dashboard');
-        cy.contains('Co-Parenting Hub');
+        cy.contains('Dashboard');
     });
 });

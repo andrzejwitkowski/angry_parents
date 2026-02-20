@@ -1,6 +1,14 @@
-import { describe, test, expect, beforeAll } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll, jest } from "bun:test";
 import { TestApi } from "./utils/api";
 import { TestCrypto } from "./utils/crypto";
+
+// setupGlobals.ts (preloaded by bunfig.toml) replaces global.fetch with a jest mock.
+// These E2E tests hit the real backend server, so we must restore native Bun fetch.
+// We capture the real fetch BEFORE any mocking happens (i.e. at module-load time here,
+// before bun:test preloads run their mocks via globalThis). Since preloads run first,
+// we need to reach into globalThis and patch it back in beforeAll.
+// We use Bun.fetch which is the unpatched native implementation.
+const nativeFetch = Bun.fetch.bind(Bun);
 
 const BASE_URL = process.env.API_URL || "http://localhost:3000"; // Assuming dev server running
 
@@ -20,6 +28,10 @@ describe("Forensic Document Pipeline E2E", () => {
     const userEmailB = `userB_${Date.now()}@test.com`;
 
     beforeAll(async () => {
+        // Restore native fetch — setupGlobals.ts replaces global.fetch with a jest mock
+        // that always returns []. E2E tests need real HTTP to hit the dev server.
+        (globalThis as any).fetch = nativeFetch;
+
         // Init APIs
         apiUserA = new TestApi(BASE_URL);
         apiUserB = new TestApi(BASE_URL);
@@ -45,6 +57,18 @@ describe("Forensic Document Pipeline E2E", () => {
         // Mock generic Key IDs
         keyIdA_Base64 = Buffer.from("keyA").toString("base64url");
         keyIdB_Base64 = Buffer.from("keyB").toString("base64url");
+    });
+
+    afterAll(() => {
+        // Reinstate mock fetch so other test files (component tests) are not affected
+        (globalThis as any).fetch = jest.fn(() =>
+            Promise.resolve({
+                json: () => Promise.resolve([]),
+                ok: true,
+                status: 200,
+                headers: new Headers(),
+            })
+        );
     });
 
     test("User A can register and add a passkey", async () => {

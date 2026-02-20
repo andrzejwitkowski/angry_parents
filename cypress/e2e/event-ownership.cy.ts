@@ -8,6 +8,7 @@ describe('Event Ownership Authorization', () => {
     });
 
     it('shows delete buttons for owner', () => {
+        cy.intercept('GET', '**/api/auth/webauthn/status', { statusCode: 200, body: { hasPasskey: true } });
         cy.intercept('GET', '**/api/auth/get-session', {
             statusCode: 200,
             body: {
@@ -50,6 +51,7 @@ describe('Event Ownership Authorization', () => {
     });
 
     it('hides delete buttons for non-owner', () => {
+        cy.intercept('GET', '**/api/auth/webauthn/status', { statusCode: 200, body: { hasPasskey: true } });
         cy.intercept('GET', '**/api/auth/get-session', {
             statusCode: 200,
             body: {
@@ -92,6 +94,7 @@ describe('Event Ownership Authorization', () => {
     });
 
     it('disables medication checkbox for non-owners', () => {
+        cy.intercept('GET', '**/api/auth/webauthn/status', { statusCode: 200, body: { hasPasskey: true } });
         cy.intercept('GET', '**/api/auth/get-session', {
             statusCode: 200,
             body: {

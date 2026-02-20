@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Calendar as CalendarIcon, Loader2, ArrowRight, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,6 +29,7 @@ export interface CustodySchedulerProps {
 }
 
 export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
+    const { t } = useTranslation();
     const [, setStep] = useState(1);
     const [children, setChildren] = useState<Child[]>([]);
     const [selectedChild, setSelectedChild] = useState<Child | null>(null);
@@ -347,20 +349,20 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
     return (
         <div className="max-w-6xl mx-auto p-6 space-y-8">
             <div className="flex items-center justify-between flex-wrap gap-4">
-                <h1 className="text-2xl font-bold tracking-tight">Custody Scheduler</h1>
+                <h1 className="text-2xl font-bold tracking-tight">{t("scheduler.title")}</h1>
                 <div className="flex items-center gap-3">
-                    <p className="text-sm text-slate-500 whitespace-nowrap">Schedule for:</p>
+                    <p className="text-sm text-slate-500 whitespace-nowrap">{t("scheduler.scheduleFor")}</p>
                     {childrenLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                     ) : children.length === 0 ? (
                         <div className="flex items-center gap-2 text-amber-600 text-sm bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
                             <Users className="h-4 w-4" />
-                            <span>No children configured — add one in Settings</span>
+                            <span>{t("scheduler.noChildren")}</span>
                         </div>
                     ) : (
                         <Select value={selectedChild?.id ?? ""} onValueChange={handleChildSelect}>
                             <SelectTrigger className="w-44 border-indigo-200 focus:ring-indigo-500">
-                                <SelectValue placeholder="Select child" />
+                                <SelectValue placeholder={t("scheduler.selectChild")} />
                             </SelectTrigger>
                             <SelectContent>
                                 {children.map(c => (
@@ -383,19 +385,19 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                     <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl ring-1 ring-slate-200">
                         <CardHeader className="pb-4">
                             <CardTitle className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center justify-between">
-                                <span>{editingRuleId ? "Edit Pattern" : "Pattern Configuration"}</span>
+                                <span>{editingRuleId ? t("scheduler.editPattern") : t("scheduler.patternConfig")}</span>
                                 {editingRuleId && (
                                     <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="text-xs text-slate-500 h-6">
-                                        Cancel Edit
+                                        {t("scheduler.cancelEdit")}
                                     </Button>
                                 )}
                             </CardTitle>
-                            <CardDescription>Choose a template or define a custom rotation.</CardDescription>
+                            <CardDescription>{t("scheduler.chooseTemplate")}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             {/* Pattern Selection Cards */}
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Pattern Type</Label>
+                                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.patternType")}</Label>
                                 <div className="grid grid-cols-3 gap-3">
                                     <button
                                         onClick={() => setConfig({ ...config, type: 'ALTERNATING_WEEKEND' })}
@@ -409,7 +411,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                         <div className="p-1.5 rounded-full bg-white shadow-sm ring-1 ring-slate-100">
                                             <CalendarIcon className="w-4 h-4" />
                                         </div>
-                                        <span className="text-xs font-semibold text-center leading-tight">Alt. Weekend</span>
+                                        <span className="text-xs font-semibold text-center leading-tight">{t("scheduler.altWeekend")}</span>
                                     </button>
 
                                     <button
@@ -424,7 +426,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                         <div className="p-1.5 rounded-full bg-white shadow-sm ring-1 ring-slate-100">
                                             <ArrowRight className="w-4 h-4" />
                                         </div>
-                                        <span className="text-xs font-semibold text-center leading-tight">2-2-3 Rotation</span>
+                                        <span className="text-xs font-semibold text-center leading-tight">{t("scheduler.twoTwoThree")}</span>
                                     </button>
 
                                     <button
@@ -439,7 +441,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                         <div className="p-1.5 rounded-full bg-white shadow-sm ring-1 ring-slate-100">
                                             <Settings className="w-4 h-4" />
                                         </div>
-                                        <span className="text-xs font-semibold text-center leading-tight">Custom Loop</span>
+                                        <span className="text-xs font-semibold text-center leading-tight">{t("scheduler.customLoop")}</span>
                                     </button>
                                 </div>
                             </div>
@@ -448,7 +450,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                             {/* Custom Sequence Input */}
                             {config.type === 'CUSTOM_SEQUENCE' && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Days On / Off Pattern</Label>
+                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.daysOnOff")}</Label>
                                     <div className="relative">
                                         <Input
                                             className="pl-3 pr-20 font-mono text-sm border-slate-200 focus-visible:ring-indigo-500"
@@ -461,18 +463,18 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                             placeholder="e.g. 1, 13"
                                         />
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium pointer-events-none">
-                                            days
+                                            {t("scheduler.days")}
                                         </div>
                                     </div>
                                     <p className="text-[10px] text-slate-400">
-                                        Enter numbers separated by comma. Example: "1, 13" means 1 day assigned, 13 days off.
+                                        {t("scheduler.customLoopDesc")}
                                     </p>
                                 </div>
                             )}
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Start Date</Label>
+                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.startDate")}</Label>
                                     <Input
                                         type="date"
                                         className="block w-full border-slate-200 focus-visible:ring-indigo-500"
@@ -481,7 +483,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">End Date</Label>
+                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.endDate")}</Label>
                                     <Input
                                         type="date"
                                         className="block w-full border-slate-200 focus-visible:ring-indigo-500"
@@ -493,22 +495,22 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Starting Parent</Label>
+                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.startingParent")}</Label>
                                     <Select
                                         onValueChange={(v: 'MOM' | 'DAD') => setConfig({ ...config, startingParent: v })}
                                         value={config.startingParent}
                                     >
                                         <SelectTrigger className="border-slate-200 focus:ring-indigo-500">
-                                            <SelectValue placeholder="Select parent" />
+                                            <SelectValue placeholder={t("scheduler.selectParent")} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="MOM">Mom</SelectItem>
-                                            <SelectItem value="DAD">Dad</SelectItem>
+                                            <SelectItem value="MOM">{t("scheduler.mom")}</SelectItem>
+                                            <SelectItem value="DAD">{t("scheduler.dad")}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Handover</Label>
+                                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.handover")}</Label>
                                     <Input
                                         type="time"
                                         className="border-slate-200 focus-visible:ring-indigo-500"
@@ -529,10 +531,10 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                         htmlFor="isOneTime"
                                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        One-time rule (Do not propagate)
+                                        {t("scheduler.oneTime")}
                                     </Label>
                                     <p className="text-[11px] text-slate-500">
-                                        Check this for holidays or specific events that should not repeat next month.
+                                        {t("scheduler.oneTimeDesc")}
                                     </p>
                                 </div>
                             </div>
@@ -545,14 +547,14 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                 data-testid="generate-btn"
                             >
                                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarIcon className="mr-2 h-4 w-4" />}
-                                Generate Schedule
+                                {t("scheduler.generateSchedule")}
                             </Button>
                         </CardContent>
                     </Card>
 
                     {/* Active Rules List */}
                     <div className="mt-8">
-                        <h3 className="text-lg font-bold text-slate-700 mb-4 px-1">Active Patterns</h3>
+                        <h3 className="text-lg font-bold text-slate-700 mb-4 px-1">{t("scheduler.activePatterns")}</h3>
                         <ActiveRulesList
                             rules={activeRules}
                             onDelete={handleDeleteRule}
@@ -566,10 +568,10 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                         <div className="mt-8 pt-6 border-t border-slate-200">
                             <h3 className="text-sm font-bold text-slate-700 mb-3 px-1 uppercase tracking-wider flex items-center gap-2">
                                 <Users className="w-4 h-4 text-slate-400" />
-                                Fill Unassigned Days
+                                {t("scheduler.fillGapsTitle")}
                             </h3>
                             <p className="text-xs text-slate-500 mb-4 px-1">
-                                Automatically create low-priority rules to assign any empty days in this month to a specific parent.
+                                {t("scheduler.fillGapsDesc")}
                             </p>
                             <div className="grid grid-cols-2 gap-4">
                                 <Button
@@ -578,7 +580,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                     disabled={loading}
                                     className="border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100 hover:text-pink-800"
                                 >
-                                    Fill Gaps → Mom
+                                    {t("scheduler.fillGapsMom")}
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -586,7 +588,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                     disabled={loading}
                                     className="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800"
                                 >
-                                    Fill Gaps → Dad
+                                    {t("scheduler.fillGapsDad")}
                                 </Button>
                             </div>
                         </div>
@@ -601,7 +603,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                 className="text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
                             >
                                 <ArrowRight className="w-4 h-4 mr-2" />
-                                Propagate to Next Month
+                                {t("scheduler.propagate")}
                             </Button>
                         </div>
                     )}
@@ -613,25 +615,25 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                         <CardHeader>
                             <div className="flex flex-col space-y-1.5 ">
                                 <div className="flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg">Preview</CardTitle>
+                                    <CardTitle className="text-lg">{t("scheduler.preview")}</CardTitle>
                                     {previewEntries.length > 0 && (
                                         <div className="flex gap-2">
                                             <Button size="sm" onClick={() => setPreviewEntries([])} variant="ghost" className="text-xs">
-                                                Clear
+                                                {t("scheduler.clear")}
                                             </Button>
                                             <Button size="sm" onClick={handleSaveRule} disabled={loading} className={cn(
                                                 "text-white shadow-md shadow-indigo-200 text-xs",
                                                 editingRuleId ? "bg-amber-600 hover:bg-amber-700" : "bg-indigo-600 hover:bg-indigo-700"
                                             )}>
-                                                {editingRuleId ? "Update Pattern" : "Confirm & Save"}
+                                                {editingRuleId ? t("scheduler.updatePattern") : t("scheduler.confirmSave")}
                                             </Button>
                                         </div>
                                     )}
                                 </div>
                                 <CardDescription>
                                     {previewEntries.length > 0
-                                        ? `Generated ${previewEntries.length} entries.`
-                                        : "Configure pattern to see preview."}
+                                        ? t("scheduler.generatedEntries", { count: previewEntries.length })
+                                        : t("scheduler.configurePrevew")}
                                 </CardDescription>
                             </div>
                         </CardHeader>
@@ -656,7 +658,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                 {previewEntries.length === 0 && (
                                     <div className="h-full flex flex-col items-center justify-center text-slate-300">
                                         <CalendarIcon className="w-16 h-16 mb-4 opacity-10" />
-                                        <p className="font-medium text-center px-8">Select a pattern and click generate to verify before saving.</p>
+                                        <p className="font-medium text-center px-8">{t("scheduler.selectPatternToVerify")}</p>
                                     </div>
                                 )}
                             </div>
@@ -670,10 +672,10 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
                             <AlertTriangle className="w-5 h-5" />
-                            Schedule Conflict Detected
+                            {t("scheduler.conflictTitle")}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            <p className="mb-3">This pattern overlaps with existing rules. The new rule will take priority and override the following:</p>
+                            <p className="mb-3">{t("scheduler.conflictDesc1")}</p>
                             <div className="bg-slate-50 p-3 rounded-md border border-slate-100 space-y-2 max-h-[150px] overflow-y-auto">
                                 {conflictRules.map(rule => (
                                     <div key={rule.id} className="flex items-center justify-between text-xs p-2 bg-white rounded shadow-sm border border-slate-100">
@@ -683,14 +685,14 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                 ))}
                             </div>
                             <p className="mt-4 text-xs text-slate-500">
-                                Proceeding will generate this schedule and place it at the top of the priority stack (P{activeRules.length > 0 ? Math.max(...activeRules.map(r => r.priority)) + 1 : 1}).
+                                {t("scheduler.conflictDesc2", { priority: activeRules.length > 0 ? Math.max(...activeRules.map(r => r.priority)) + 1 : 1 })}
                             </p>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{t("scheduler.cancel")}</AlertDialogCancel>
                         <AlertDialogAction onClick={performGeneratePreview} className="bg-amber-600 hover:bg-amber-700">
-                            Proceed Anyway
+                            {t("scheduler.proceedAnyway")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -699,35 +701,35 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             <AlertDialog open={isPropagationDialogOpen} onOpenChange={setIsPropagationDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Propagate Schedule</AlertDialogTitle>
+                        <AlertDialogTitle>{t("scheduler.propagateTitle")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Copy existing pattern to next month?
+                            {t("scheduler.propagateDesc")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 
                     {propagationResult && (
                         <div className="space-y-4 my-2">
                             <div className="space-y-2">
-                                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">To Be Created</h4>
+                                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">{t("scheduler.toBeCreated")}</h4>
                                 <div className="space-y-1">
                                     {propagationResult.rulesToCreate.map((r, i) => (
                                         <div key={i} className="text-sm bg-indigo-50 text-indigo-700 p-2 rounded border border-indigo-100 flex justify-between">
-                                            <span>{r.startingParent} Starts (Pattern)</span>
+                                            <span>{t("scheduler.startsPattern", { parent: t(`scheduler.${r.startingParent.toLowerCase()}`) })}</span>
                                             <span className="text-xs opacity-70">{r.startDate}</span>
                                         </div>
                                     ))}
-                                    {propagationResult.rulesToCreate.length === 0 && <p className="text-xs text-slate-500 italic">No recurring rules found.</p>}
+                                    {propagationResult.rulesToCreate.length === 0 && <p className="text-xs text-slate-500 italic">{t("scheduler.noRecurring")}</p>}
                                 </div>
                             </div>
 
                             {propagationResult.skippedRules.length > 0 && (
                                 <div className="space-y-2">
-                                    <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">Skipped (One-Time / Invalid)</h4>
+                                    <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">{t("scheduler.skipped")}</h4>
                                     <div className="space-y-1">
                                         {propagationResult.skippedRules.map((r, i) => (
                                             <div key={i} className="text-sm bg-slate-100 text-slate-500 p-2 rounded border border-slate-200 flex justify-between">
                                                 <span className="line-through">{r.ruleName}</span>
-                                                <Badge variant="outline" className="text-[10px] h-5 bg-white">{r.reason === 'ONE_TIME' ? 'One Time' : 'Error'}</Badge>
+                                                <Badge variant="outline" className="text-[10px] h-5 bg-white">{r.reason === 'ONE_TIME' ? t("scheduler.oneTimeBadge") : t("scheduler.errorBadge")}</Badge>
                                             </div>
                                         ))}
                                     </div>
@@ -737,9 +739,9 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                     )}
 
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{t("scheduler.cancel")}</AlertDialogCancel>
                         <AlertDialogAction onClick={handleExecutePropagation} disabled={!propagationResult?.canProceed} data-testid="confirm-propagate-btn">
-                            Confirm & Propagate
+                            {t("scheduler.confirmPropagate")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

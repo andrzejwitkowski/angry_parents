@@ -64,7 +64,7 @@ export function HandoverCard({ item, user, onUpdate, onDelete }: HandoverCardPro
                             <ArrowRightLeft className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex flex-col">
-                            <h3 className="font-bold text-indigo-900">Child Handover</h3>
+                            <h3 className="font-bold text-indigo-900">{t("handover.cardTitle")}</h3>
                             <ChildIndicators childIds={item.childIds} />
                         </div>
                     </div>
@@ -77,7 +77,7 @@ export function HandoverCard({ item, user, onUpdate, onDelete }: HandoverCardPro
                                     : "bg-amber-100 text-amber-800 border-amber-300"
                             )}
                         >
-                            {item.status}
+                            {isCompleted ? t("handover.statusCompleted") : t("handover.statusPending")}
                         </Badge>
                         {isOwner && (
                             <div className="flex items-center gap-1">
@@ -131,7 +131,7 @@ export function HandoverCard({ item, user, onUpdate, onDelete }: HandoverCardPro
                     <MapPin className="w-5 h-5 text-indigo-600 mt-0.5" />
                     <div>
                         <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
-                            Location
+                            {t("handover.locationLabel")}
                         </p>
                         <p className="text-base font-semibold text-gray-900">
                             {item.location}
@@ -144,7 +144,7 @@ export function HandoverCard({ item, user, onUpdate, onDelete }: HandoverCardPro
                     <Clock className="w-5 h-5 text-indigo-600 mt-0.5" />
                     <div>
                         <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
-                            Time
+                            {t("handover.timeLabel")}
                         </p>
                         <p className="text-base font-semibold text-gray-900">
                             {item.time}
@@ -159,7 +159,7 @@ export function HandoverCard({ item, user, onUpdate, onDelete }: HandoverCardPro
                     </p>
                     {item.createdByName && (
                         <p className="text-xs text-gray-400 font-medium">
-                            Added by {item.createdByName}
+                            {t("daylog.addedBy", { name: item.createdByName })}
                         </p>
                     )}
                     <AuditIndicator item={item} />

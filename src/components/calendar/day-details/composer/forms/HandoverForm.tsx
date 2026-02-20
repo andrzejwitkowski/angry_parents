@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ interface HandoverFormProps {
 }
 
 export function HandoverForm({ initialData, onSubmit, isSubmitting }: HandoverFormProps) {
+    const { t } = useTranslation();
     const {
         register,
         handleSubmit,
@@ -49,7 +51,7 @@ export function HandoverForm({ initialData, onSubmit, isSubmitting }: HandoverFo
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-indigo-600 mb-2">
                 <ArrowRightLeft className="w-5 h-5" />
-                <h3 className="font-semibold text-lg">Handover Details</h3>
+                <h3 className="font-semibold text-lg">{t("handover.details")}</h3>
             </div>
 
             <ChildSelector
@@ -58,11 +60,11 @@ export function HandoverForm({ initialData, onSubmit, isSubmitting }: HandoverFo
             />
 
             <div className="space-y-2">
-                <Label htmlFor="location">Location*</Label>
+                <Label htmlFor="location">{t("handover.locationLabel")}*</Label>
                 <Input
                     id="location"
                     {...register("location")}
-                    placeholder="e.g. School, Home, Park"
+                    placeholder={t("handover.locationPlaceholder")}
                     className={errors.location ? "border-red-500" : ""}
                 />
                 {errors.location && (
@@ -72,11 +74,11 @@ export function HandoverForm({ initialData, onSubmit, isSubmitting }: HandoverFo
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="time">Time (HH:MM)*</Label>
+                    <Label htmlFor="time">{t("handover.timeLabel")} (HH:MM)*</Label>
                     <Input
                         id="time"
                         {...register("time")}
-                        placeholder="e.g. 15:30"
+                        placeholder={t("handover.timePlaceholder")}
                         className={errors.time ? "border-red-500" : ""}
                     />
                     {errors.time && (
@@ -85,18 +87,18 @@ export function HandoverForm({ initialData, onSubmit, isSubmitting }: HandoverFo
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Status*</Label>
+                    <Label>{t("handover.statusLabel")}*</Label>
                     <Controller
                         name="status"
                         control={control}
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select status" />
+                                    <SelectValue placeholder={t("handover.statusPlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="PENDING">Pending</SelectItem>
-                                    <SelectItem value="COMPLETED">Completed</SelectItem>
+                                    <SelectItem value="PENDING">{t("handover.statusPending")}</SelectItem>
+                                    <SelectItem value="COMPLETED">{t("handover.statusCompleted")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
@@ -110,7 +112,7 @@ export function HandoverForm({ initialData, onSubmit, isSubmitting }: HandoverFo
                 disabled={isSubmitting}
                 data-testid="submit-handover"
             >
-                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Handover" : "Add Handover")}
+                {isSubmitting ? (initialData ? t("handover.saving") : t("handover.adding")) : (initialData ? t("handover.updateSubmit") : t("handover.addSubmit"))}
             </Button>
         </form>
     );

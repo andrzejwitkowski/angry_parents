@@ -28,17 +28,27 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
         });
 
         // Wait for dashboard with longer timeout
+        cy.location('pathname', { timeout: 10000 }).should('eq', '/setup-passkey');
+        cy.contains('Dev: Simulate Key').click();
         cy.location('pathname', { timeout: 10000 }).should('eq', '/dashboard');
+        // --- INJECTED: CREATE CHILD BEFORE TESTS ---
+        cy.contains('Manage Children').click();
+        cy.get('input#name').type('Test Child');
+        cy.contains('button', 'Add Child').click();
+        cy.contains('Test Child').should('exist');
+        cy.get('body').type('{esc}');
+        // -----------------------------------------
+
 
         // Wait for calendar/sidebar loaded
-        cy.contains('Generate Schedule', { timeout: 10000 }).should('be.visible');
+        cy.contains('Input Court Schedule', { timeout: 10000 }).should('be.visible');
     });
 
 
 
     it('Visually proves the Tower of Overrides (Blue -> Pink -> Blue -> Pink -> Revert)', () => {
         // Step 0: Ensure we are on the dashboard
-        const openWizard = () => cy.contains('button', 'Generate Schedule').click();
+        const openWizard = () => cy.contains('button', 'Input Court Schedule').click();
         const saveRule = () => cy.contains('Confirm & Save').click();
 
         const createRule = (parent: 'MOM' | 'DAD', startDate: string, endDate: string) => {

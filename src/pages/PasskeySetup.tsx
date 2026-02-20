@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from "react-i18next";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { registerPasskey, checkHasPasskey, mockRegisterPasskey } from '@/lib/webauthn-client';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 
 export default function PasskeySetup() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export default function PasskeySetup() {
             navigate('/dashboard');
         } catch (e: unknown) {
             console.error(e);
-            const msg = e instanceof Error ? e.message : "Failed to register key";
+            const msg = e instanceof Error ? e.message : t("passkey.failedToRegister");
             setError(msg);
         } finally {
             setLoading(false);
@@ -40,14 +42,14 @@ export default function PasskeySetup() {
                     <div className="mx-auto bg-indigo-100 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-4">
                         <KeyRound className="w-10 h-10 text-indigo-600" />
                     </div>
-                    <CardTitle className="text-2xl">Secure Your Account</CardTitle>
+                    <CardTitle className="text-2xl">{t("passkey.secureAccount")}</CardTitle>
                     <CardDescription>
-                        We require a hardware security key (YubiKey) to access the planning dashboard.
+                        {t("passkey.requireKey")}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 text-center">
                     <p className="text-slate-600">
-                        Please insert your security key and click the button below to register it.
+                        {t("passkey.insertKey")}
                     </p>
                     {error && (
                         <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100">
@@ -61,7 +63,7 @@ export default function PasskeySetup() {
                         onClick={handleRegister}
                         disabled={loading}
                     >
-                        {loading ? "Waiting for Key..." : "Register Security Key"}
+                        {loading ? t("passkey.waitingForKey") : t("passkey.registerKey")}
                     </Button>
 
                     {import.meta.env.DEV && (
@@ -75,14 +77,14 @@ export default function PasskeySetup() {
                                     navigate('/dashboard');
                                 } catch (e: unknown) {
                                     const msg = e instanceof Error ? e.message : "Unknown error";
-                                    setError(`Mock registration failed: ${msg}`);
+                                    setError(t("passkey.mockFailed", { msg }));
                                 } finally {
                                     setLoading(false);
                                 }
                             }}
                         >
                             <ShieldCheck className="w-4 h-4 mr-2" />
-                            Dev: Simulate Key
+                            {t("passkey.devSimulateKey")}
                         </Button>
                     )}
                 </CardFooter>

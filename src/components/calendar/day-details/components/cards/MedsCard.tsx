@@ -76,7 +76,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
                             <Pill className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex flex-col">
-                            <h3 className="font-bold text-purple-900">Medication</h3>
+                            <h3 className="font-bold text-purple-900">{t("meds.cardTitle")}</h3>
                             <ChildIndicators childIds={item.childIds} />
                         </div>
                     </div>
@@ -89,7 +89,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
                                     : "bg-amber-100 text-amber-800 border-amber-300"
                             )}
                         >
-                            {administered ? "Administered" : "Pending"}
+                            {administered ? t("meds.statusAdministered") : t("meds.statusPending")}
                         </Badge>
                         {isOwner && (
                             <div className="flex items-center gap-1">
@@ -141,7 +141,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
                 {/* Medicine Name */}
                 <div className="bg-white/80 rounded-lg p-3">
                     <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">
-                        Medicine
+                        {t("meds.medicineLabel")}
                     </p>
                     <p className="text-lg font-bold text-purple-900">
                         {item.medicineName}
@@ -151,7 +151,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
                 {/* Dosage */}
                 <div className="bg-white/60 rounded-lg p-3">
                     <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">
-                        Dosage
+                        {t("meds.dosageLabel")}
                     </p>
                     <p className="text-base text-gray-900 font-medium">
                         {item.dosage}
@@ -174,7 +174,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
                             administered ? "text-green-700 line-through" : "text-gray-900"
                         )}
                     >
-                        Mark as administered
+                        {t("meds.markAdministered")}
                     </label>
                 </div>
 
@@ -185,7 +185,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
                     </p>
                     {item.createdByName && (
                         <p className="text-xs text-gray-400 font-medium">
-                            Administered by {item.createdByName}
+                            {t("meds.administeredBy", { name: item.createdByName })}
                         </p>
                     )}
                     <AuditIndicator item={item} />

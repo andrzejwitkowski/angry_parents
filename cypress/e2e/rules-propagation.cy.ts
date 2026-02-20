@@ -8,13 +8,23 @@ describe('Schedule Propagation', () => {
         cy.get('input#reg-email').type(`prop${uid}@ex.com`);
         cy.get('input#reg-password').type('password123');
         cy.get('button[type="submit"]').click();
+        cy.location('pathname', { timeout: 10000 }).should('eq', '/setup-passkey');
+        cy.contains('Dev: Simulate Key').click();
         cy.location('pathname', { timeout: 10000 }).should('eq', '/dashboard');
-        cy.contains('Generate Schedule').should('be.visible');
+        // --- INJECTED: CREATE CHILD BEFORE TESTS ---
+        cy.contains('Manage Children').click();
+        cy.get('input#name').type('Test Child');
+        cy.contains('button', 'Add Child').click();
+        cy.contains('Test Child').should('exist');
+        cy.get('body').type('{esc}');
+        // -----------------------------------------
+
+        cy.contains('Input Court Schedule').should('be.visible');
     });
 
     it('should create a recurring rule and open propagation modal', () => {
         // 1. Open Wizard
-        cy.contains('Generate Schedule').click();
+        cy.contains('Input Court Schedule').click();
 
         // 2. Configure a single recurring rule
         cy.get('input[type="date"]').first().type('2026-01-01');
@@ -42,7 +52,7 @@ describe('Schedule Propagation', () => {
         cy.wait(1000);
 
         // 4. Reopen wizard to see Active Patterns (wizard may collapse after save)
-        cy.contains('Generate Schedule').click();
+        cy.contains('Input Court Schedule').click();
         cy.wait(500);
 
         // 5. Verify Active Patterns shows our rule (may need scroll)
@@ -65,7 +75,7 @@ describe('Schedule Propagation', () => {
         // 9. Verify Feb Rule exists after propagation in Active Patterns
         cy.wait(2000);
         // Reopen wizard (modal closes after propagation)
-        cy.contains('Generate Schedule').click();
+        cy.contains('Input Court Schedule').click();
         cy.wait(500);
         cy.contains('Active Patterns').scrollIntoView();
         cy.contains('Alt. Weekend (2026-02-01)', { timeout: 15000 }).scrollIntoView().should('exist');

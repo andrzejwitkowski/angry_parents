@@ -57,7 +57,7 @@ export function AttachmentCard({ item, user, onDelete }: AttachmentCardProps) {
                             <Paperclip className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex flex-col">
-                            <h3 className="font-bold text-gray-900">Attachment</h3>
+                            <h3 className="font-bold text-gray-900">{t("attachment.cardTitle")}</h3>
                             <ChildIndicators childIds={item.childIds} />
                         </div>
                     </div>
@@ -137,7 +137,7 @@ export function AttachmentCard({ item, user, onDelete }: AttachmentCardProps) {
                     </p>
                     {item.createdByName && (
                         <p className="text-xs text-gray-400 font-medium">
-                            Uploaded by {item.createdByName}
+                            {t("attachment.uploadedBy", { name: item.createdByName })}
                         </p>
                     )}
                     <AuditIndicator item={item} />

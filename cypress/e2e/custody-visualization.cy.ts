@@ -1,6 +1,13 @@
 /// <reference types="cypress" />
 describe('Custody Visualization', () => {
     beforeEach(() => {
+        // Clear database
+        cy.request({
+            method: 'DELETE',
+            url: 'http://localhost:3000/api/test/database',
+            failOnStatusCode: false
+        });
+
         cy.viewport(1280, 720);
         // Login flow
         cy.visit('/auth');
@@ -12,13 +19,23 @@ describe('Custody Visualization', () => {
         cy.get('input[type="password"]').first().type('password123');
         cy.get('button[type="submit"]').click();
 
-        // Clear existing custody to be safe? 
-        // We lack a clear button on UI but we can rely on fresh user logic or just overwrite.
+        // Wait for redirect to dashboard
+        cy.url({ timeout: 15000 }).should('include', '/setup-passkey');
+        cy.contains('Dev: Simulate Key').click();
+        cy.url({ timeout: 15000 }).should('include', '/dashboard');
+
+        // Create a child
+        cy.contains('Manage Children').click();
+        cy.get('input#name').type('Vis Child');
+        cy.contains('button', 'Add Child').click();
+        cy.contains('Vis Child').should('exist');
+        cy.get('body').type('{esc}');
+        cy.wait(500);
     });
 
     it('Scenario: Generate & View', () => {
         // 1. Open Wizard
-        cy.contains('button', 'Generate Schedule').click({ force: true });
+        cy.contains('button', 'Input Court Schedule').click({ force: true });
 
         // 2. Configure "Alt Weekend"
         cy.get('[role="dialog"]').should('be.visible');
@@ -29,8 +46,8 @@ describe('Custody Visualization', () => {
         const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
         const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-28`;
 
-        cy.get('[role="dialog"]').contains('Start Date').parent().find('input').type(start);
-        cy.get('[role="dialog"]').contains('End Date').parent().find('input').type(end);
+        cy.get('[role="dialog"]').contains('Start Date').parent().find('input').clear().type(start).should('have.value', start);
+        cy.get('[role="dialog"]').contains('End Date').parent().find('input').clear().type(end).should('have.value', end);
 
         // Handover time: 18:00 (to trigger split day visualization if start/end match handover)
         // Alt Weekend Strategy usually generates full days for MOM/DAD, but let's check if we can force split.

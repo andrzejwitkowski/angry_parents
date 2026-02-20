@@ -2,6 +2,7 @@ import { Calendar, Settings } from "lucide-react";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface SidebarNavProps {
     isCollapsed: boolean;
@@ -9,10 +10,11 @@ interface SidebarNavProps {
 
 export function SidebarNav({ isCollapsed }: SidebarNavProps) {
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     const navItems = [
-        { icon: Calendar, label: "Calendar", path: "/dashboard" },
-        { icon: Settings, label: "Settings", path: "/settings" },
+        { icon: Calendar, label: t('sidebar.calendar'), path: "/dashboard" },
+        { icon: Settings, label: t('sidebar.settings'), path: "/settings" },
     ];
 
     return (

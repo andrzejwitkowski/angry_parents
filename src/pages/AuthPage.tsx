@@ -34,7 +34,7 @@ export default function AuthPage() {
                 navigate('/dashboard');
             },
             onError: (ctx) => {
-                setError(ctx.error.message || "Login failed");
+                setError(ctx.error.message || t("auth.loginFailed"));
                 setIsLoading(false);
             }
         });
@@ -56,7 +56,7 @@ export default function AuthPage() {
                 navigate('/setup-passkey');
             },
             onError: (ctx) => {
-                setError(ctx.error.message || "Registration failed");
+                setError(ctx.error.message || t("auth.regFailed"));
                 setIsLoading(false);
             }
         });
@@ -85,7 +85,7 @@ export default function AuthPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle>{t('auth.login')}</CardTitle>
-                                <CardDescription>Enter your credentials to access your account.</CardDescription>
+                                <CardDescription>{t("auth.loginDesc")}</CardDescription>
                             </CardHeader>
                             <form onSubmit={handleLogin}>
                                 <CardContent className="space-y-4">
@@ -113,7 +113,7 @@ export default function AuthPage() {
                                 </CardContent>
                                 <CardFooter>
                                     <Button className="w-full" type="submit" disabled={isLoading}>
-                                        {isLoading ? "..." : "Sign In"}
+                                        {isLoading ? "..." : t("auth.signInBtn")}
                                     </Button>
                                 </CardFooter>
                             </form>
@@ -124,12 +124,12 @@ export default function AuthPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle>{t('auth.register')}</CardTitle>
-                                <CardDescription>Create a new account to start communicating.</CardDescription>
+                                <CardDescription>{t("auth.regDesc")}</CardDescription>
                             </CardHeader>
                             <form onSubmit={handleRegister}>
                                 <CardContent className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="reg-name">Full Name</Label>
+                                        <Label htmlFor="reg-name">{t("auth.fullName")}</Label>
                                         <Input
                                             id="reg-name"
                                             placeholder="John Doe"
@@ -172,7 +172,7 @@ export default function AuthPage() {
                                 </CardContent>
                                 <CardFooter>
                                     <Button className="w-full" type="submit" disabled={isLoading}>
-                                        {isLoading ? "..." : "Sign Up"}
+                                        {isLoading ? "..." : t("auth.signUpBtn")}
                                     </Button>
                                 </CardFooter>
                             </form>

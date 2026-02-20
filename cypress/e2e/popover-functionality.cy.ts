@@ -2,6 +2,7 @@ describe('Popover and Overflow Functionality', () => {
     const today = new Date().toISOString().split('T')[0];
 
     beforeEach(() => {
+        cy.intercept('GET', '**/api/auth/webauthn/status', { statusCode: 200, body: { hasPasskey: true } });
         cy.intercept('GET', '**/api/auth/get-session', {
             statusCode: 200,
             body: {

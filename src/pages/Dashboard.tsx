@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { authClient } from '@/lib/auth-client';
 import { checkHasPasskey } from '@/lib/webauthn-client';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sidebar } from '@/components/Sidebar';
 import { BetterCalendar } from '@/components/BetterCalendar';
 import type { User } from '@/types/user';
@@ -22,6 +23,7 @@ import {
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -58,7 +60,7 @@ export default function Dashboard() {
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
                     <div className="h-12 w-12 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
-                    <p className="text-slate-500 font-medium animate-pulse">Loading Workspace...</p>
+                    <p className="text-slate-500 font-medium animate-pulse">{t('dashboard.loading')}</p>
                 </div>
             </div>
         );
@@ -85,8 +87,8 @@ export default function Dashboard() {
                         {/* Header */}
                         <header className="flex justify-between items-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm p-4 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div>
-                                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Dashboard</h1>
-                                <p className="text-xs font-medium text-indigo-500/80 dark:text-indigo-400/80">Premium Access</p>
+                                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{t('dashboard.title')}</h1>
+                                <p className="text-xs font-medium text-indigo-500/80 dark:text-indigo-400/80">{t('dashboard.premiumAccess')}</p>
                             </div>
                             <div className="flex items-center gap-4">
                                 <ChildrenConfigSheet />
@@ -119,8 +121,8 @@ export default function Dashboard() {
                                                 <ChevronRight className="w-5 h-5 opacity-60 group-hover:translate-x-1 transition-transform" />
                                             </div>
                                             <div className="text-left space-y-0.5">
-                                                <h3 className="font-bold text-base">Input Court Schedule</h3>
-                                                <p className="text-indigo-100 text-xs font-medium">Input your court-ordered custody plan</p>
+                                                <h3 className="font-bold text-base">{t('dashboard.inputCourtSchedule')}</h3>
+                                                <p className="text-indigo-100 text-xs font-medium">{t('dashboard.inputCourtScheduleDesc')}</p>
                                             </div>
                                         </button>
                                     </DialogTrigger>
@@ -140,7 +142,7 @@ export default function Dashboard() {
                     {/* Calendar Container - Fills Remaining Space */}
                     <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 overflow-hidden relative">
                         <div className="absolute top-4 left-6 z-10 pointer-events-none">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Custody Calendar</span>
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t('dashboard.custodyCalendar')}</span>
                         </div>
                         {/* BetterCalendar should handle its own internal scrolling if needed, or fit 100% height */}
                         <div className="h-full w-full pt-8">

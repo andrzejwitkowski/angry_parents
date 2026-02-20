@@ -63,7 +63,7 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300">
-                            Medical Visit
+                            {t("medical.cardBadge")}
                         </Badge>
                         {isOwner && (
                             <div className="flex items-center gap-1">
@@ -115,7 +115,7 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                 {/* Diagnosis - Prominently displayed */}
                 <div className="bg-white/80 rounded-lg p-4 border-l-4 border-emerald-500">
                     <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-1">
-                        Diagnosis
+                        {t("medical.diagnosis").replace("*", "")}
                     </p>
                     <p className="text-lg font-bold text-emerald-900">
                         {item.diagnosis}
@@ -126,7 +126,7 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                 {item.recommendations && (
                     <div className="bg-white/60 rounded-lg p-3">
                         <p className="text-xs font-semibold text-teal-700 uppercase tracking-wide mb-1">
-                            Recommendations
+                            {t("medical.recommendations")}
                         </p>
                         <p className="text-sm text-gray-700 leading-relaxed">
                             {item.recommendations}
@@ -139,7 +139,7 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                     <div className="space-y-2">
                         <p className="text-xs font-semibold text-teal-700 uppercase tracking-wide flex items-center gap-1">
                             <FileText className="w-3 h-3" />
-                            Attachments ({item.attachments.length})
+                            {t("medical.attachments", { count: item.attachments.length })}
                         </p>
                         <div className="flex gap-2 flex-wrap">
                             {item.attachments.map((url, index) => (
@@ -165,7 +165,7 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                     </p>
                     {item.createdByName && (
                         <p className="text-xs text-gray-400 font-medium">
-                            Added by {item.createdByName}
+                            {t("medical.addedBy", { name: item.createdByName })}
                         </p>
                     )}
                     <AuditIndicator item={item} />

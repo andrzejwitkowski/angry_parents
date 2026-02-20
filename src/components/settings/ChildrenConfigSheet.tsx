@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, User, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
     Sheet,
@@ -20,6 +21,7 @@ import {
 import { childApi, type Child } from "@/lib/api/children";
 
 export function ChildrenConfigSheet() {
+    const { t } = useTranslation();
     const [children, setChildren] = useState<Child[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -89,33 +91,33 @@ export function ChildrenConfigSheet() {
             <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                     <User className="h-4 w-4" />
-                    Manage Children
+                    {t("settings.manageChildren")}
                 </Button>
             </SheetTrigger>
             <SheetContent>
                 <SheetHeader>
-                    <SheetTitle>Children Configuration</SheetTitle>
+                    <SheetTitle>{t("settings.childrenConfigTitle")}</SheetTitle>
                     <SheetDescription>
-                        Manage your children profiles and their associated colors for the calendar.
+                        {t("settings.childrenConfigDesc")}
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="mt-6 space-y-6">
                     {/* Add New Child */}
                     <div className="space-y-4 border-b pb-6">
-                        <h3 className="text-sm font-medium">Add Child</h3>
+                        <h3 className="text-sm font-medium">{t("settings.addChild")}</h3>
                         <div className="grid gap-2">
-                            <Label htmlFor="name">Name</Label>
+                            <Label htmlFor="name">{t("settings.childName")}</Label>
                             <Input
                                 id="name"
                                 value={newChildName}
                                 onChange={(e) => setNewChildName(e.target.value)}
-                                placeholder="Child's Name"
+                                placeholder={t("settings.childNamePlaceholder")}
                                 disabled={isSaving}
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="color">Color</Label>
+                            <Label htmlFor="color">{t("settings.childColor")}</Label>
                             <div className="flex gap-2 items-center">
                                 <Input
                                     id="color"
@@ -130,19 +132,19 @@ export function ChildrenConfigSheet() {
                         </div>
                         <Button onClick={handleAddChild} className="w-full" disabled={isSaving || !newChildName.trim()}>
                             {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                            Add Child
+                            {t("settings.addChild")}
                         </Button>
                     </div>
 
                     {/* List Children */}
                     <div className="space-y-3">
-                        <h3 className="text-sm font-medium">Children List</h3>
+                        <h3 className="text-sm font-medium">{t("settings.childrenList")}</h3>
                         {isLoading ? (
                             <div className="flex justify-center p-4">
                                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                             </div>
                         ) : children.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">No children added yet.</p>
+                            <p className="text-sm text-muted-foreground text-center py-4">{t("settings.noChildrenYet")}</p>
                         ) : (
                             children.map(child => (
                                 <Card key={child.id} className="overflow-hidden">
@@ -175,12 +177,12 @@ export function ChildrenConfigSheet() {
                                             </PopoverTrigger>
                                             <PopoverContent className="w-64 p-3" side="left">
                                                 <div className="space-y-2">
-                                                    <p className="text-sm font-medium text-destructive">Cannot delete child</p>
+                                                    <p className="text-sm font-medium text-destructive">{t("settings.cannotDeleteChild")}</p>
                                                     <p className="text-xs text-muted-foreground">
                                                         {deleteError?.message}
                                                     </p>
                                                     <Button variant="outline" size="sm" className="w-full" onClick={() => setDeleteError(null)}>
-                                                        Dismiss
+                                                        {t("settings.dismiss")}
                                                     </Button>
                                                 </div>
                                             </PopoverContent>

@@ -3,6 +3,7 @@ import { SidebarNavItem } from "./SidebarNavItem";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface SidebarFooterProps {
     isCollapsed: boolean;
@@ -10,6 +11,7 @@ interface SidebarFooterProps {
 
 export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     const handleLogout = async () => {
         await authClient.signOut();
@@ -21,7 +23,7 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
             <TooltipProvider delayDuration={0}>
                 <SidebarNavItem
                     icon={LogOut}
-                    label="Logout"
+                    label={t('sidebar.logout')}
                     isCollapsed={isCollapsed}
                     onClick={handleLogout}
                     variant="destructive"

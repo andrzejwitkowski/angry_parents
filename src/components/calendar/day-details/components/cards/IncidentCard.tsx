@@ -81,13 +81,13 @@ export function IncidentCard({ item, user, onUpdate, onDelete }: IncidentCardPro
                             <AlertTriangle className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex flex-col">
-                            <h3 className="font-bold text-red-900">Incident Report</h3>
+                            <h3 className="font-bold text-red-900">{t("incident.cardTitle")}</h3>
                             <ChildIndicators childIds={item.childIds} />
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className={config.color}>
-                            {item.severity}
+                            {item.severity === "LOW" ? t("incident.severityLow") : item.severity === "MEDIUM" ? t("incident.severityMedium") : t("incident.severityHigh")}
                         </Badge>
                         {isOwner && (
                             <div className="flex items-center gap-1">
@@ -139,7 +139,7 @@ export function IncidentCard({ item, user, onUpdate, onDelete }: IncidentCardPro
                 {/* Description */}
                 <div className="bg-white/80 rounded-lg p-4 border-l-4 border-red-500">
                     <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2">
-                        Description
+                        {t("incident.descriptionSection")}
                     </p>
                     <p className="text-base text-gray-900 leading-relaxed">
                         {item.description}
@@ -153,7 +153,7 @@ export function IncidentCard({ item, user, onUpdate, onDelete }: IncidentCardPro
                     </p>
                     {item.createdByName && (
                         <p className="text-xs text-gray-400 font-medium">
-                            Reported by {item.createdByName}
+                            {t("incident.reportedBy", { name: item.createdByName })}
                         </p>
                     )}
                     <AuditIndicator item={item} />

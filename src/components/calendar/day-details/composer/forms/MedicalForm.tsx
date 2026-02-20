@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +26,7 @@ interface MedicalFormProps {
 }
 
 export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalFormProps) {
+    const { t } = useTranslation();
     const {
         register,
         handleSubmit,
@@ -49,7 +51,7 @@ export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalForm
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center gap-2 text-emerald-600 mb-2">
                 <Stethoscope className="w-5 h-5" />
-                <h3 className="font-semibold text-lg">Medical Visit Details</h3>
+                <h3 className="font-semibold text-lg">{t("medical.details")}</h3>
             </div>
 
             <ChildSelector
@@ -59,11 +61,11 @@ export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalForm
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="doctor">Doctor Name*</Label>
+                    <Label htmlFor="doctor">{t("medical.doctorName")}</Label>
                     <Input
                         id="doctor"
                         {...register("doctor")}
-                        placeholder="e.g. Dr. House"
+                        placeholder={t("medical.doctorPlaceholder")}
                         className={errors.doctor ? "border-red-500" : ""}
                     />
                     {errors.doctor && (
@@ -72,21 +74,21 @@ export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalForm
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="specialization">Specialization</Label>
+                    <Label htmlFor="specialization">{t("medical.specialization")}</Label>
                     <Input
                         id="specialization"
                         {...register("specialization")}
-                        placeholder="e.g. Pediatrician"
+                        placeholder={t("medical.specializationPlaceholder")}
                     />
                 </div>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="diagnosis">Diagnosis*</Label>
+                <Label htmlFor="diagnosis">{t("medical.diagnosis")}</Label>
                 <Input
                     id="diagnosis"
                     {...register("diagnosis")}
-                    placeholder="What was the outcome?"
+                    placeholder={t("medical.diagnosisPlaceholder")}
                     className={errors.diagnosis ? "border-red-500" : ""}
                 />
                 {errors.diagnosis && (
@@ -95,11 +97,11 @@ export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalForm
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="recommendations">Recommendations</Label>
+                <Label htmlFor="recommendations">{t("medical.recommendations")}</Label>
                 <Textarea
                     id="recommendations"
                     {...register("recommendations")}
-                    placeholder="Rest, meds, follow-up..."
+                    placeholder={t("medical.recommendationsPlaceholder")}
                     className="min-h-[100px]"
                 />
             </div>
@@ -110,7 +112,7 @@ export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalForm
                 disabled={isSubmitting}
                 data-testid="submit-medical"
             >
-                {isSubmitting ? (initialData ? "Saving..." : "Adding...") : (initialData ? "Update Medical Visit" : "Add Medical Visit")}
+                {isSubmitting ? (initialData ? t("medical.saving") : t("medical.adding")) : (initialData ? t("medical.updateSubmit") : t("medical.addSubmit"))}
             </Button>
         </form>
     );

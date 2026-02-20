@@ -7,8 +7,10 @@ describe('Dashboard Flow', () => {
         cy.get('#reg-username').type(`dbtester_${id}`);
         cy.get('#reg-email').type(`db_${id}@example.com`);
         cy.get('#reg-password').type('Password123!');
-        cy.get('button[type="submit"]').contains('Submit').click();
-        cy.url().should('include', '/dashboard');
+        cy.get('button[type="submit"]').click();
+        cy.url({ timeout: 15000 }).should('include', '/setup-passkey');
+        cy.contains('Dev: Simulate Key').click();
+        cy.url({ timeout: 15000 }).should('include', '/dashboard');
     });
 
     it('should toggle the sidebar', () => {

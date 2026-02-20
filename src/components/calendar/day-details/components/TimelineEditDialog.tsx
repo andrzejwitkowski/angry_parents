@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Dialog,
     DialogContent,
@@ -22,6 +23,7 @@ interface TimelineEditDialogProps {
 }
 
 export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: TimelineEditDialogProps) {
+    const { t } = useTranslation();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
@@ -32,7 +34,7 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
             onOpenChange(false);
         } catch (error) {
             console.error("Failed to update entry:", error);
-            alert(error instanceof Error ? error.message : "Failed to update entry");
+            alert(error instanceof Error ? error.message : t("daylog.failedToUpdate"));
         } finally {
             setIsSubmitting(false);
         }
@@ -42,7 +44,7 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Edit Entry</DialogTitle>
+                    <DialogTitle>{t("daylog.editEntry")}</DialogTitle>
                 </DialogHeader>
                 <div className="py-4">
                     {item.type === "MEDICAL_VISIT" && (
