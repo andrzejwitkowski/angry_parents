@@ -78,7 +78,7 @@ export function DayCellEvents({ events, maxVisible = 3, onDayClick, user }: DayC
                     >
                         <DialogHeader className="p-6 pb-4 border-b">
                             <DialogTitle className="text-xl font-bold text-slate-900">
-                                Events on {format(new Date(dateStr), "MMMM do")}
+                                Events on {format(new Date(dateStr), "do LLLL")}
                             </DialogTitle>
                         </DialogHeader>
                         <ScrollArea className="h-[60vh] px-6">

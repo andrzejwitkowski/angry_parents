@@ -27,7 +27,7 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, onUpdate }: DayDe
     const [error, setError] = useState<string | null>(null);
 
     const formattedDate = date ? format(date, "yyyy-MM-dd") : "";
-    const displayDate = date ? format(date, "EEEE, MMMM do, yyyy", { locale: currentLocale }) : "";
+    const displayDate = date ? format(date, "EEEE, do LLLL yyyy", { locale: currentLocale }) : "";
 
     const fetchItems = useCallback(async () => {
         if (!formattedDate) return;

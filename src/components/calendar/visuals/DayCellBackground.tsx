@@ -1,5 +1,6 @@
 import type { CustodyEntry } from "@/types/custody";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface DayCellBackgroundProps {
     entries: CustodyEntry[];
@@ -17,6 +18,8 @@ const PARENT_COLORS_SOLID = {
 };
 
 export function DayCellBackground({ entries }: DayCellBackgroundProps) {
+    const { t } = useTranslation();
+
     const backgroundStyle = useMemo(() => {
         if (!entries || entries.length === 0) return {};
 
@@ -64,8 +67,8 @@ export function DayCellBackground({ entries }: DayCellBackgroundProps) {
         if (sorted.length === 1) {
             return (
                 <div className="absolute bottom-2 right-3">
-                    <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600">
-                        {sorted[0].assignedTo}
+                    <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600 uppercase">
+                        {t(`scheduler.${sorted[0].assignedTo.toLowerCase()}`)}
                     </span>
                 </div>
             );
@@ -81,18 +84,18 @@ export function DayCellBackground({ entries }: DayCellBackgroundProps) {
         return (
             <>
                 <div className="absolute top-12 left-3">
-                    <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600">
-                        {first.assignedTo}
+                    <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600 uppercase">
+                        {t(`scheduler.${first.assignedTo.toLowerCase()}`)}
                     </span>
                 </div>
                 <div className="absolute bottom-2 right-3">
-                    <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600">
-                        {last.assignedTo}
+                    <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600 uppercase">
+                        {t(`scheduler.${last.assignedTo.toLowerCase()}`)}
                     </span>
                 </div>
             </>
         );
-    }, [entries]);
+    }, [entries, t]);
 
     if (!entries || entries.length === 0) return null;
 
