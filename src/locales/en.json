@@ -66,6 +66,8 @@
         "scheduler.selectParent": "Select parent",
         "scheduler.mom": "Mom",
         "scheduler.dad": "Dad",
+        "scheduler.mom_genitive": "Mom",
+        "scheduler.dad_genitive": "Dad",
         "scheduler.handover": "Handover",
         "scheduler.oneTime": "One-time rule (Do not propagate)",
         "scheduler.oneTimeDesc": "Check this for holidays or specific events that should not repeat next month.",

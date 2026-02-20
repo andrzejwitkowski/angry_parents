@@ -66,6 +66,8 @@
         "scheduler.selectParent": "Wybierz rodzica",
         "scheduler.mom": "Mama",
         "scheduler.dad": "Tata",
+        "scheduler.mom_genitive": "Mamy",
+        "scheduler.dad_genitive": "Taty",
         "scheduler.handover": "Przekazanie",
         "scheduler.oneTime": "Reguła jednorazowa (Nie powielaj)",
         "scheduler.oneTimeDesc": "Zaznacz to dla urlopów lub określonych wydarzeń, które nie powinny się powtarzać w przyszłym miesiącu.",

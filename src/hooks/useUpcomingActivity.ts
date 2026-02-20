@@ -14,62 +14,43 @@ function toSortKey(item: TimelineItem): string {
     return `${item.date}T${time}`;
 }
 
-/**
- * Detect upcoming custody handovers by finding the first day this week where
- * the assigned parent changes from the previous day — that boundary IS a handover.
- * Returns a synthetic HandoverItem if one is found.
- */
 function findNextCustodyHandover(
     entries: CustodyEntry[],
     today: string,
-    weekEnd: string
+    currentTime: string
 ): HandoverItem | null {
-    // Only care about entries in today..weekEnd range
-    const inRange = [...entries]
-        .filter(e => e.date >= today && e.date <= weekEnd)
-        .sort((a, b) => a.date.localeCompare(b.date));
+    if (!entries || entries.length === 0) return null;
 
-    if (inRange.length === 0) return null;
+    // Sort by date and then startTime
+    const sorted = [...entries].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return a.startTime.localeCompare(b.startTime);
+    });
 
-    // Also need yesterday's state to detect a transition happening today
-    const allSorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+    let prevParent: "MOM" | "DAD" | null = null;
 
-    // Build a date→assignedTo map (highest priority wins per day)
-    const dayMap = new Map<string, { assignedTo: "MOM" | "DAD"; time: string }>();
-    for (const e of allSorted) {
-        const existing = dayMap.get(e.date);
-        if (!existing || e.priority > (entries.find(x => x.date === e.date)?.priority ?? 0)) {
-            dayMap.set(e.date, { assignedTo: e.assignedTo, time: e.startTime });
-        }
-    }
-
-    // Walk forward from yesterday to find the first transition
-    const yesterday = format(subDays(new Date(today), 1), "yyyy-MM-dd");
-    let prevParent = dayMap.get(yesterday)?.assignedTo ?? null;
-
-    for (const entry of inRange) {
-        const cur = dayMap.get(entry.date);
-        if (!cur) continue;
-
-        // A handover occurs when:
-        //  (a) prevParent is null — today has no custody block, so the upcoming block is a transition
-        //  (b) parent flips from one day to next
-        if (cur.assignedTo !== prevParent) {
-            const handoverTime = cur.time && cur.time !== "00:00" ? cur.time : "17:00";
-            return {
-                id: `custody-handover-${entry.date}`,
-                type: "HANDOVER",
-                date: entry.date,
-                time: handoverTime,
-                location: "",
-                status: "PENDING",
-                childIds: [],
-                createdAt: new Date().toISOString(),
-                createdBy: "system",
-                auditTrail: [],
-                isDeleted: false,
-                assignedTo: cur.assignedTo,
-            } as HandoverItem & { assignedTo: "MOM" | "DAD" };
+    for (const cur of sorted) {
+        if (prevParent !== null && cur.assignedTo !== prevParent) {
+            // It's a handover!
+            // Check if it's in the future (today after currentTime, or later days)
+            // We use 00:00 as start of day for transition comparisons.
+            if (cur.date > today || (cur.date === today && cur.startTime >= currentTime)) {
+                const handoverTime = cur.startTime && cur.startTime !== "00:00" ? cur.startTime : "17:00";
+                return {
+                    id: `custody-handover-${cur.date}-${cur.startTime}`,
+                    type: "HANDOVER",
+                    date: cur.date,
+                    time: handoverTime,
+                    location: "",
+                    status: "PENDING",
+                    childIds: [],
+                    createdAt: new Date().toISOString(),
+                    createdBy: "system",
+                    auditTrail: [],
+                    isDeleted: false,
+                    assignedTo: cur.assignedTo,
+                } as HandoverItem & { assignedTo: "MOM" | "DAD" };
+            }
         }
         prevParent = cur.assignedTo;
     }
@@ -95,14 +76,17 @@ export function useUpcomingActivity(refreshKey?: number): UseUpcomingActivityRes
             setIsLoading(true);
             setError(null);
 
-            const today = format(new Date(), "yyyy-MM-dd");
-            const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+            const now = new Date();
+            const today = format(now, "yyyy-MM-dd");
+            const currentTime = format(now, "HH:mm");
+            const yesterday = format(subDays(now, 1), "yyyy-MM-dd");
+            const weekEnd = format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
             try {
                 // Fetch both in parallel
                 const [timelineItems, custodyEntries] = await Promise.all([
                     timelineApi.getByDateRange(today, weekEnd),
-                    fetch(`http://localhost:3000/api/custody?start=${today}&end=${weekEnd}`)
+                    fetch(`/api/custody?start=${yesterday}&end=${weekEnd}`)
                         .then(r => r.ok ? r.json() as Promise<CustodyEntry[]> : Promise.resolve([] as CustodyEntry[]))
                         .catch(() => [] as CustodyEntry[])
                 ]);
@@ -114,11 +98,17 @@ export function useUpcomingActivity(refreshKey?: number): UseUpcomingActivityRes
                     .filter(item => !item.isDeleted && SHOWN_TYPES.has(item.type) && item.date >= today)
                     .sort((a, b) => toSortKey(a).localeCompare(toSortKey(b))) as UpcomingActivityType[];
 
+                // Filter out timeline items earlier today
+                const upcomingFutureTimeline = upcomingTimeline.filter(item => {
+                    const time = item.type === "HANDOVER" ? (item as HandoverItem).time : "00:00";
+                    return item.date > today || time >= currentTime;
+                });
+
                 // 2. Detect next custody-schedule handover
-                const custodyHandover = findNextCustodyHandover(custodyEntries, today, weekEnd);
+                const custodyHandover = findNextCustodyHandover(custodyEntries, today, currentTime);
 
                 // 3. Pick whichever comes first
-                let best: UpcomingActivityType | null = upcomingTimeline[0] ?? null;
+                let best: UpcomingActivityType | null = upcomingFutureTimeline[0] ?? null;
 
                 if (custodyHandover) {
                     const custodyKey = toSortKey(custodyHandover);

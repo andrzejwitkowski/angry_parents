@@ -35,7 +35,7 @@ function HandoverActivity({ item }: { item: HandoverItem }) {
     // Custody-schedule-derived handovers carry `assignedTo`, manual ones have `location`
     const withParent = item as HandoverItem & { assignedTo?: "MOM" | "DAD" };
     const subtitle = item.location || (withParent.assignedTo
-        ? t("dashboard.handoverTo", { parent: withParent.assignedTo })
+        ? t("dashboard.handoverTo", { parent: t(`scheduler.${withParent.assignedTo.toLowerCase()}_genitive`) })
         : null);
 
     return (
