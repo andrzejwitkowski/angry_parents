@@ -36,7 +36,15 @@ const resources = {
             "timeline.action.CREATED": "Created",
             "timeline.action.UPDATED": "Modified",
             "timeline.action.DELETED": "Deleted",
-            "timeline.noChildrenAssigned": "No children assigned"
+            "timeline.noChildrenAssigned": "No children assigned",
+            "dashboard.nextUp": "Next Up",
+            "dashboard.noActivity": "No activity this week",
+            "dashboard.handoverAt": "Handover at {{time}}",
+            "dashboard.handoverTo": "to {{parent}}",
+            "dashboard.doctorVisit": "Doctor: {{doctor}}",
+            "dashboard.schoolMeeting": "School meeting",
+            "dashboard.medsAt": "Medication: {{name}}",
+            "dashboard.loading": "Loading..."
         }
     }
 };

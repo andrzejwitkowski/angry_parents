@@ -5,6 +5,7 @@ import { TwoTwoThreeStrategy } from "../core/domain/child/strategies/TwoTwoThree
 import { HolidayStrategy } from "../core/domain/child/strategies/HolidayStrategy";
 
 import { CustomSequenceStrategy } from "../core/domain/child/strategies/CustomSequenceStrategy";
+import { GapFillStrategy } from "../core/domain/child/strategies/GapFillStrategy";
 import { UuidProvider } from "../core/ports/UuidProvider";
 
 export class CustodyGenerator {
@@ -24,6 +25,9 @@ export class CustodyGenerator {
             entries = strategy.generate(config, this.uuidProvider);
         } else if (config.type === 'HOLIDAY') {
             const strategy = new HolidayStrategy();
+            entries = strategy.generate(config, this.uuidProvider);
+        } else if (config.type === 'GAP_FILL') {
+            const strategy = new GapFillStrategy();
             entries = strategy.generate(config, this.uuidProvider);
         }
 

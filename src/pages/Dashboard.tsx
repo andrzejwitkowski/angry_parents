@@ -11,10 +11,9 @@ import { CustodyScheduler } from '@/components/scheduler/CustodyWizard';
 import {
     Bell,
     Gavel,
-    MapPin,
-    Users,
     ChevronRight
 } from 'lucide-react';
+import { NextUpWidget } from '@/components/dashboard/NextUpWidget';
 import {
     Dialog,
     DialogContent,
@@ -131,31 +130,9 @@ export default function Dashboard() {
                                 </Dialog>
                             </div>
 
-                            {/* Today's Overview Card - Reduced Height */}
+                            {/* Next Up Widget - dynamic upcoming activity */}
                             <div className="lg:col-span-2">
-                                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 h-[120px] relative overflow-hidden flex items-center">
-                                    <div className="absolute top-0 right-0 p-3">
-                                        <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded-full">
-                                            Next Up
-                                        </span>
-                                    </div>
-                                    <div className="flex gap-5 items-center relative z-10 w-full">
-                                        <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-                                            <MapPin className="w-7 h-7" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Handover at 4:00 PM</h3>
-                                            <div className="flex items-center gap-3">
-                                                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Central Park South</p>
-                                                <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
-                                                <div className="flex items-center gap-1">
-                                                    <Users className="w-3 h-3 text-slate-400" />
-                                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Leo & Maya</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <NextUpWidget refreshKey={calendarRefreshKey} />
                             </div>
                         </div>
                     </div>

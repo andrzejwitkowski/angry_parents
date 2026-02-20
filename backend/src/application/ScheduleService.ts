@@ -21,7 +21,7 @@ export class ScheduleService {
         const maxPriority = existingRules.length > 0
             ? Math.max(...existingRules.map(r => r.priority))
             : 0;
-        const newPriority = maxPriority + 1;
+        const newPriority = config.type === 'GAP_FILL' ? -1 : (maxPriority + 1);
 
         const ruleId = `rule-${this.uuidProvider.generate()}`;
         const rule: ScheduleRule = {
@@ -60,6 +60,15 @@ export class ScheduleService {
 
         // 2. Delete the rule itself
         await this.scheduleRepository.delete(ruleId);
+    }
+
+
+    async deleteGapFillRulesByChild(childId: string): Promise<void> {
+        const rules = await this.scheduleRepository.findAllByChildId(childId);
+        const gapFillRules = rules.filter(r => r.config.type === 'GAP_FILL');
+        for (const rule of gapFillRules) {
+            await this.deleteRule(rule.id);
+        }
     }
 
     async getRulesByChild(childId: string): Promise<ScheduleRule[]> {

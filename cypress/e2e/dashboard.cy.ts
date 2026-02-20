@@ -33,4 +33,46 @@ describe('Dashboard Flow', () => {
         cy.contains('Custom Month').click();
         cy.get('[role="dialog"]').should('be.visible');
     });
+
+    it('shows "No activity this week" when no upcoming events exist', () => {
+        cy.intercept('GET', '**/api/timeline/range**', {
+            statusCode: 200,
+            body: { items: [] },
+        }).as('getRange');
+
+        cy.visit('/dashboard');
+        cy.wait('@getRange');
+
+        cy.get('[data-testid="next-up-empty"]').should('be.visible');
+        cy.contains('No activity this week').should('be.visible');
+    });
+
+    it('shows handover details when a handover event is scheduled this week', () => {
+        const today = new Date().toISOString().split('T')[0];
+
+        cy.intercept('GET', '**/api/timeline/range**', {
+            statusCode: 200,
+            body: {
+                items: [{
+                    id: 'handover-test-1',
+                    type: 'HANDOVER',
+                    date: today,
+                    time: '16:00',
+                    location: 'Central Park South',
+                    status: 'PENDING',
+                    createdAt: `${today}T00:00:00Z`,
+                    createdBy: 'user-1',
+                    childIds: [],
+                    auditTrail: [],
+                    isDeleted: false,
+                }]
+            },
+        }).as('getRangeWithHandover');
+
+        cy.visit('/dashboard');
+        cy.wait('@getRangeWithHandover');
+
+        cy.get('[data-testid="next-up-handover"]').should('be.visible');
+        cy.contains('Handover at').should('be.visible');
+    });
 });

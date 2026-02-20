@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Loader2, ArrowRight, Settings } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, ArrowRight, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,9 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from "lucide-react";
-
-// Mock Child for now, or fetch from ChildrenConfigSheet state/context
-const MOCK_CHILD = { id: "c1", name: "Alice" };
+import { childApi, type Child } from "@/lib/api/children";
 
 export interface CustodySchedulerProps {
     onSave?: () => void;
@@ -31,8 +29,10 @@ export interface CustodySchedulerProps {
 
 export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
     const [, setStep] = useState(1);
+    const [children, setChildren] = useState<Child[]>([]);
+    const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+    const [childrenLoading, setChildrenLoading] = useState(true);
     const [config, setConfig] = useState<Partial<CustodyPatternConfig>>({
-        childId: MOCK_CHILD.id,
         type: "ALTERNATING_WEEKEND",
         startingParent: "DAD",
         handoverTime: "17:00"
@@ -54,12 +54,38 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
     } | null>(null);
 
     useEffect(() => {
-        fetchRules();
+        fetchChildren();
     }, []);
 
-    const fetchRules = async () => {
+    const fetchChildren = async () => {
         try {
-            const res = await fetch(`http://localhost:3000/api/rules?childId=${MOCK_CHILD.id}`);
+            setChildrenLoading(true);
+            const data = await childApi.getAll();
+            setChildren(data);
+            if (data.length > 0) {
+                setSelectedChild(data[0]);
+                setConfig(prev => ({ ...prev, childId: data[0].id }));
+                fetchRules(data[0].id);
+            }
+        } catch (e) {
+            console.error("Failed to fetch children", e);
+        } finally {
+            setChildrenLoading(false);
+        }
+    };
+
+    const handleChildSelect = (childId: string) => {
+        const child = children.find(c => c.id === childId) ?? null;
+        setSelectedChild(child);
+        setConfig(prev => ({ ...prev, childId }));
+        setPreviewEntries([]);
+        setEditingRuleId(null);
+        if (child) fetchRules(child.id);
+    };
+
+    const fetchRules = async (childId: string) => {
+        try {
+            const res = await fetch(`http://localhost:3000/api/rules?childId=${childId}`);
             if (res.ok) {
                 const data = await res.json();
                 setActiveRules(data);
@@ -137,7 +163,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
     const handleCancelEdit = () => {
         setEditingRuleId(null);
         setConfig({
-            childId: MOCK_CHILD.id,
+            childId: selectedChild?.id,
             type: "ALTERNATING_WEEKEND",
             startingParent: "DAD",
             handoverTime: "17:00"
@@ -168,7 +194,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
 
             if (res.ok) {
                 console.log("Rule saved/updated successfully");
-                await fetchRules(); // Refresh list
+                await fetchRules(selectedChild?.id ?? ""); // Refresh list
                 setPreviewEntries([]); // Clear preview
                 setEditingRuleId(null); // Reset edit state
                 setStep(1);
@@ -191,7 +217,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                 method: "DELETE"
             });
             if (res.ok) {
-                await fetchRules(); // Refresh list
+                await fetchRules(selectedChild?.id ?? ""); // Refresh list
                 if (editingRuleId === ruleId) handleCancelEdit(); // Cancel edit if verifying deleted
                 if (onSave) onSave(); // Trigger calendar refresh
             } else {
@@ -212,7 +238,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             });
 
             if (res.ok) {
-                await fetchRules(); // Refresh list (and sorting)
+                await fetchRules(selectedChild?.id ?? ""); // Refresh list (and sorting)
                 if (onSave) onSave(); // Trigger calendar refresh
             } else {
                 console.error("Failed to reorder");
@@ -238,7 +264,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    childId: MOCK_CHILD.id,
+                    childId: selectedChild?.id,
                     currentMonthDate: currentMonthDate
                 })
             });
@@ -268,7 +294,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             });
 
             if (res.ok) {
-                await fetchRules();
+                await fetchRules(selectedChild?.id ?? "");
                 setIsPropagationDialogOpen(false);
                 setPropagationResult(null);
                 if (onSave) onSave();
@@ -282,13 +308,72 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
         }
     };
 
+    const handleFillGaps = async (parent: 'MOM' | 'DAD') => {
+        setLoading(true);
+        try {
+            // Determine current month from pivot date or today
+            // Ideally we use the calendar's view date, but for now let's use the first rule or today
+            const pivotDate = activeRules.length > 0 ? activeRules[0].config.startDate : new Date().toISOString().split('T')[0];
+            const d = new Date(pivotDate);
+            const monthDate = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+
+            const res = await fetch("http://localhost:3000/api/rules/fill-gaps", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    childId: selectedChild?.id,
+                    parent,
+                    monthDate
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                console.log(`Filled gaps: ${data.count} rules created`);
+                await fetchRules(selectedChild?.id ?? "");
+                if (onSave) onSave();
+            } else {
+                console.error("Failed to fill gaps");
+                window.alert("Failed to fill gaps.");
+            }
+        } catch (e) {
+            console.error("Error filling gaps", e);
+            window.alert("Network error filling gaps.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto p-6 space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
                 <h1 className="text-2xl font-bold tracking-tight">Custody Scheduler</h1>
-                <div className="text-right">
-                    <p className="text-sm text-slate-500">Managing schedule for</p>
-                    <p className="font-semibold text-indigo-600">{MOCK_CHILD.name}</p>
+                <div className="flex items-center gap-3">
+                    <p className="text-sm text-slate-500 whitespace-nowrap">Schedule for:</p>
+                    {childrenLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                    ) : children.length === 0 ? (
+                        <div className="flex items-center gap-2 text-amber-600 text-sm bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                            <Users className="h-4 w-4" />
+                            <span>No children configured — add one in Settings</span>
+                        </div>
+                    ) : (
+                        <Select value={selectedChild?.id ?? ""} onValueChange={handleChildSelect}>
+                            <SelectTrigger className="w-44 border-indigo-200 focus:ring-indigo-500">
+                                <SelectValue placeholder="Select child" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {children.map(c => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
+                                            {c.name}
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
                 </div>
             </div>
 
@@ -475,6 +560,37 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                             onReorder={handleReorderRule}
                         />
                     </div>
+
+                    {/* Fill Gaps Section */}
+                    {activeRules.length > 0 && (
+                        <div className="mt-8 pt-6 border-t border-slate-200">
+                            <h3 className="text-sm font-bold text-slate-700 mb-3 px-1 uppercase tracking-wider flex items-center gap-2">
+                                <Users className="w-4 h-4 text-slate-400" />
+                                Fill Unassigned Days
+                            </h3>
+                            <p className="text-xs text-slate-500 mb-4 px-1">
+                                Automatically create low-priority rules to assign any empty days in this month to a specific parent.
+                            </p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => handleFillGaps('MOM')}
+                                    disabled={loading}
+                                    className="border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100 hover:text-pink-800"
+                                >
+                                    Fill Gaps → Mom
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => handleFillGaps('DAD')}
+                                    disabled={loading}
+                                    className="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800"
+                                >
+                                    Fill Gaps → Dad
+                                </Button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Propagation Control: Show only if rules exist (MVP coverage check) */}
                     {activeRules.length > 0 && (

@@ -2,7 +2,7 @@ import { spawn } from "bun";
 import { MongoClient } from "mongodb";
 import fs from "fs";
 
-const ROOT_DIR = ".";
+const ROOT_DIR = new URL("../../", import.meta.url).pathname;
 const TEST_MONGO_URI = "mongodb://127.0.0.1:27017/angry_parents_test_e2e_isolated";
 const TEST_PORT = 3002;
 const TEST_API_URL = `http://127.0.0.1:${TEST_PORT}`;
@@ -142,7 +142,7 @@ async function runTests(): Promise<any> {
 
     // Run tests
     console.log("🧪 Running Tests...");
-    const proc = spawn(["bun", "test", "tests/e2e-backend"], {
+    const proc = spawn(["bun", "test", import.meta.dir.replace(/\/scripts$/, "")], {
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",

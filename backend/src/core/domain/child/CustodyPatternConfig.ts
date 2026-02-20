@@ -10,4 +10,7 @@ export interface CustodyPatternConfig {
     sequence?: number[];   // For 2-2-3 (e.g. [2, 2, 3])
     holidays?: string[];   // List of dates for Holiday Override
     isOneTime?: boolean;   // If true, do not propagate to next month
+    // GAP_FILL-only: IDs of the rules immediately before/after this gap
+    anchorBeforeRuleId?: string;
+    anchorAfterRuleId?: string;
 }

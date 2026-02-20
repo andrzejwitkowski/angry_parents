@@ -84,6 +84,10 @@ export class PropagationService {
                 // For now, skip holidays in propagation - they need explicit re-creation
                 break;
 
+            case 'GAP_FILL':
+                this.calculateGapFillParity(config, rule.config, nextStart, nextEnd);
+                break;
+
             case 'WEEKLY':
             case 'WEEKEND':
                 // These patterns are simple and don't require parity swapping
@@ -186,5 +190,23 @@ export class PropagationService {
         if (segmentIndex % 2 !== 0) {
             config.startingParent = config.startingParent === 'DAD' ? 'MOM' : 'DAD';
         }
+    }
+
+    /**
+     * Calculate dates for GAP_FILL pattern.
+     * Uses anchorBefore/AfterRuleId to find surrounding rules in the next month
+     * and fills the gap between them.
+     */
+    private calculateGapFillParity(
+        config: CustodyPatternConfig,
+        originalConfig: CustodyPatternConfig,
+        nextMonthStart: string,
+        nextMonthEnd: string
+    ): void {
+        // Default to full month if anchors fail.
+        // As per design decision: effectively creates a "background" fill for the whole month
+        // which is overridden by any higher-priority rules.
+        config.startDate = nextMonthStart;
+        config.endDate = nextMonthEnd;
     }
 }

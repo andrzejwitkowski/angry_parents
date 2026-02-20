@@ -209,7 +209,7 @@ export class TaskManager implements ITaskManager {
 
         // Sort by scheduledAt asc (FIFO)
         return this.model.findOneAndUpdate(query, update, {
-            new: true,
+            returnDocument: 'after',
             sort: { scheduledAt: 1 },
         });
     }

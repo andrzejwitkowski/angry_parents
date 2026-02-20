@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "dev:backend": "bun --watch backend/src/index.ts",
-    "dev:all": "bun run dev & bun run dev:backend",
+    "dev:all": "bash scripts/start-db.sh && bun run dev & bun run dev:backend",
+    "dev:stop": "bash scripts/stop-db.sh",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -39,7 +40,7 @@
     "framer-motion": "^12.29.2",
     "i18next": "^25.8.0",
     "lucide-react": "^0.563.0",
-    "mongodb": "^7.0.0",
+    "mongodb": "^7.1.0",
     "mongoose": "^9.1.6",
     "postcss": "^8.5.6",
     "react": "^19.2.0",
