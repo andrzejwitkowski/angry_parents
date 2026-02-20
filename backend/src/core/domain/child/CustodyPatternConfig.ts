@@ -7,6 +7,7 @@ export interface CustodyPatternConfig {
     type: PatternType;
     startingParent: 'MOM' | 'DAD';
     handoverTime?: string; // e.g. "17:00". Crucial for split days.
+    handoverEndTime?: string; // e.g. "19:00". When the full cycle ends.
     sequence?: number[];   // For 2-2-3 (e.g. [2, 2, 3])
     holidays?: string[];   // List of dates for Holiday Override
     isOneTime?: boolean;   // If true, do not propagate to next month

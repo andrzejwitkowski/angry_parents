@@ -21,7 +21,8 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
         // Week 2 (Day 7-13): WeekdayParent has Fri-Sun.
 
         const handoverTime = config.handoverTime || "17:00"; // Default 5pm
-        const returnTime = config.handoverTime || "09:00"; // Use handover time for return as well, fallback to default if needed
+        const returnTime = config.handoverEndTime || config.handoverTime || "09:00"; // Use handover end time for return, fallback to start time or default
+        const isSundayReturn = parseInt(returnTime.split(':')[0]) >= 12; // E.g., 12:00 or later -> Sunday return, otherwise Monday return
 
         dates.forEach(date => {
             // Calculate days difference from start
@@ -43,13 +44,25 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
                     // 00-17: WeekdayParent, 17-24: WeekendParent
                     assignments.push({ start: "00:00", end: handoverTime, parent: weekdayParent });
                     assignments.push({ start: handoverTime, end: "23:59", parent: weekendParent });
-                } else if (dayOfWeek === 6 || dayOfWeek === 0) { // Sat/Sun
+                } else if (dayOfWeek === 6) { // Saturday
                     // Full WeekendParent
                     assignments.push({ start: "00:00", end: "23:59", parent: weekendParent });
+                } else if (dayOfWeek === 0) { // Sunday
+                    if (isSundayReturn) {
+                        assignments.push({ start: "00:00", end: returnTime, parent: weekendParent });
+                        assignments.push({ start: returnTime, end: "23:59", parent: weekdayParent });
+                    } else {
+                        // Full WeekendParent if returning Monday morning
+                        assignments.push({ start: "00:00", end: "23:59", parent: weekendParent });
+                    }
                 } else if (dayOfWeek === 1) { // Monday
-                    // Return day. 00-09 WeekendParent, 09-24 WeekdayParent
-                    assignments.push({ start: "00:00", end: returnTime, parent: weekendParent });
-                    assignments.push({ start: returnTime, end: "23:59", parent: weekdayParent });
+                    if (!isSundayReturn) {
+                        // Return day. 00-09 WeekendParent, 09-24 WeekdayParent
+                        assignments.push({ start: "00:00", end: returnTime, parent: weekendParent });
+                        assignments.push({ start: returnTime, end: "23:59", parent: weekdayParent });
+                    } else {
+                        assignments.push({ start: "00:00", end: "23:59", parent: weekdayParent });
+                    }
                 } else {
                     // Tue-Thu: WeekdayParent
                     assignments.push({ start: "00:00", end: "23:59", parent: weekdayParent });

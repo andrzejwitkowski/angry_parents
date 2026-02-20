@@ -28,6 +28,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
             type: t.String(),
             startingParent: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
             handoverTime: t.Optional(t.String()),
+            handoverEndTime: t.Optional(t.String()),
             sequence: t.Optional(t.Array(t.Number())),
             holidays: t.Optional(t.Array(t.String()))
         })
@@ -94,6 +95,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
             type: t.String(),
             startingParent: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
             handoverTime: t.Optional(t.String()),
+            handoverEndTime: t.Optional(t.String()),
             sequence: t.Optional(t.Array(t.Number())),
             holidays: t.Optional(t.Array(t.String()))
         })
@@ -170,6 +172,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
                 type: t.String(),
                 startingParent: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
                 handoverTime: t.Optional(t.String()),
+                handoverEndTime: t.Optional(t.String()),
                 sequence: t.Optional(t.Array(t.Number())),
                 holidays: t.Optional(t.Array(t.String())),
                 isOneTime: t.Optional(t.Boolean())
@@ -327,6 +330,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
                 type: t.String(),
                 startingParent: t.Union([t.Literal('MOM'), t.Literal('DAD')]),
                 handoverTime: t.Optional(t.String()),
+                handoverEndTime: t.Optional(t.String()),
                 sequence: t.Optional(t.Array(t.Number())),
                 holidays: t.Optional(t.Array(t.String())),
                 isOneTime: t.Optional(t.Boolean())

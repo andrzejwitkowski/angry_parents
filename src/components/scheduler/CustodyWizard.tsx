@@ -37,7 +37,8 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
     const [config, setConfig] = useState<Partial<CustodyPatternConfig>>({
         type: "ALTERNATING_WEEKEND",
         startingParent: "DAD",
-        handoverTime: "17:00"
+        handoverTime: "17:00",
+        handoverEndTime: "19:00"
     });
     const [previewEntries, setPreviewEntries] = useState<CustodyEntry[]>([]);
     const [loading, setLoading] = useState(false);
@@ -168,7 +169,8 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             childId: selectedChild?.id,
             type: "ALTERNATING_WEEKEND",
             startingParent: "DAD",
-            handoverTime: "17:00"
+            handoverTime: "17:00",
+            handoverEndTime: "19:00"
         });
         setPreviewEntries([]);
     };
@@ -500,7 +502,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                         onValueChange={(v: 'MOM' | 'DAD') => setConfig({ ...config, startingParent: v })}
                                         value={config.startingParent}
                                     >
-                                        <SelectTrigger className="border-slate-200 focus:ring-indigo-500">
+                                        <SelectTrigger data-testid="starting-parent-select" className="border-slate-200 focus:ring-indigo-500">
                                             <SelectValue placeholder={t("scheduler.selectParent")} />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -511,12 +513,22 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.handover")}</Label>
-                                    <Input
-                                        type="time"
-                                        className="border-slate-200 focus-visible:ring-indigo-500"
-                                        value={config.handoverTime}
-                                        onChange={(e) => setConfig({ ...config, handoverTime: e.target.value })}
-                                    />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Input
+                                            type="time"
+                                            className="border-slate-200 focus-visible:ring-indigo-500"
+                                            value={config.handoverTime}
+                                            onChange={(e) => setConfig({ ...config, handoverTime: e.target.value })}
+                                            title={t("scheduler.handoverStart")}
+                                        />
+                                        <Input
+                                            type="time"
+                                            className="border-slate-200 focus-visible:ring-indigo-500"
+                                            value={config.handoverEndTime || config.handoverTime}
+                                            onChange={(e) => setConfig({ ...config, handoverEndTime: e.target.value })}
+                                            title={t("scheduler.handoverEnd")}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

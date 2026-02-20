@@ -18,6 +18,7 @@ export interface CustodyPatternConfig {
     type: PatternType;
     startingParent: 'MOM' | 'DAD';
     handoverTime?: string;
+    handoverEndTime?: string;
     sequence?: number[];
     holidays?: string[];
     isOneTime?: boolean;

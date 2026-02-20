@@ -49,7 +49,7 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
     it('Visually proves the Tower of Overrides (Blue -> Pink -> Blue -> Pink -> Revert)', () => {
         // Step 0: Ensure we are on the dashboard
         const openWizard = () => cy.contains('button', 'Input Court Schedule').click();
-        const saveRule = () => cy.contains('Confirm & Save').click();
+        const saveRule = () => cy.contains('Confirm & Save').scrollIntoView().click({ force: true });
 
         const createRule = (parent: 'MOM' | 'DAD', startDate: string, endDate: string) => {
             openWizard();
@@ -62,13 +62,25 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
             cy.get('input[type="date"]').last().clear().type(endDate);
 
             // Select Parent
-            cy.contains('Select parent').parent().click();
-            cy.contains(parent === 'MOM' ? 'Mom' : 'Dad').click();
+            cy.get('[data-testid="starting-parent-select"]').click();
+            cy.get('[role="option"]').contains(parent === 'MOM' ? 'Mom' : 'Dad').click();
+
+            // Intercept conflict check
+            cy.intercept('POST', '**/api/rules/check-conflicts').as('checkConflicts');
 
             // Click Generate
             cy.contains('Generate Schedule').click();
-            // Wait for preview
-            cy.contains(`Generated`).should('be.visible');
+
+            cy.wait('@checkConflicts').then((interception) => {
+                const conflicts = interception.response?.body?.conflicts;
+                if (conflicts && conflicts.length > 0) {
+                    // Click proceed anyway
+                    cy.contains('Proceed Anyway').click({ force: true });
+                }
+            });
+
+            // Wait for preview entries to appear
+            cy.contains('Confirm & Save').scrollIntoView().should('be.visible');
 
             // Save
             saveRule();
@@ -78,55 +90,68 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
             cy.wait(1000); // Give backend time to process and SSE/fetch to update
         };
 
+        // --- NAVIGATION: Go to May 2026 ---
+        const navigateToMay2026 = () => {
+            cy.get('h2').invoke('text').then((text) => {
+                if (!text.includes('May 2026')) {
+                    cy.get('button[aria-label="Next Month"]').click();
+                    cy.wait(200);
+                    navigateToMay2026();
+                }
+            });
+        };
+        navigateToMay2026();
+
         // --- BASE CASE (N=0) ---
         // Create Rule 1: DAD (Blue) for May 15.
         // Alt Weekend starting May 1st DAD. May 15 should be DAD.
         createRule('DAD', '2026-05-01', '2026-05-30');
 
-        // Assert Visual: May 15 is Blue
-        // Find element with text "15".
-        cy.contains('.text-lg', '15').parents('div.relative.text-left').as('day15');
+        // Assert Visual: May 16 is Blue
+        // Find element with text "16".
+        cy.contains('.text-lg', '16').parents('div.relative.text-left').as('day16');
 
-        cy.get('@day15')
+        cy.get('@day16')
             .find('[data-testid="day-cell-background"]')
             .should('have.css', 'background-color').and('contain', '79, 70, 229'); // Indigo/Blue
 
         // --- INDUCTIVE STEP (N+1) ---
-        // Create Rule 2: MOM (Pink) for May 15.
-        createRule('MOM', '2026-05-15', '2026-05-16');
+        // Create Rule 2: MOM (Pink) for May 16.
+        createRule('MOM', '2026-05-16', '2026-05-17');
 
-        // Assert: May 15 turns Pink
-        cy.get('@day15')
+        // Assert: May 16 turns Pink
+        cy.get('@day16')
             .find('[data-testid="day-cell-background"]')
             .should('have.css', 'background-color').and('contain', '236, 72, 153'); // Pink
 
         // --- INDUCTIVE STEP (N+2) ---
-        // Create Rule 3: DAD (Blue) for May 15.
-        createRule('DAD', '2026-05-15', '2026-05-15'); // Just one day
+        // Create Rule 3: DAD (Blue) for May 16.
+        createRule('DAD', '2026-05-16', '2026-05-16'); // Just one day
 
-        // Assert: May 15 turns Blue
-        cy.get('@day15')
+        // Assert: May 16 turns Blue
+        cy.get('@day16')
             .find('[data-testid="day-cell-background"]')
             .should('have.css', 'background-color').and('contain', '79, 70, 229'); // Back to Blue
 
         // --- DELETE STEP (Revert) ---
         // Delete Rule 3. Should revert to Rule 2 (Pink).
+        openWizard();
+
         // Find row using data-testid
-        cy.contains('[data-testid="rule-item"]', '2026-05-15')
-            .contains('span', 'Starts')
-            .parents('[data-testid="rule-item"]')
+        cy.contains('[data-testid="rule-item"]', '2026-05-16 - 2026-05-16')
             .find('[data-testid="delete-rule-btn"]')
             .click();
 
         // Confirmation Dialog
-        cy.contains('Delete Pattern?').should('be.visible');
-        cy.contains('Delete').click();
+        cy.contains('Delete Schedule Pattern?').should('be.visible');
+        cy.contains('Delete and Clear Calendar').click();
 
-        // Close Wizard
-        cy.get('body').click(0, 0); // Close or click X
+        // Wait for Refresh
+        cy.contains('Custody Scheduler', { timeout: 10000 }).should('not.exist');
+        cy.wait(1000);
 
-        // Assert: May 15 reverts to Pink
-        cy.get('@day15')
+        // Assert: May 16 turns Pink again
+        cy.get('@day16')
             .find('[data-testid="day-cell-background"]')
             .should('have.css', 'background-color').and('contain', '236, 72, 153'); // Pink again!
     });

@@ -13,7 +13,7 @@ describe("CustodyGenerator", () => {
         entries.filter(e => e.date === date).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     it("Case 1: The 'Friday Handover' (Split Day)", () => {
-        // Config: Alternating Weekend, Handover 17:00, Start Date: Friday 2026-01-30
+        // Config: Alternating Weekend, Handover 17:00, Handover End 19:00, Start Date: Friday 2026-01-30
         // Friday 2026-01-30 is a Friday.
         const config: CustodyPatternConfig = {
             childId: "child-1",
@@ -21,7 +21,8 @@ describe("CustodyGenerator", () => {
             endDate: "2026-02-02", // Fri to Mon
             type: "ALTERNATING_WEEKEND",
             startingParent: "DAD", // Parent B (Weekend Owner)
-            handoverTime: "17:00"
+            handoverTime: "17:00",
+            handoverEndTime: "19:00"
         };
 
         const entries = generator.generate(config);
@@ -40,28 +41,27 @@ describe("CustodyGenerator", () => {
         expect(fridayEntries[1].startTime).toBe("17:00");
         expect(fridayEntries[1].endTime).toBe("23:59");
 
-        // Saturday 2026-01-31 & Sunday 2026-02-01: 1 entry (Parent B / DAD)
+        // Saturday 2026-01-31
         const saturdayEntries = getEntriesForDate(entries, "2026-01-31");
         expect(saturdayEntries).toHaveLength(1);
         expect(saturdayEntries[0].assignedTo).toBe("DAD");
 
+        // Sunday 2026-02-01: 2 entries (00:00-19:00 Parent B, 19:00-23:59 Parent A)
         const sundayEntries = getEntriesForDate(entries, "2026-02-01");
-        expect(sundayEntries).toHaveLength(1);
-        expect(sundayEntries[0].assignedTo).toBe("DAD");
+        expect(sundayEntries).toHaveLength(2);
 
-        // Monday (Return): 2 entries (Assuming return is Monday 09:00 for test simplicity or strictly following prompt logic if specified)
-        // The prompt says "Monday (Return): 2 entries (00:00-09:00 Parent B, 09:00-23:59 Parent A)"
-        // Typically "Alternating Weekend" implies return on Monday morning or Sunday evening.
-        // If we assume standard alternating weekend logic + handover time, usually handover is same time.
-        // However, prompt example says "Friday Handover 17:00". Return Monday?
-        // Let's assume standard logic: If handover is 17:00 Fri, return might be 17:00 Sun or 09:00 Mon.
-        // Config doesn't strictly specify return time. But let's assume Monday 09:00 based on the "Case 1" description in prompt.
-        // Ideally we might need a separate 'returnTime' or 'duration'. 
-        // For this test, let's Stick to the "Handover Time" property. If handover is 17:00, then return is usually 17:00 Sunday.
-        // BUT Prompt specifically says: "Case 1... Start Date: Friday... Monday (Return): 2 entries".
-        // This implies a "Long Weekend" logic.
-        // Let's assume for this specific test case, we are testing the SPLIT mechanism primarily.
-        // We will check Monday if it has 2 entries.
+        expect(sundayEntries[0].assignedTo).toBe("DAD");
+        expect(sundayEntries[0].startTime).toBe("00:00");
+        expect(sundayEntries[0].endTime).toBe("19:00");
+
+        expect(sundayEntries[1].assignedTo).toBe("MOM");
+        expect(sundayEntries[1].startTime).toBe("19:00");
+        expect(sundayEntries[1].endTime).toBe("23:59");
+
+        // Monday (Return): 1 entry for MOM
+        const mondayEntries = getEntriesForDate(entries, "2026-02-02");
+        expect(mondayEntries).toHaveLength(1);
+        expect(mondayEntries[0].assignedTo).toBe("MOM");
     });
 
     it("Case 2: The '2-2-3' Rotation", () => {
@@ -238,10 +238,8 @@ describe("CustodyGenerator", () => {
         expect(jan01.length).toBeGreaterThan(0);
     });
     it("Case 7: Regression - Monday Start with Handover Time (User Bug Report)", () => {
-        // User Start: 05.01 (Monday). Handover 17:05. Starting Parent: DAD.
-        // Expectation: Monday reflects Handover Time, not hardcoded 09:00.
-        // Note: Logic implies "Monday" is end of DAD's weekend.
-        // So DAD should have 00:00 - 17:05. MOM 17:05 - 23:59.
+        // User Start: 05.01 (Monday). Handover 17:05, Handover End 08:00
+        // Expectation: Monday reflects morning return at 08:00
 
         const config: CustodyPatternConfig = {
             childId: "child-1",
@@ -249,7 +247,8 @@ describe("CustodyGenerator", () => {
             endDate: "2026-01-05", // Just checking Monday
             type: "ALTERNATING_WEEKEND",
             startingParent: "DAD",
-            handoverTime: "17:05" // Specific time
+            handoverTime: "17:05", // Specific time
+            handoverEndTime: "08:00" // Morning return
         };
 
         const entries = generator.generate(config);
@@ -257,14 +256,14 @@ describe("CustodyGenerator", () => {
 
         expect(mondayEntries).toHaveLength(2);
 
-        // Entry 1: DAD (Weekend Parent returning child)
+        // Entry 1: DAD (Weekend Parent returning child Monday morning)
         expect(mondayEntries[0].assignedTo).toBe("DAD");
         expect(mondayEntries[0].startTime).toBe("00:00");
-        expect(mondayEntries[0].endTime).toBe("17:05"); // Verified Fix
+        expect(mondayEntries[0].endTime).toBe("08:00");
 
         // Entry 2: MOM (Weekday Parent taking over)
         expect(mondayEntries[1].assignedTo).toBe("MOM");
-        expect(mondayEntries[1].startTime).toBe("17:05");
+        expect(mondayEntries[1].startTime).toBe("08:00");
         expect(mondayEntries[1].endTime).toBe("23:59");
     });
 });
