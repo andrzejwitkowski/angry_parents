@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 interface DayCellBackgroundProps {
     entries: CustodyEntry[];
     childrenList?: Child[];
+    compact?: boolean;
 }
 
 const PARENT_COLORS = {
@@ -22,9 +23,10 @@ interface SingleBackgroundProps {
     entries: CustodyEntry[];
     containerStyle: React.CSSProperties;
     showLabels: boolean;
+    compact?: boolean;
 }
 
-function SingleChildBackground({ entries, containerStyle, showLabels }: SingleBackgroundProps) {
+function SingleChildBackground({ entries, containerStyle, showLabels, compact = false }: SingleBackgroundProps) {
     const { t } = useTranslation();
 
     const effectiveEntries = useMemo(() => {
@@ -89,10 +91,10 @@ function SingleChildBackground({ entries, containerStyle, showLabels }: SingleBa
             const isFullDay = entry.startTime === "00:00" && entry.endTime === "23:59";
             return (
                 <div className="absolute bottom-1 right-2 flex flex-col items-end">
-                    <span className="text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase">
+                    <span className={compact ? "text-[8px] font-black tracking-widest opacity-60 text-slate-600 uppercase" : "text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase"}>
                         {t(`scheduler.${entry.assignedTo.toLowerCase()}`)}
                     </span>
-                    {!isFullDay && (
+                    {!isFullDay && !compact && (
                         <span className="text-[7px] font-bold opacity-50 text-slate-500 uppercase">
                             {entry.startTime !== "00:00" ? `(from ${entry.startTime})` : `(until ${entry.endTime})`}
                         </span>
@@ -108,27 +110,31 @@ function SingleChildBackground({ entries, containerStyle, showLabels }: SingleBa
         return (
             <>
                 <div className="absolute top-1 left-2 flex flex-col items-start">
-                    <span className="text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase">
+                    <span className={compact ? "text-[8px] font-black tracking-widest opacity-60 text-slate-600 uppercase" : "text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase"}>
                         {t(`scheduler.${first.assignedTo.toLowerCase()}`)}
                     </span>
-                    <span className="text-[7px] font-bold opacity-50 text-slate-500 uppercase">
-                        (until {first.endTime})
-                    </span>
+                    {!compact && (
+                        <span className="text-[7px] font-bold opacity-50 text-slate-500 uppercase">
+                            (until {first.endTime})
+                        </span>
+                    )}
                 </div>
                 <div className="absolute bottom-1 right-2 flex flex-col items-end">
                     <div className="flex items-center gap-1">
-                        {isRecentEnd && (
+                        {isRecentEnd && !compact && (
                             <span className="text-[7px] font-bold px-1 rounded-sm bg-slate-200/50 text-slate-500 uppercase">
                                 recent
                             </span>
                         )}
-                        <span className="text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase">
+                        <span className={compact ? "text-[8px] font-black tracking-widest opacity-60 text-slate-600 uppercase" : "text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase"}>
                             {t(`scheduler.${last.assignedTo.toLowerCase()}`)}
                         </span>
                     </div>
-                    <span className="text-[7px] font-bold opacity-50 text-slate-500 uppercase">
-                        (from {last.startTime})
-                    </span>
+                    {!compact && (
+                        <span className="text-[7px] font-bold opacity-50 text-slate-500 uppercase">
+                            (from {last.startTime})
+                        </span>
+                    )}
                 </div>
             </>
         );
@@ -144,7 +150,7 @@ function SingleChildBackground({ entries, containerStyle, showLabels }: SingleBa
     );
 }
 
-export function DayCellBackground({ entries, childrenList = [] }: DayCellBackgroundProps) {
+export function DayCellBackground({ entries, childrenList = [], compact = false }: DayCellBackgroundProps) {
     const entryGroups = useMemo(() => {
         if (entries.length === 0) return [];
 
@@ -185,6 +191,7 @@ export function DayCellBackground({ entries, childrenList = [] }: DayCellBackgro
                         entries={group}
                         containerStyle={style}
                         showLabels={true}
+                        compact={compact}
                     />
                 );
             })}

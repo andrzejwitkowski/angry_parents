@@ -15,6 +15,8 @@ export interface CustodyPatternConfig {
     customBlockRepeatInterval?: number; // e.g., 1, 2
     customBlockRepeatUnit?: 'DAYS' | 'WEEKS';
     customBlockEndDayOffset?: number; // How many days after startDate this block ends.
+    customBlockStartDay?: number; // Optional starting day of the week (0-6)
+
     anchorDate?: string; // Stable anchor for recurring math across propagated months
     // GAP_FILL-only: IDs of the rules immediately before/after this gap
     anchorBeforeRuleId?: string;

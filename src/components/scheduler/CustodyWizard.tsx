@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { CustodyEntry, CustodyPatternConfig, ScheduleRule } from "@/types/custody";
+import { CustodyPreviewModal } from "./CustodyPreviewModal";
 import { ActiveRulesList } from "./ActiveRulesList";
 import {
     AlertDialog,
@@ -42,6 +43,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
     });
     const [previewEntries, setPreviewEntries] = useState<CustodyEntry[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const [activeRules, setActiveRules] = useState<ScheduleRule[]>([]);
 
     const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
         setSelectedChild(child);
         setConfig(prev => ({ ...prev, childId }));
         setPreviewEntries([]);
+        setIsPreviewModalOpen(false);
         setEditingRuleId(null);
         if (child) fetchRules(child.id);
     };
@@ -110,6 +113,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             if (res.ok) {
                 const data = await res.json();
                 setPreviewEntries(data);
+                setIsPreviewModalOpen(true);
                 setStep(2);
                 setIsConflictDialogOpen(false); // Close dialog if open
             } else {
@@ -159,6 +163,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
         setConfig(rule.config);
         setEditingRuleId(rule.id);
         setPreviewEntries([]); // Clear preview to force regeneration
+        setIsPreviewModalOpen(false);
         setStep(1); // Go back to config
         window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
     };
@@ -173,6 +178,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
             handoverEndTime: "19:00"
         });
         setPreviewEntries([]);
+        setIsPreviewModalOpen(false);
     };
 
     const handleSaveRule = async () => {
@@ -200,6 +206,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                 console.log("Rule saved/updated successfully");
                 await fetchRules(selectedChild?.id ?? ""); // Refresh list
                 setPreviewEntries([]); // Clear preview
+                setIsPreviewModalOpen(false);
                 setEditingRuleId(null); // Reset edit state
                 setStep(1);
                 if (onSave) onSave();
@@ -381,9 +388,9 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Column: Configuration (7 cols) */}
-                <div className="lg:col-span-7 space-y-6">
+            <div className="grid grid-cols-1 gap-8 max-w-4xl mx-auto">
+                {/* Configuration */}
+                <div className="space-y-6">
                     <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl ring-1 ring-slate-200">
                         <CardHeader className="pb-4">
                             <CardTitle className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center justify-between">
@@ -520,6 +527,30 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                             </div>
                                         </div>
                                     </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.startingDay")}</Label>
+                                            <Select
+                                                value={config.customBlockStartDay !== undefined ? config.customBlockStartDay.toString() : 'NONE'}
+                                                onValueChange={(v) => setConfig({ ...config, customBlockStartDay: v === 'NONE' ? undefined : parseInt(v) })}
+                                            >
+                                                <SelectTrigger className="border-slate-200 focus:ring-indigo-500">
+                                                    <SelectValue placeholder={t("scheduler.matchStartDate")} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="NONE">{t("scheduler.matchStartDate")}</SelectItem>
+                                                    <SelectItem value="1">{t("scheduler.monday")}</SelectItem>
+                                                    <SelectItem value="2">{t("scheduler.tuesday")}</SelectItem>
+                                                    <SelectItem value="3">{t("scheduler.wednesday")}</SelectItem>
+                                                    <SelectItem value="4">{t("scheduler.thursday")}</SelectItem>
+                                                    <SelectItem value="5">{t("scheduler.friday")}</SelectItem>
+                                                    <SelectItem value="6">{t("scheduler.saturday")}</SelectItem>
+                                                    <SelectItem value="0">{t("scheduler.sunday")}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
                                     <p className="text-[10px] text-slate-400">
                                         {t("scheduler.customBlockDesc")}
                                     </p>
@@ -672,64 +703,17 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                         </div>
                     )}
                 </div>
-
-                {/* Right Column: Preview (5 cols) */}
-                <div className="lg:col-span-5">
-                    <Card className="h-full border-0 shadow-lg bg-white ring-1 ring-slate-100 flex flex-col sticky top-6">
-                        <CardHeader>
-                            <div className="flex flex-col space-y-1.5 ">
-                                <div className="flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg">{t("scheduler.preview")}</CardTitle>
-                                    {previewEntries.length > 0 && (
-                                        <div className="flex gap-2">
-                                            <Button size="sm" onClick={() => setPreviewEntries([])} variant="ghost" className="text-xs">
-                                                {t("scheduler.clear")}
-                                            </Button>
-                                            <Button size="sm" onClick={handleSaveRule} disabled={loading} className={cn(
-                                                "text-white shadow-md shadow-indigo-200 text-xs",
-                                                editingRuleId ? "bg-amber-600 hover:bg-amber-700" : "bg-indigo-600 hover:bg-indigo-700"
-                                            )}>
-                                                {editingRuleId ? t("scheduler.updatePattern") : t("scheduler.confirmSave")}
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                                <CardDescription>
-                                    {previewEntries.length > 0
-                                        ? t("scheduler.generatedEntries", { count: previewEntries.length })
-                                        : t("scheduler.configurePrevew")}
-                                </CardDescription>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="flex-1 min-h-[400px] overflow-hidden">
-                            <div className="h-full overflow-y-auto space-y-2 pr-2">
-                                {previewEntries.map(entry => (
-                                    <div key={entry.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50 text-sm hover:bg-slate-50 transition-colors">
-                                        <div className="flex gap-3 items-center">
-                                            <span className="font-semibold text-slate-700 w-24">{entry.date}</span>
-                                            <span className="text-slate-400 text-xs">
-                                                {entry.startTime} - {entry.endTime}
-                                            </span>
-                                        </div>
-                                        <span className={cn(
-                                            "w-20 py-1.5 rounded-md text-[10px] uppercase font-bold tracking-wider text-center shadow-sm",
-                                            entry.assignedTo === 'MOM' ? "bg-pink-100 text-pink-700 ring-1 ring-pink-200" : "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200"
-                                        )}>
-                                            {entry.assignedTo}
-                                        </span>
-                                    </div>
-                                ))}
-                                {previewEntries.length === 0 && (
-                                    <div className="h-full flex flex-col items-center justify-center text-slate-300">
-                                        <CalendarIcon className="w-16 h-16 mb-4 opacity-10" />
-                                        <p className="font-medium text-center px-8">{t("scheduler.selectPatternToVerify")}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
             </div>
+
+            <CustodyPreviewModal
+                isOpen={isPreviewModalOpen}
+                onClose={() => setIsPreviewModalOpen(false)}
+                entries={previewEntries}
+                config={config}
+                selectedChild={selectedChild}
+                onConfirm={handleSaveRule}
+                isLoading={loading}
+            />
 
             <AlertDialog open={isConflictDialogOpen} onOpenChange={setIsConflictDialogOpen}>
                 <AlertDialogContent>

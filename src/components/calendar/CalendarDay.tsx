@@ -17,9 +17,10 @@ interface CalendarDayProps {
     user: User | null;
     custodyEntries?: CustodyEntry[];
     childrenList?: Child[];
+    compact?: boolean;
 }
 
-export function CalendarDay({ day, currentDate, events, onClick, user, custodyEntries = [], childrenList = [] }: CalendarDayProps) {
+export function CalendarDay({ day, currentDate, events, onClick, user, custodyEntries = [], childrenList = [], compact = false }: CalendarDayProps) {
     const isSelectedMonth = isSameMonth(day, currentDate);
     const isDayWeekend = isWeekend(day);
     const isDayToday = isToday(day);
@@ -32,20 +33,22 @@ export function CalendarDay({ day, currentDate, events, onClick, user, custodyEn
         <div
             onClick={onClick}
             className={cn(
-                "h-full min-h-0 p-2 lg:p-4 border-r border-b border-slate-100 transition-all duration-300 group relative text-left flex flex-col hover:z-10",
+                "h-full min-h-0 border-r border-b border-slate-100 transition-all duration-300 group relative text-left flex flex-col hover:z-10",
+                compact ? "p-1 lg:p-2" : "p-2 lg:p-4",
                 !isSelectedMonth && "bg-slate-50/50 opacity-40 grayscale-[0.5]",
                 isDayWeekend && isSelectedMonth && "bg-slate-50/70",
                 isSelectedMonth && "hover:bg-white/80 hover:shadow-2xl hover:border-indigo-100 cursor-pointer active:scale-[0.98]"
             )}
         >
             {/* Background Layer */}
-            {isSelectedMonth && <DayCellBackground entries={daysEntries} childrenList={childrenList} />}
+            {isSelectedMonth && <DayCellBackground entries={daysEntries} childrenList={childrenList} compact={compact} />}
 
             {/* Content Layer */}
             <div className="relative z-10 flex justify-between items-start">
                 <span
                     className={cn(
-                        "text-lg font-bold w-10 h-10 flex items-center justify-center rounded-2xl transition-all",
+                        "font-bold flex items-center justify-center rounded-2xl transition-all",
+                        compact ? "w-6 h-6 text-sm" : "w-10 h-10 text-lg",
                         isDayToday
                             ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
                             : "text-slate-600"

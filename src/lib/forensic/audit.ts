@@ -47,7 +47,7 @@ async function calculateHash(payload: unknown): Promise<string> {
     const canonicalString = canonicalize(payload);
     const encoder = new TextEncoder();
     const data = encoder.encode(canonicalString);
-    const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
+    const hashBuffer = await globalThis.crypto.subtle.digest("SHA-256", data);
 
     // Convert buffer to hex string
     return Array.from(new Uint8Array(hashBuffer))
@@ -67,7 +67,7 @@ export async function verifyIntegrity(
     }
 
     // 2. Rollback Check
-    const storedLastIndex = localStorage.getItem("forensic_last_seen_index");
+    const storedLastIndex = typeof localStorage !== 'undefined' ? localStorage.getItem("forensic_last_seen_index") : null;
     if (storedLastIndex) {
         const lastSeen = parseInt(storedLastIndex, 10);
         const currentLast = documents.length > 0 ? documents[documents.length - 1].index : -1;
@@ -123,7 +123,7 @@ export async function verifyIntegrity(
         }
     }
 
-    if (errors.length === 0 && documents.length > 0) {
+    if (errors.length === 0 && documents.length > 0 && typeof localStorage !== 'undefined') {
         localStorage.setItem("forensic_last_seen_index", documents[documents.length - 1].index.toString());
     }
 

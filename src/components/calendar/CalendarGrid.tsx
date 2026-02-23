@@ -1,6 +1,7 @@
 import type { TimelineItem } from "@/types/timeline.types";
 import { CalendarDay } from "./CalendarDay";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 import type { User } from '@/types/user';
 import type { CustodyEntry } from '@/types/custody';
@@ -14,15 +15,19 @@ interface CalendarGridProps {
     user: User | null;
     custodyEntries?: CustodyEntry[];
     childrenList?: Child[];
+    compact?: boolean;
 }
 
-export function CalendarGrid({ days, currentDate, events, onDayClick, user, custodyEntries = [], childrenList = [] }: CalendarGridProps) {
+export function CalendarGrid({ days, currentDate, events, onDayClick, user, custodyEntries = [], childrenList = [], compact = false }: CalendarGridProps) {
     const weeks = Math.ceil(days.length / 7);
 
     return (
         <div
-            className="flex-1 grid grid-cols-7 h-full overflow-hidden"
-            style={{ gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))` }}
+            className={cn(
+                "w-full grid grid-cols-7 overflow-hidden",
+                compact ? "" : "flex-1 h-full"
+            )}
+            style={{ gridTemplateRows: `repeat(${weeks}, ${compact ? 'minmax(60px, max-content)' : 'minmax(0, 1fr)'})` }}
         >
             {days.map((day, i) => {
                 const dateStr = format(day, "yyyy-MM-dd");
@@ -38,6 +43,7 @@ export function CalendarGrid({ days, currentDate, events, onDayClick, user, cust
                         user={user}
                         custodyEntries={custodyEntries}
                         childrenList={childrenList}
+                        compact={compact}
                     />
                 );
             })}

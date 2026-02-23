@@ -26,6 +26,8 @@ export interface CustodyPatternConfig {
     customBlockRepeatInterval?: number;
     customBlockRepeatUnit?: 'DAYS' | 'WEEKS';
     customBlockEndDayOffset?: number;
+    customBlockStartDay?: number; // 0-6 corresponding to Sunday-Saturday
+
     anchorDate?: string;
 }
 
