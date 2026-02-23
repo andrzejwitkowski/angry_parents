@@ -417,18 +417,18 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                     </button>
 
                                     <button
-                                        onClick={() => setConfig({ ...config, type: 'TWO_TWO_THREE', sequence: undefined })}
+                                        onClick={() => setConfig({ ...config, type: 'CUSTOM_BLOCK', customBlockRepeatInterval: 2, customBlockRepeatUnit: 'WEEKS', customBlockEndDayOffset: 1, sequence: undefined })}
                                         className={cn(
                                             "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 gap-2 h-24",
-                                            config.type === 'TWO_TWO_THREE'
+                                            config.type === 'CUSTOM_BLOCK'
                                                 ? "border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm"
                                                 : "border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50 text-slate-600"
                                         )}
                                     >
                                         <div className="p-1.5 rounded-full bg-white shadow-sm ring-1 ring-slate-100">
-                                            <ArrowRight className="w-4 h-4" />
+                                            <CalendarIcon className="w-4 h-4" />
                                         </div>
-                                        <span className="text-xs font-semibold text-center leading-tight">{t("scheduler.twoTwoThree")}</span>
+                                        <span className="text-xs font-semibold text-center leading-tight">{t("scheduler.customBlock")}</span>
                                     </button>
 
                                     <button
@@ -470,6 +470,58 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
                                     </div>
                                     <p className="text-[10px] text-slate-400">
                                         {t("scheduler.customLoopDesc")}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Custom Block Input */}
+                            {config.type === 'CUSTOM_BLOCK' && (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.blockDuration")}</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    className="pl-3 pr-20 font-mono text-sm border-slate-200 focus-visible:ring-indigo-500"
+                                                    value={config.customBlockEndDayOffset || ''}
+                                                    onChange={(e) => setConfig({ ...config, customBlockEndDayOffset: parseInt(e.target.value) || 1 })}
+                                                    placeholder="1"
+                                                />
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium pointer-events-none">
+                                                    {t("scheduler.days")}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("scheduler.repeatsEvery")}</Label>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    className="w-20 font-mono text-sm border-slate-200 focus-visible:ring-indigo-500"
+                                                    value={config.customBlockRepeatInterval || ''}
+                                                    onChange={(e) => setConfig({ ...config, customBlockRepeatInterval: parseInt(e.target.value) || 1 })}
+                                                    placeholder="2"
+                                                />
+                                                <Select
+                                                    value={config.customBlockRepeatUnit || 'WEEKS'}
+                                                    onValueChange={(v: 'DAYS' | 'WEEKS') => setConfig({ ...config, customBlockRepeatUnit: v })}
+                                                >
+                                                    <SelectTrigger className="flex-1 border-slate-200 focus:ring-indigo-500">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="DAYS">{t("scheduler.days")}</SelectItem>
+                                                        <SelectItem value="WEEKS">{t("scheduler.weeks")}</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400">
+                                        {t("scheduler.customBlockDesc")}
                                     </p>
                                 </div>
                             )}

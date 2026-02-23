@@ -1,4 +1,4 @@
-export type PatternType = 'WEEKLY' | 'WEEKEND' | 'ALTERNATING_WEEKEND' | 'TWO_TWO_THREE' | 'CUSTOM_SEQUENCE' | 'HOLIDAY';
+export type PatternType = 'WEEKLY' | 'WEEKEND' | 'ALTERNATING_WEEKEND' | 'CUSTOM_BLOCK' | 'CUSTOM_SEQUENCE' | 'HOLIDAY';
 
 export interface CustodyEntry {
     id: string;
@@ -22,6 +22,11 @@ export interface CustodyPatternConfig {
     sequence?: number[];
     holidays?: string[];
     isOneTime?: boolean;
+    // CUSTOM_BLOCK details
+    customBlockRepeatInterval?: number;
+    customBlockRepeatUnit?: 'DAYS' | 'WEEKS';
+    customBlockEndDayOffset?: number;
+    anchorDate?: string;
 }
 
 export interface ScheduleRule {

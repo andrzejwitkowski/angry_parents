@@ -1,7 +1,7 @@
 import { CustodyPatternConfig } from "../core/domain/child/CustodyPatternConfig";
 import { CustodyEntry } from "../core/domain/child/CustodyEntry";
 import { AlternatingWeekendStrategy } from "../core/domain/child/strategies/AlternatingWeekendStrategy";
-import { TwoTwoThreeStrategy } from "../core/domain/child/strategies/TwoTwoThreeStrategy";
+import { CustomBlockStrategy } from "../core/domain/child/strategies/CustomBlockStrategy";
 import { HolidayStrategy } from "../core/domain/child/strategies/HolidayStrategy";
 
 import { CustomSequenceStrategy } from "../core/domain/child/strategies/CustomSequenceStrategy";
@@ -17,8 +17,8 @@ export class CustodyGenerator {
         if (config.type === 'ALTERNATING_WEEKEND') {
             const strategy = new AlternatingWeekendStrategy();
             entries = strategy.generate(config, this.uuidProvider);
-        } else if (config.type === 'TWO_TWO_THREE') {
-            const strategy = new TwoTwoThreeStrategy();
+        } else if (config.type === 'CUSTOM_BLOCK') {
+            const strategy = new CustomBlockStrategy();
             entries = strategy.generate(config, this.uuidProvider);
         } else if (config.type === 'CUSTOM_SEQUENCE' && config.sequence) {
             const strategy = new CustomSequenceStrategy();

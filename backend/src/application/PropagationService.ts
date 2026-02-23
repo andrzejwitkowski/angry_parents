@@ -69,8 +69,8 @@ export class PropagationService {
                 this.calculateAlternatingWeekendParity(config, rule.config);
                 break;
 
-            case 'TWO_TWO_THREE':
-                this.calculateTwoTwoThreeParity(config, rule.config, nextStart);
+            case 'CUSTOM_BLOCK':
+                config.anchorDate = rule.config.anchorDate || rule.config.startDate;
                 break;
 
             case 'CUSTOM_SEQUENCE':
@@ -122,37 +122,9 @@ export class PropagationService {
     }
 
     /**
-     * Calculate parent parity for TWO_TWO_THREE pattern.
-     * The 2-2-3 pattern has a 7-day cycle (2+2+3=7).
-     * We count total days elapsed and determine position in cycle.
+     * CUSTOM_BLOCK doesn't need parity swapping, it uses anchorDate for stable math
+     * which we handle seamlessly.
      */
-    private calculateTwoTwoThreeParity(config: CustodyPatternConfig, originalConfig: CustodyPatternConfig, nextStart: string): void {
-        const sequence = originalConfig.sequence || [2, 2, 3];
-        const cycleLength = sequence.reduce((sum, n) => sum + n, 0); // 7 for 2-2-3
-
-        const originalDate = parseISO(originalConfig.startDate);
-        const newDate = parseISO(nextStart);
-        const daysDiff = Math.floor((newDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
-
-        // Calculate position in the cycle
-        const positionInCycle = ((daysDiff % cycleLength) + cycleLength) % cycleLength;
-
-        // Determine which segment of the sequence we're in
-        let daysAccumulated = 0;
-        let segmentIndex = 0;
-        for (let i = 0; i < sequence.length; i++) {
-            daysAccumulated += sequence[i];
-            if (positionInCycle < daysAccumulated) {
-                segmentIndex = i;
-                break;
-            }
-        }
-
-        // If segmentIndex is odd, swap parent
-        if (segmentIndex % 2 !== 0) {
-            config.startingParent = config.startingParent === 'DAD' ? 'MOM' : 'DAD';
-        }
-    }
 
     /**
      * Calculate parent parity for CUSTOM_SEQUENCE pattern.

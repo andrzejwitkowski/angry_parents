@@ -30,7 +30,11 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
             handoverTime: t.Optional(t.String()),
             handoverEndTime: t.Optional(t.String()),
             sequence: t.Optional(t.Array(t.Number())),
-            holidays: t.Optional(t.Array(t.String()))
+            holidays: t.Optional(t.Array(t.String())),
+            customBlockRepeatInterval: t.Optional(t.Number()),
+            customBlockRepeatUnit: t.Optional(t.Union([t.Literal('DAYS'), t.Literal('WEEKS')])),
+            customBlockEndDayOffset: t.Optional(t.Number()),
+            anchorDate: t.Optional(t.String())
         })
     })
     .post("/custody", async ({ body, set }) => {
@@ -97,7 +101,11 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
             handoverTime: t.Optional(t.String()),
             handoverEndTime: t.Optional(t.String()),
             sequence: t.Optional(t.Array(t.Number())),
-            holidays: t.Optional(t.Array(t.String()))
+            holidays: t.Optional(t.Array(t.String())),
+            customBlockRepeatInterval: t.Optional(t.Number()),
+            customBlockRepeatUnit: t.Optional(t.Union([t.Literal('DAYS'), t.Literal('WEEKS')])),
+            customBlockEndDayOffset: t.Optional(t.Number()),
+            anchorDate: t.Optional(t.String())
         })
     })
     .get("/rules", async ({ query, set }) => {
@@ -175,7 +183,11 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
                 handoverEndTime: t.Optional(t.String()),
                 sequence: t.Optional(t.Array(t.Number())),
                 holidays: t.Optional(t.Array(t.String())),
-                isOneTime: t.Optional(t.Boolean())
+                isOneTime: t.Optional(t.Boolean()),
+                customBlockRepeatInterval: t.Optional(t.Number()),
+                customBlockRepeatUnit: t.Optional(t.Union([t.Literal('DAYS'), t.Literal('WEEKS')])),
+                customBlockEndDayOffset: t.Optional(t.Number()),
+                anchorDate: t.Optional(t.String())
             }),
             excludeRuleId: t.Optional(t.String())
         })
@@ -333,7 +345,11 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
                 handoverEndTime: t.Optional(t.String()),
                 sequence: t.Optional(t.Array(t.Number())),
                 holidays: t.Optional(t.Array(t.String())),
-                isOneTime: t.Optional(t.Boolean())
+                isOneTime: t.Optional(t.Boolean()),
+                customBlockRepeatInterval: t.Optional(t.Number()),
+                customBlockRepeatUnit: t.Optional(t.Union([t.Literal('DAYS'), t.Literal('WEEKS')])),
+                customBlockEndDayOffset: t.Optional(t.Number()),
+                anchorDate: t.Optional(t.String())
             }))
         })
     });

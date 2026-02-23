@@ -229,7 +229,7 @@ export class ScheduleService {
     private formatPatternName(type: string): string {
         switch (type) {
             case 'ALTERNATING_WEEKEND': return 'Alt. Weekend';
-            case 'TWO_TWO_THREE': return '2-2-3 Rotation';
+            case 'CUSTOM_BLOCK': return 'Custom Block';
             case 'CUSTOM_SEQUENCE': return 'Custom Loop';
             default: return type;
         }

@@ -119,28 +119,27 @@ describe("PropagationService", () => {
         expect(newConfig.endDate).toBe("2026-02-28");
     });
 
-    it("should calculate TWO_TWO_THREE parity correctly", async () => {
+    it("should carry over anchorDate for CUSTOM_BLOCK correctly", async () => {
         const childId = "c1";
-        // 2-2-3 pattern: 7-day cycle
-        // Day 0-1 (2 days): Parent A
-        // Day 2-3 (2 days): Parent B
-        // Day 4-6 (3 days): Parent A
-        // Day 7 = Day 0 (cycle repeats)
+        // Custom block: repeats every 2 weeks
 
         const rule: ScheduleRule = {
             id: "r1",
             childId,
-            name: "Two Two Three",
+            name: "Custom Block",
             priority: 1,
             isOneTime: false,
             createdAt: new Date().toISOString(),
             config: {
                 childId,
-                startDate: "2026-01-01",
+                startDate: "2026-01-15",
                 endDate: "2026-01-31",
-                type: "TWO_TWO_THREE",
+                type: "CUSTOM_BLOCK",
                 startingParent: "DAD",
-                sequence: [2, 2, 3]
+                customBlockRepeatInterval: 2,
+                customBlockRepeatUnit: "WEEKS",
+                customBlockEndDayOffset: 2, // 2 days
+                anchorDate: "2026-01-15"
             }
         };
 
@@ -153,10 +152,9 @@ describe("PropagationService", () => {
 
         expect(newConfig.startDate).toBe("2026-02-01");
         expect(newConfig.endDate).toBe("2026-02-28");
-        expect(newConfig.type).toBe("TWO_TWO_THREE");
-        expect(newConfig.sequence).toEqual([2, 2, 3]);
-        // Parent should be set based on cycle position
-        expect(["DAD", "MOM"]).toContain(newConfig.startingParent);
+        expect(newConfig.type).toBe("CUSTOM_BLOCK");
+        expect(newConfig.anchorDate).toBe("2026-01-15"); // Keeps the original anchor
+        expect(newConfig.startingParent).toBe("DAD");
     });
 
     it("should calculate CUSTOM_SEQUENCE parity correctly", async () => {

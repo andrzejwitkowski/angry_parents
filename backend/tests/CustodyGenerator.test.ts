@@ -64,35 +64,37 @@ describe("CustodyGenerator", () => {
         expect(mondayEntries[0].assignedTo).toBe("MOM");
     });
 
-    it("Case 2: The '2-2-3' Rotation", () => {
-        // Config: Sequence [2, 2, 3]. Start Monday 2026-02-02. Parent A (MOM).
+    it("Case 2: The 'Custom Block' Rotation", () => {
+        // Config: Custom Block of 2 days, repeating every 14 days (2 weeks). Start Monday 2026-02-02. Parent A (MOM).
         const config: CustodyPatternConfig = {
             childId: "child-1",
             startDate: "2026-02-02", // Monday
-            endDate: "2026-02-15", // 2 weeks
-            type: "CUSTOM_SEQUENCE",
-            sequence: [2, 2, 3, 2, 2, 3], // Full 14-day cycle to ensure rotation
+            endDate: "2026-02-28", // Full month
+            type: "CUSTOM_BLOCK",
             startingParent: "MOM",
-            handoverTime: "09:00"
+            handoverTime: "09:00",
+            customBlockRepeatInterval: 2,
+            customBlockRepeatUnit: "WEEKS",
+            customBlockEndDayOffset: 2, // 2 days duration
+            anchorDate: "2026-02-02"
         };
 
         const entries = generator.generate(config);
 
-        // Mon 02 (Day 1) - MOM
+        // Mon 02 (Day 0) - MOM
         const mon1 = getEntriesForDate(entries, "2026-02-02");
-        expect(mon1[0].assignedTo).toBe("MOM");
+        expect(mon1.length).toBeGreaterThan(0);
+        expect(mon1.some(e => e.assignedTo === "MOM")).toBe(true);
 
-        // Wed 04 (Day 3) - DAD (Parent B)
+        // Wed 04 (Day 2) - DAD (Parent B) block ends here!
         const wed1 = getEntriesForDate(entries, "2026-02-04");
-        expect(wed1[0].assignedTo).toBe("DAD");
+        expect(wed1.length).toBeGreaterThan(0);
+        expect(wed1.some(e => e.assignedTo === "DAD")).toBe(true);
 
-        // Fri 06 (Day 5) - MOM (Parent A)
-        const fri1 = getEntriesForDate(entries, "2026-02-06");
-        expect(fri1[0].assignedTo).toBe("MOM");
-
-        // Next Mon 09 (Day 8) - DAD (Parent B) - Rotation flips!
-        const mon2 = getEntriesForDate(entries, "2026-02-09");
-        expect(mon2[0].assignedTo).toBe("DAD");
+        // Next repeat is 2026-02-16 (14 days later)
+        const mon3 = getEntriesForDate(entries, "2026-02-16");
+        expect(mon3.length).toBeGreaterThan(0);
+        expect(mon3.some(e => e.assignedTo === "MOM")).toBe(true);
     });
 
     it("Case 6: Every Other Tuesday ([1, 13] Pattern)", () => {
