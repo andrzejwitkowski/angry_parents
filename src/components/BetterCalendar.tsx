@@ -10,15 +10,35 @@ import type { TimelineItem } from "@/types/timeline.types";
 import type { User } from '@/types/user';
 import type { CustodyEntry } from "@/types/custody";
 
+import type { Child } from "@/lib/api/children";
+
 interface BetterCalendarProps {
     user: User | null;
     refreshKey?: number;
+    childrenList?: Child[];
+    selectedChildId?: string | null;
+    currentDate: Date;
+    setCurrentDate: (date: Date) => void;
+    selectedDateForSheet: Date | null;
+    setSelectedDateForSheet: (date: Date | null) => void;
+    isSheetOpen: boolean;
+    setIsSheetOpen: (open: boolean) => void;
+    onDataChange?: () => void;
 }
 
-export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedDateForSheet, setSelectedDateForSheet] = useState<Date | null>(null);
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
+export function BetterCalendar({
+    user,
+    refreshKey = 0,
+    childrenList = [],
+    selectedChildId = null,
+    currentDate,
+    setCurrentDate,
+    selectedDateForSheet,
+    setSelectedDateForSheet,
+    isSheetOpen,
+    setIsSheetOpen,
+    onDataChange
+}: BetterCalendarProps) {
     const [monthEvents, setMonthEvents] = useState<TimelineItem[]>([]);
     const [custodyEntries, setCustodyEntries] = useState<CustodyEntry[]>([]);
 
@@ -73,9 +93,10 @@ export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
                 days={daysInMonth}
                 currentDate={currentDate}
                 onDayClick={handleDayClick}
-                events={monthEvents}
+                events={monthEvents.filter(e => !selectedChildId || e.childIds.includes(selectedChildId))}
                 user={user}
-                custodyEntries={custodyEntries}
+                custodyEntries={custodyEntries.filter(e => !selectedChildId || e.childId === selectedChildId)}
+                childrenList={childrenList}
             />
 
             <DayDetailsSheet
@@ -83,7 +104,10 @@ export function BetterCalendar({ user, refreshKey = 0 }: BetterCalendarProps) {
                 isOpen={isSheetOpen}
                 onClose={() => setIsSheetOpen(false)}
                 user={user}
-                onUpdate={fetchMonthData}
+                onUpdate={() => {
+                    fetchMonthData();
+                    if (onDataChange) onDataChange();
+                }}
             />
         </div>
     );

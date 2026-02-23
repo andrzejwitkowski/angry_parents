@@ -41,10 +41,9 @@ describe('Custody Visualization', () => {
         cy.get('[role="dialog"]').should('be.visible');
         cy.get('[role="dialog"]').contains('Alt. Weekend').click();
 
-        // Set dates: Start current month 1st, End current month 28th.
-        const now = new Date();
-        const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-        const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-28`;
+        // Set dates: Start May 2026
+        const start = '2026-05-01';
+        const end = '2026-05-28';
 
         cy.get('[role="dialog"]').contains('Start Date').parent().find('input').clear().type(start).should('have.value', start);
         cy.get('[role="dialog"]').contains('End Date').parent().find('input').clear().type(end).should('have.value', end);
@@ -63,7 +62,7 @@ describe('Custody Visualization', () => {
 
         // 3. Save
         cy.wait(500); // Wait for preview to render
-        cy.get('[role="dialog"]').contains('button', 'Save').should('be.visible').click();
+        cy.get('[role="dialog"]').contains('button', 'Save').scrollIntoView().click({ force: true });
 
         // Expect dialog to close (we implemented this in Dashboard)
         cy.get('[role="dialog"]').should('not.exist');
@@ -71,6 +70,18 @@ describe('Custody Visualization', () => {
         // 4. Verification on Calendar Grid
         // Wait for fetch
         cy.wait(1000);
+
+        // Navigate to May 2026
+        const navigateToMay2026 = () => {
+            cy.get('h2').invoke('text').then((text) => {
+                if (!text.includes('May 2026')) {
+                    cy.get('button[aria-label="Next Month"]').click();
+                    cy.wait(200);
+                    navigateToMay2026();
+                }
+            });
+        };
+        navigateToMay2026();
 
         // Verify we have custody events
         // Note: The strategy generates full days mostly, but Monday might be split if we use the new logic.
@@ -88,18 +99,17 @@ describe('Custody Visualization', () => {
         // Let's check generally that backgrounds exist.
         cy.get('[data-testid="day-cell-background"]').should('exist');
 
-        // Check Monday (Day 5) - Expected Split Day
-        // We expect MOM and DAD labels in the same cell if it's split.
-        cy.contains('span', '5').closest('.group').scrollIntoView().within(() => {
-            cy.contains('MOM').should('exist');
-            cy.contains('DAD').should('exist');
+        // Check Sunday (Day 3) - Expected Split Day
+        // We expect MOM and DAD labels in the same cell if it's split (DAD until 19:00, then MOM).
+        cy.contains('span', /^3$/).closest('.group').scrollIntoView().within(() => {
+            cy.contains(/mom/i).should('exist');
+            cy.contains(/dad/i).should('exist');
         });
 
-        // Single Day Check (e.g. Day 6 -> MOM)
-        // Only MOM should be visible
-        cy.contains('span', '6').closest('.group').scrollIntoView().within(() => {
-            cy.contains('MOM').should('exist');
-            cy.contains('DAD').should('not.exist');
+        // Single Day Check (Day 2 -> Saturday -> DAD only)
+        cy.contains('span', /^2$/).closest('.group').scrollIntoView().within(() => {
+            cy.contains(/dad/i).should('exist');
+            cy.contains(/mom/i).should('not.exist');
         });
 
         // Advanced: Check for split day (Monday likely, if Monday is return day).

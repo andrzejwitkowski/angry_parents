@@ -231,6 +231,9 @@ describe("Forensic Document Pipeline E2E", () => {
         let finalized = false;
 
         while (attempts < 20) { // Wait up to 20s (polling 1s)
+            // Progress the background tasks manually to speed up the test and make it deterministic
+            await apiUserA.post("/api/test/process-tasks", {});
+
             const chainRes = await apiUserA.get("/forensic/chain");
             const chainData = await chainRes.json();
             const doc = chainData.documents.find((d: any) => d.index === docIndex);
@@ -240,8 +243,6 @@ describe("Forensic Document Pipeline E2E", () => {
                 expect(doc.blockchainTxId).toBeDefined();
                 break;
             }
-
-
 
             await new Promise(r => setTimeout(r, 1000));
             attempts++;

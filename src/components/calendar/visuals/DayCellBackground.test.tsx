@@ -26,12 +26,13 @@ describe('DayCellBackground', () => {
         render(<DayCellBackground entries={entries} />);
 
         const el = screen.getByTestId('day-cell-background');
-        // Check for specific color or style property
-        // Note: Computed style might differ, let's check basic style attribute
-        window.getComputedStyle(el);
-        // In JSDOM, background color might be set
-        // Or check inline style
-        expect(el.style.backgroundColor).toContain('rgba(236, 72, 153, 0.15)');
+        // The background is applied to a descendant div inset-0 within SingleChildBackground
+        const bgLayer = el.querySelector('.inset-0\\, \\.absolute')?.previousElementSibling || el.querySelector('div > div.absolute.inset-0');
+        expect(bgLayer || el.querySelector('div > div > div.absolute.inset-0')).not.toBeNull();
+
+        // Let's actually just get the inner div by its parent structure
+        const bgNode = el.querySelector('div > div.absolute.inset-0') as HTMLElement;
+        expect(bgNode.style.backgroundColor).toContain('rgba(236, 72, 153, 0.15)');
     });
 
     it('renders gradient for split day (50/50)', () => {
@@ -42,8 +43,9 @@ describe('DayCellBackground', () => {
         render(<DayCellBackground entries={entries} />);
         const el = screen.getByTestId('day-cell-background');
 
+        const bgNode = el.querySelector('div > div.absolute.inset-0') as HTMLElement;
         // 12:00 is 50%
-        expect(el.style.background).toContain('linear-gradient(135deg');
-        expect(el.style.background).toContain('50%');
+        expect(bgNode.style.background).toContain('linear-gradient(135deg');
+        expect(bgNode.style.background).toContain('50%');
     });
 });

@@ -18,8 +18,6 @@ export const createSyncUserPendingDocsHandler = (
     const pendingDocs = docs.filter(d => d.status === 'PENDING');
 
     for (const doc of pendingDocs) {
-        // Logic: "If both signatures are now present"
-        // We assume 2 signatures are required for the "angry parents" co-signing flow.
         if (doc.signatures && doc.signatures.length >= 2) {
             console.log(`[SyncUserPendingDocs] Document ${doc.index} has sufficient signatures. Scheduling integrity check...`);
 

@@ -66,16 +66,8 @@ export class PropagationService {
         // Continuity Logic based on pattern type
         switch (config.type) {
             case 'ALTERNATING_WEEKEND':
-                this.calculateAlternatingWeekendParity(config, rule.config);
-                break;
-
-            case 'CUSTOM_BLOCK':
-                config.anchorDate = rule.config.anchorDate || rule.config.startDate;
-                break;
-
             case 'CUSTOM_SEQUENCE':
-                // Custom sequences need day-based parity calculation
-                this.calculateCustomSequenceParity(config, rule.config, nextStart);
+                // Stable math in strategies now handles parity automatically via anchorDate
                 break;
 
             case 'HOLIDAY':
@@ -106,63 +98,7 @@ export class PropagationService {
         return config;
     }
 
-    /**
-     * Calculate parent parity for ALTERNATING_WEEKEND pattern.
-     * If an odd number of weeks have passed, swap the starting parent.
-     */
-    private calculateAlternatingWeekendParity(config: CustodyPatternConfig, originalConfig: CustodyPatternConfig): void {
-        const originalDate = parseISO(originalConfig.startDate);
-        const newDate = parseISO(config.startDate);
-        const weeksDiff = differenceInCalendarWeeks(newDate, originalDate);
 
-        if (weeksDiff % 2 !== 0) {
-            // Odd number of weeks => Swap Parent
-            config.startingParent = config.startingParent === 'DAD' ? 'MOM' : 'DAD';
-        }
-    }
-
-    /**
-     * CUSTOM_BLOCK doesn't need parity swapping, it uses anchorDate for stable math
-     * which we handle seamlessly.
-     */
-
-    /**
-     * Calculate parent parity for CUSTOM_SEQUENCE pattern.
-     * Similar logic to 2-2-3 but uses the custom sequence provided.
-     */
-    private calculateCustomSequenceParity(config: CustodyPatternConfig, originalConfig: CustodyPatternConfig, nextStart: string): void {
-        const sequence = originalConfig.sequence;
-        if (!sequence || sequence.length === 0) {
-            // No sequence defined, cannot calculate parity
-            return;
-        }
-
-        const cycleLength = sequence.reduce((sum, n) => sum + n, 0);
-        if (cycleLength === 0) return;
-
-        const originalDate = parseISO(originalConfig.startDate);
-        const newDate = parseISO(nextStart);
-        const daysDiff = Math.floor((newDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
-
-        // Calculate position in the cycle
-        const positionInCycle = ((daysDiff % cycleLength) + cycleLength) % cycleLength;
-
-        // Determine which segment of the sequence we're in
-        let daysAccumulated = 0;
-        let segmentIndex = 0;
-        for (let i = 0; i < sequence.length; i++) {
-            daysAccumulated += sequence[i];
-            if (positionInCycle < daysAccumulated) {
-                segmentIndex = i;
-                break;
-            }
-        }
-
-        // If segmentIndex is odd, swap parent
-        if (segmentIndex % 2 !== 0) {
-            config.startingParent = config.startingParent === 'DAD' ? 'MOM' : 'DAD';
-        }
-    }
 
     /**
      * Calculate dates for GAP_FILL pattern.

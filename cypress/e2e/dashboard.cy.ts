@@ -20,15 +20,21 @@ describe('Dashboard Flow', () => {
     });
 
     it('should navigate between months in the calendar', () => {
-        cy.contains('January 2026').should('be.visible');
+        const now = new Date();
+        const currentMonthString = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+        now.setMonth(now.getMonth() + 1);
+        const nextMonthString = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+        cy.contains(currentMonthString).should('be.visible');
 
         // Click Next Month using aria-label
         cy.get('button[aria-label="Next Month"]').click();
-        cy.contains('February 2026').should('be.visible');
+        cy.contains(nextMonthString).should('be.visible');
 
         // Click Previous Month using aria-label
         cy.get('button[aria-label="Previous Month"]').click();
-        cy.contains('January 2026').should('be.visible');
+        cy.contains(currentMonthString).should('be.visible');
     });
 
     it('should open custom month popover', () => {

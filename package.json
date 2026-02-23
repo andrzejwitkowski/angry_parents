@@ -10,6 +10,9 @@
     "dev:stop": "bash scripts/stop-db.sh",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "bun test --exclude tests/e2e-backend",
+    "test:e2e": "bun test tests/e2e-backend",
+    "test:all": "bun test --exclude tests/e2e-backend && bun test tests/e2e-backend",
     "preview": "vite preview"
   },
   "dependencies": {

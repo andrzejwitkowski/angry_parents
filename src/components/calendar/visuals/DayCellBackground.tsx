@@ -1,9 +1,11 @@
 import type { CustodyEntry } from "@/types/custody";
+import type { Child } from "@/lib/api/children";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 interface DayCellBackgroundProps {
     entries: CustodyEntry[];
+    childrenList?: Child[];
 }
 
 const PARENT_COLORS = {
@@ -11,13 +13,18 @@ const PARENT_COLORS = {
     DAD: "rgba(79, 70, 229, 0.15)"   // Indigo-600 low opacity
 };
 
-// Denser colors for gradient transitions
 const PARENT_COLORS_SOLID = {
     MOM: "rgba(236, 72, 153, 0.25)",
     DAD: "rgba(79, 70, 229, 0.25)"
 };
 
-export function DayCellBackground({ entries }: DayCellBackgroundProps) {
+interface SingleBackgroundProps {
+    entries: CustodyEntry[];
+    containerStyle: React.CSSProperties;
+    showLabels: boolean;
+}
+
+function SingleChildBackground({ entries, containerStyle, showLabels }: SingleBackgroundProps) {
     const { t } = useTranslation();
 
     const effectiveEntries = useMemo(() => {
@@ -45,7 +52,6 @@ export function DayCellBackground({ entries }: DayCellBackgroundProps) {
     const backgroundStyle = useMemo(() => {
         if (effectiveEntries.length === 0) return {};
 
-        // Scenario A: Single Entry (Solid)
         if (effectiveEntries.length === 1) {
             const parent = effectiveEntries[0].assignedTo as keyof typeof PARENT_COLORS;
             return {
@@ -53,15 +59,10 @@ export function DayCellBackground({ entries }: DayCellBackgroundProps) {
             };
         }
 
-        // Scenario B/C: Multi Entry (Gradient)
-        // Convert time to percentage (0-1440 mins)
         const stops: string[] = [];
-
         effectiveEntries.forEach((entry) => {
             const startMin = timeToMinutes(entry.startTime);
             const endMin = timeToMinutes(entry.endTime);
-
-            // Adjust endMin for 23:59 to be 100% (1440)
             const effectiveEndMin = endMin >= 1439 ? 1440 : endMin;
 
             const startPercent = parseFloat(((startMin / 1440) * 100).toFixed(2));
@@ -80,20 +81,19 @@ export function DayCellBackground({ entries }: DayCellBackgroundProps) {
 
     }, [effectiveEntries]);
 
-    // Generate labels
     const labels = useMemo(() => {
-        if (effectiveEntries.length === 0) return null;
+        if (!showLabels || effectiveEntries.length === 0) return null;
 
         if (effectiveEntries.length === 1) {
             const entry = effectiveEntries[0];
             const isFullDay = entry.startTime === "00:00" && entry.endTime === "23:59";
             return (
-                <div className="absolute bottom-2 right-3 flex flex-col items-end">
-                    <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600 uppercase">
+                <div className="absolute bottom-1 right-2 flex flex-col items-end">
+                    <span className="text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase">
                         {t(`scheduler.${entry.assignedTo.toLowerCase()}`)}
                     </span>
                     {!isFullDay && (
-                        <span className="text-[8px] font-bold opacity-40 text-slate-500 uppercase">
+                        <span className="text-[7px] font-bold opacity-50 text-slate-500 uppercase">
                             {entry.startTime !== "00:00" ? `(from ${entry.startTime})` : `(until ${entry.endTime})`}
                         </span>
                     )}
@@ -101,56 +101,94 @@ export function DayCellBackground({ entries }: DayCellBackgroundProps) {
             );
         }
 
-        // Split Day (2+ entries)
-        // We assume 2 entries mostly for handover
-        // First Entry -> Top Left (below date)
-        // Last Entry -> Bottom Right
         const first = effectiveEntries[0];
         const last = effectiveEntries[effectiveEntries.length - 1];
-
-        // "Recent" label on the ending block of a handover day
         const isRecentEnd = Boolean(last.endTime && last.endTime !== "23:59");
 
         return (
             <>
-                <div className="absolute top-12 left-3 flex flex-col items-start">
-                    <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600 uppercase">
+                <div className="absolute top-1 left-2 flex flex-col items-start">
+                    <span className="text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase">
                         {t(`scheduler.${first.assignedTo.toLowerCase()}`)}
                     </span>
-                    <span className="text-[8px] font-bold opacity-40 text-slate-500 uppercase">
+                    <span className="text-[7px] font-bold opacity-50 text-slate-500 uppercase">
                         (until {first.endTime})
                     </span>
                 </div>
-                <div className="absolute bottom-2 right-3 flex flex-col items-end">
+                <div className="absolute bottom-1 right-2 flex flex-col items-end">
                     <div className="flex items-center gap-1">
                         {isRecentEnd && (
-                            <span className="text-[8px] font-bold px-1 rounded-sm bg-slate-200/50 text-slate-500 uppercase">
+                            <span className="text-[7px] font-bold px-1 rounded-sm bg-slate-200/50 text-slate-500 uppercase">
                                 recent
                             </span>
                         )}
-                        <span className="text-[10px] font-black tracking-widest opacity-50 text-slate-600 uppercase">
+                        <span className="text-[9px] font-black tracking-widest opacity-60 text-slate-600 uppercase">
                             {t(`scheduler.${last.assignedTo.toLowerCase()}`)}
                         </span>
                     </div>
-                    <span className="text-[8px] font-bold opacity-40 text-slate-500 uppercase">
+                    <span className="text-[7px] font-bold opacity-50 text-slate-500 uppercase">
                         (from {last.startTime})
                     </span>
                 </div>
             </>
         );
-    }, [effectiveEntries, t]);
+    }, [effectiveEntries, showLabels, t]);
 
     if (effectiveEntries.length === 0) return null;
 
     return (
-        <>
-            <div
-                className="absolute inset-0 pointer-events-none z-0"
-                style={backgroundStyle}
-                data-testid="day-cell-background"
-            />
+        <div className="absolute pointer-events-none z-0 border-b border-white/20 last:border-0" style={containerStyle}>
+            <div className="absolute inset-0" style={backgroundStyle} />
             {labels}
-        </>
+        </div>
+    );
+}
+
+export function DayCellBackground({ entries, childrenList = [] }: DayCellBackgroundProps) {
+    const entryGroups = useMemo(() => {
+        if (entries.length === 0) return [];
+
+        const grouped: Record<string, CustodyEntry[]> = {};
+        entries.forEach(e => {
+            if (!grouped[e.childId]) grouped[e.childId] = [];
+            grouped[e.childId].push(e);
+        });
+
+        // Group by childrenList order if available, else just what's there
+        if (childrenList.length > 0) {
+            return childrenList.map(c => grouped[c.id]).filter(g => g && g.length > 0);
+        }
+        return Object.values(grouped);
+    }, [entries, childrenList]);
+
+    if (entryGroups.length === 0) return null;
+
+    const count = entryGroups.length;
+    const heightPercent = 100 / count;
+
+    return (
+        <div className="absolute inset-0 z-0 overflow-hidden rounded-md pointer-events-none" data-testid="day-cell-background">
+            {entryGroups.map((group, index) => {
+                const style: React.CSSProperties = {
+                    top: `${index * heightPercent}%`,
+                    height: `${heightPercent}%`,
+                    left: 0,
+                    right: 0
+                };
+
+                // Only show labels on the first one or if we have plenty of room
+                // For a split cell (2+ kids), the labels might overlap but we made them smaller and positioned them carefully.
+                // We'll show labels on all splits to indicate whose time is whose.
+                return (
+                    <SingleChildBackground
+                        key={group[0].childId}
+                        entries={group}
+                        containerStyle={style}
+                        showLabels={true}
+                    />
+                );
+            })}
+        </div>
     );
 }
 

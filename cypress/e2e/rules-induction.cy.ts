@@ -112,7 +112,7 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
         cy.contains('.text-lg', '16').parents('div.relative.text-left').as('day16');
 
         cy.get('@day16')
-            .find('[data-testid="day-cell-background"]')
+            .find('[data-testid="day-cell-background"] > div > div.absolute.inset-0')
             .should('have.css', 'background-color').and('contain', '79, 70, 229'); // Indigo/Blue
 
         // --- INDUCTIVE STEP (N+1) ---
@@ -121,7 +121,7 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
 
         // Assert: May 16 turns Pink
         cy.get('@day16')
-            .find('[data-testid="day-cell-background"]')
+            .find('[data-testid="day-cell-background"] > div > div.absolute.inset-0')
             .should('have.css', 'background-color').and('contain', '236, 72, 153'); // Pink
 
         // --- INDUCTIVE STEP (N+2) ---
@@ -130,7 +130,7 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
 
         // Assert: May 16 turns Blue
         cy.get('@day16')
-            .find('[data-testid="day-cell-background"]')
+            .find('[data-testid="day-cell-background"] > div > div.absolute.inset-0')
             .should('have.css', 'background-color').and('contain', '79, 70, 229'); // Back to Blue
 
         // --- DELETE STEP (Revert) ---
@@ -152,7 +152,7 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
 
         // Assert: May 16 turns Pink again
         cy.get('@day16')
-            .find('[data-testid="day-cell-background"]')
+            .find('[data-testid="day-cell-background"] > div > div.absolute.inset-0')
             .should('have.css', 'background-color').and('contain', '236, 72, 153'); // Pink again!
     });
 });

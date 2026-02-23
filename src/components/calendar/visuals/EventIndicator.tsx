@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 interface EventIndicatorProps {
     event: TimelineItem;
     onViewDetails?: () => void;
+    childColor?: string;
 }
 
 const ICON_MAP = {
@@ -28,7 +29,7 @@ const ICON_MAP = {
     ATTACHMENT: { icon: MessageSquare, color: "text-slate-400 bg-slate-50 border-slate-100" },
 };
 
-export function EventIndicator({ event, onViewDetails }: EventIndicatorProps) {
+export function EventIndicator({ event, onViewDetails, childColor }: EventIndicatorProps) {
     const config = ICON_MAP[event.type as keyof typeof ICON_MAP] || ICON_MAP.NOTE;
     const Icon = config.icon;
 
@@ -54,8 +55,13 @@ export function EventIndicator({ event, onViewDetails }: EventIndicatorProps) {
                     onClick={handleTriggerClick}
                     className={cn(
                         "p-1 rounded-md border transition-all hover:scale-110 active:scale-95",
-                        config.color
+                        !childColor && config.color
                     )}
+                    style={childColor ? {
+                        borderColor: childColor,
+                        color: childColor,
+                        backgroundColor: `${childColor}15`
+                    } : undefined}
                 >
                     <Icon className="w-3.5 h-3.5" />
                 </button>

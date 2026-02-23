@@ -116,7 +116,7 @@ export function NextUpWidget({ refreshKey }: NextUpWidgetProps) {
     const { nextActivity, isLoading } = useUpcomingActivity(refreshKey);
 
     return (
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 h-[120px] relative overflow-hidden flex items-center">
+        <div className="h-full w-full p-5 relative overflow-hidden flex items-center">
             {/* Badge */}
             <div className="absolute top-0 right-0 p-3">
                 <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded-full">

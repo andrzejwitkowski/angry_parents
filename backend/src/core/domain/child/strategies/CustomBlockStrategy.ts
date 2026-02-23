@@ -23,8 +23,8 @@ export class CustomBlockStrategy implements CustodyStrategy {
         const anchorDate = config.anchorDate || config.startDate;
 
         dates.forEach(date => {
-            const start = new Date(anchorDate);
-            const current = new Date(date);
+            const start = new Date(anchorDate + "T00:00:00");
+            const current = new Date(date + "T00:00:00");
             const diffTime = current.getTime() - start.getTime();
 
             // If the date is before the config startDate, it shouldn't apply, but TimeUtils.getDatesInRange

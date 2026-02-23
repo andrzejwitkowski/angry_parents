@@ -7,6 +7,7 @@ import type { TimelineItem } from "@/types/timeline.types";
 
 import type { User } from '@/types/user';
 import type { CustodyEntry } from '@/types/custody';
+import type { Child } from '@/lib/api/children';
 
 interface CalendarDayProps {
     day: Date;
@@ -15,9 +16,10 @@ interface CalendarDayProps {
     onClick: () => void;
     user: User | null;
     custodyEntries?: CustodyEntry[];
+    childrenList?: Child[];
 }
 
-export function CalendarDay({ day, currentDate, events, onClick, user, custodyEntries = [] }: CalendarDayProps) {
+export function CalendarDay({ day, currentDate, events, onClick, user, custodyEntries = [], childrenList = [] }: CalendarDayProps) {
     const isSelectedMonth = isSameMonth(day, currentDate);
     const isDayWeekend = isWeekend(day);
     const isDayToday = isToday(day);
@@ -37,7 +39,7 @@ export function CalendarDay({ day, currentDate, events, onClick, user, custodyEn
             )}
         >
             {/* Background Layer */}
-            {isSelectedMonth && <DayCellBackground entries={daysEntries} />}
+            {isSelectedMonth && <DayCellBackground entries={daysEntries} childrenList={childrenList} />}
 
             {/* Content Layer */}
             <div className="relative z-10 flex justify-between items-start">
@@ -60,7 +62,7 @@ export function CalendarDay({ day, currentDate, events, onClick, user, custodyEn
             </div>
 
             <div className="relative z-10 mt-2 space-y-1 flex-1">
-                <DayCellEvents events={events} onDayClick={onClick} user={user} />
+                <DayCellEvents events={events} onDayClick={onClick} user={user} childrenList={childrenList} />
             </div>
 
             {/* Avatars Removed as per user request (replaced by labels in Background) */}

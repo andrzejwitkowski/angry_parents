@@ -12,9 +12,12 @@ import { CustodyScheduler } from '@/components/scheduler/CustodyWizard';
 import {
     Bell,
     Gavel,
-    ChevronRight
+    ChevronRight,
+    Plus
 } from 'lucide-react';
-import { NextUpWidget } from '@/components/dashboard/NextUpWidget';
+import { CalendarLegendCard } from '@/components/dashboard/CalendarLegendCard';
+import { useChildren } from '@/hooks/useChildren';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -28,6 +31,17 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+
+    const { children, refresh: refreshChildren } = useChildren();
+    const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDateForSheet, setSelectedDateForSheet] = useState<Date | null>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+    const handleAddEventClick = () => {
+        setSelectedDateForSheet(currentDate);
+        setIsSheetOpen(true);
+    };
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -91,7 +105,10 @@ export default function Dashboard() {
                                 <p className="text-xs font-medium text-indigo-500/80 dark:text-indigo-400/80">{t('dashboard.premiumAccess')}</p>
                             </div>
                             <div className="flex items-center gap-4">
-                                <ChildrenConfigSheet />
+                                <ChildrenConfigSheet onChildrenChange={() => {
+                                    refreshChildren();
+                                    setCalendarRefreshKey(prev => prev + 1);
+                                }} />
                                 <button className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-indigo-500 transition-colors">
                                     <Bell className="w-5 h-5" />
                                 </button>
@@ -132,9 +149,44 @@ export default function Dashboard() {
                                 </Dialog>
                             </div>
 
-                            {/* Next Up Widget - dynamic upcoming activity */}
-                            <div className="lg:col-span-2">
-                                <NextUpWidget refreshKey={calendarRefreshKey} />
+                            {/* Legend Card & Child Selector - dynamic upcoming activity */}
+                            <div className="lg:col-span-2 space-y-4">
+                                {/* Child Selector & Add Event Row */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center bg-white dark:bg-slate-900 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                                        <button
+                                            onClick={() => setSelectedChildId(null)}
+                                            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${selectedChildId === null
+                                                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 shadow-sm"
+                                                : "text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                }`}
+                                        >
+                                            All Children
+                                        </button>
+                                        {children.map(child => (
+                                            <button
+                                                key={child.id}
+                                                onClick={() => setSelectedChildId(child.id)}
+                                                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${selectedChildId === child.id
+                                                    ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 shadow-sm"
+                                                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                    }`}
+                                            >
+                                                {child.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <Button onClick={handleAddEventClick} className="rounded-xl px-6 bg-indigo-600 hover:bg-indigo-700 gap-2 font-bold shadow-md shadow-indigo-500/20">
+                                        <Plus className="w-4 h-4" /> Add Event
+                                    </Button>
+                                </div>
+
+                                <CalendarLegendCard
+                                    childrenList={children}
+                                    selectedChildId={selectedChildId}
+                                    currentDate={currentDate}
+                                    calendarRefreshKey={calendarRefreshKey}
+                                />
                             </div>
                         </div>
                     </div>
@@ -146,7 +198,19 @@ export default function Dashboard() {
                         </div>
                         {/* BetterCalendar should handle its own internal scrolling if needed, or fit 100% height */}
                         <div className="h-full w-full pt-8">
-                            <BetterCalendar user={user} refreshKey={calendarRefreshKey} />
+                            <BetterCalendar
+                                user={user}
+                                refreshKey={calendarRefreshKey}
+                                childrenList={children}
+                                selectedChildId={selectedChildId}
+                                currentDate={currentDate}
+                                setCurrentDate={setCurrentDate}
+                                selectedDateForSheet={selectedDateForSheet}
+                                setSelectedDateForSheet={setSelectedDateForSheet}
+                                isSheetOpen={isSheetOpen}
+                                setIsSheetOpen={setIsSheetOpen}
+                                onDataChange={() => setCalendarRefreshKey(prev => prev + 1)}
+                            />
                         </div>
                     </div>
                 </div>

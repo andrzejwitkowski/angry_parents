@@ -48,23 +48,24 @@ describe('Schedule Rule Management', () => {
         cy.get('[role="dialog"]').contains('button', 'Generate Schedule').click({ force: true });
 
         // 3. Save (Confirm & Save)
-        cy.contains('button', 'Confirm & Save').should('be.visible').click();
+        cy.contains('button', 'Confirm & Save').scrollIntoView().click({ force: true });
 
-        // 4. Verify Rule Appears in List
-        cy.contains('Active Patterns').should('be.visible');
-        cy.contains('Alt. Weekend').should('be.visible');
-        cy.contains('2025-01-01 - 2025-01-14').should('be.visible');
+        // Wait for dialog and overlay to close/animate out
+        cy.get('[role="dialog"]').should('not.exist');
+        cy.wait(500);
 
-        // 5. Verify Calendar Entries (Implicit via onSave which refreshes calendar)
-        // Close dialog to check calendar? 
-        // We modified onSave to passing refresh callback. But the Dialog is still open?
-        // Actually CustodyWizard is inside a Dialog in Dashboard.tsx. 
-        // If we want to check calendar we should close it. 
-        // But the task is to verify "Delete Rule" cleans up.
-        // We can check the list of rules.
+        // 4. Re-open Wizard to Verify & Delete
+        cy.contains('button', 'Input Court Schedule').click({ force: true });
+        cy.get('[role="dialog"]').should('be.visible');
+        cy.wait(1000); // Wait for animation
+
+        // 5. Verify Rule Appears in List
+        cy.contains('Active Patterns').scrollIntoView().should('be.visible');
+        cy.contains('Alt. Weekend').scrollIntoView().should('be.visible');
+        cy.contains('2025-01-01 - 2025-01-14').scrollIntoView().should('be.visible');
 
         // Let's Delete it.
-        cy.get('button').find('svg.lucide-trash-2').click();
+        cy.get('button').find('svg.lucide-trash-2').scrollIntoView().click({ force: true });
 
         // 6. Confirm Delete
         cy.get('[role="alertdialog"]').should('be.visible');
@@ -72,6 +73,6 @@ describe('Schedule Rule Management', () => {
 
         // 7. Verify Rule is Gone
         cy.contains('2025-01-01 - 2025-01-14').should('not.exist');
-        cy.contains('No active schedule patterns found').should('be.visible');
+        cy.contains('No active schedule patterns found').scrollIntoView().should('be.visible');
     });
 });

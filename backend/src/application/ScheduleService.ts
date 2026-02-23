@@ -24,6 +24,12 @@ export class ScheduleService {
         const newPriority = config.type === 'GAP_FILL' ? -1 : (maxPriority + 1);
 
         const ruleId = `rule-${this.uuidProvider.generate()}`;
+
+        // Ensure anchorDate is set for stable propagation
+        if (!config.anchorDate) {
+            config.anchorDate = config.startDate;
+        }
+
         const rule: ScheduleRule = {
             id: ruleId,
             childId: config.childId,
@@ -37,6 +43,7 @@ export class ScheduleService {
         // 1. Generate Entries
         const generator = new CustodyGenerator(this.uuidProvider);
         const entries = generator.generate(config);
+        console.log(`[ScheduleService] Generated ${entries.length} entries for rule ${ruleId} (Child: ${config.childId}, Priority: ${newPriority})`);
 
         // 2. Tag Entries with Rule ID and Priority
         const taggedEntries = entries.map(entry => ({
@@ -50,6 +57,7 @@ export class ScheduleService {
 
         // 4. Save Entries
         await this.custodyRepository.save(taggedEntries);
+        console.log(`[ScheduleService] Saved rule ${ruleId} and tagged entries.`);
 
         return rule;
     }
@@ -172,6 +180,7 @@ export class ScheduleService {
 
         for (const entry of sorted) {
             const isBlocked = accepted.some(acc =>
+                acc.childId === entry.childId && // Must only resolve conflicts for the SAME child
                 acc.date === entry.date && // Same Day
                 this.isTimeOverlap(acc, entry)
             );

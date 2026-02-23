@@ -25,15 +25,17 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
         const isSundayReturn = parseInt(returnTime.split(':')[0]) >= 12; // E.g., 12:00 or later -> Sunday return, otherwise Monday return
 
         dates.forEach(date => {
-            // Calculate days difference from start
-            const start = new Date(config.startDate);
-            const current = new Date(date);
+            // Calculate days difference from anchor (stable reference)
+            const start = new Date((config.anchorDate || config.startDate) + "T00:00:00");
+            const current = new Date(date + "T00:00:00");
             const diffTime = Math.abs(current.getTime() - start.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
             const cycleDay = diffDays % 14;
             const isWeek1 = cycleDay < 7;
             const dayOfWeek = current.getDay(); // 0=Sun, 5=Fri, 6=Sat, 1=Mon
+
+            console.log(`[AltWeekend] Date: ${date}, cycleDay: ${cycleDay}, isWeek1: ${isWeek1}, dayOfWeek: ${dayOfWeek}`);
 
             const assignments: { start: string, end: string, parent: 'MOM' | 'DAD' }[] = [];
 

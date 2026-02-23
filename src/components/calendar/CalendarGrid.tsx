@@ -4,6 +4,7 @@ import { format } from "date-fns";
 
 import type { User } from '@/types/user';
 import type { CustodyEntry } from '@/types/custody';
+import type { Child } from '@/lib/api/children';
 
 interface CalendarGridProps {
     days: Date[];
@@ -12,9 +13,10 @@ interface CalendarGridProps {
     onDayClick: (date: Date) => void;
     user: User | null;
     custodyEntries?: CustodyEntry[];
+    childrenList?: Child[];
 }
 
-export function CalendarGrid({ days, currentDate, events, onDayClick, user, custodyEntries = [] }: CalendarGridProps) {
+export function CalendarGrid({ days, currentDate, events, onDayClick, user, custodyEntries = [], childrenList = [] }: CalendarGridProps) {
     const weeks = Math.ceil(days.length / 7);
 
     return (
@@ -35,6 +37,7 @@ export function CalendarGrid({ days, currentDate, events, onDayClick, user, cust
                         events={dayEvents}
                         user={user}
                         custodyEntries={custodyEntries}
+                        childrenList={childrenList}
                     />
                 );
             })}

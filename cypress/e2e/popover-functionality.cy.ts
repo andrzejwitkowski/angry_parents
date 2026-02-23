@@ -11,6 +11,11 @@ describe('Popover and Overflow Functionality', () => {
             }
         });
 
+        cy.intercept('GET', '**/api/children', {
+            statusCode: 200,
+            body: [{ id: 'c1', name: 'Test Child', color: '#ff0000', parentA: 'user-1', parentB: 'user-2' }]
+        }).as('getChildren');
+
         // Mock many events for the calendar range to trigger indicators
         const events = Array.from({ length: 5 }, (_, i) => ({
             id: `ev-${i}`,
@@ -18,7 +23,9 @@ describe('Popover and Overflow Functionality', () => {
             date: today,
             content: `Event ${i}`,
             createdAt: new Date(new Date().setHours(10, i)).toISOString(),
-            createdBy: 'user-1'
+            createdBy: 'user-1',
+            childIds: ['c1'],
+            auditTrail: []
         }));
 
         // The dashboard fetches a range for the calendar - WRAP IN items!
@@ -34,7 +41,7 @@ describe('Popover and Overflow Functionality', () => {
         }).as('getDayTimeline');
 
         cy.visit('/dashboard');
-        cy.wait('@getRange');
+        cy.wait(['@getChildren', '@getRange']);
     });
 
     it('opens DayDetailsSheet from Popover "View details"', () => {

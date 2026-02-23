@@ -20,10 +20,10 @@ export class CustomSequenceStrategy implements CustodyStrategy {
         const p2 = p1 === 'MOM' ? 'DAD' : 'MOM';
 
         dates.forEach(date => {
-            const start = new Date(config.startDate);
-            const current = new Date(date);
+            const start = new Date((config.anchorDate || config.startDate) + "T00:00:00");
+            const current = new Date(date + "T00:00:00");
             const diffTime = Math.abs(current.getTime() - start.getTime());
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
             const cycleDay = diffDays % cycleLength;
 
             // Find which block we are in

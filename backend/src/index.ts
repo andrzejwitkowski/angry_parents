@@ -131,6 +131,24 @@ const app = new Elysia()
         await taskManager.schedule(TaskType.SYNC_USER_PENDING_DOCS, { userId });
         return { status: "triggered" };
     })
+    .post("/api/test/process-tasks", async () => {
+        console.log("[Test] Manually processing tasks...");
+        // This is a bit of a hack to reach into TaskManager internals for testing
+        // We call claimAndProcess a few times to flush the queue
+        let processedCount = 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tm = taskManager as any;
+        for (let i = 0; i < 5; i++) {
+            const task = await tm.claimTask();
+            if (task) {
+                await tm.processTask(task);
+                processedCount++;
+            } else {
+                break;
+            }
+        }
+        return { status: "processed", count: processedCount };
+    })
     .delete("/api/test/database", async ({ set }) => {
         if (process.env.NODE_ENV === "production") {
             set.status = 403;

@@ -268,4 +268,32 @@ describe("CustodyGenerator", () => {
         expect(mondayEntries[1].startTime).toBe("08:00");
         expect(mondayEntries[1].endTime).toBe("23:59");
     });
+
+    it("Case 8: Daylight Saving Time (DST) Math Bug", () => {
+        // DST transition in Europe: March 29, 2026 (clocks go forward).
+        // If we calculate day differences using raw milliseconds and Math.floor/ceil,
+        // days after Mar 29 will be off by 1 hour (e.g. 13.95 days instead of 14 days),
+        // breaking the week rotation math (14-day modulo).
+        const config: CustodyPatternConfig = {
+            childId: "child-1",
+            startDate: "2026-03-13", // Friday (Week 1 for DAD)
+            endDate: "2026-04-12",   // Spans across DST
+            type: "ALTERNATING_WEEKEND",
+            startingParent: "DAD",
+            handoverTime: "17:00",
+            handoverEndTime: "19:00"
+        };
+
+        const entries = generator.generate(config);
+
+        // March 27-29 is Week 3 (Same phase as Week 1). DAD has the weekend.
+        // DST switch happens on Sunday Mar 29 morning.
+        const mar27 = getEntriesForDate(entries, "2026-03-27");
+        expect(mar27.some(e => e.assignedTo === "DAD" && e.startTime === "17:00")).toBe(true);
+
+        // April 10-12 is Week 5 (Same phase as Week 1). DAD should STILL have the weekend.
+        // If the timezone bug exists, this might shift and DAD would be missing.
+        const apr10 = getEntriesForDate(entries, "2026-04-10");
+        expect(apr10.some(e => e.assignedTo === "DAD" && e.startTime === "17:00")).toBe(true);
+    });
 });

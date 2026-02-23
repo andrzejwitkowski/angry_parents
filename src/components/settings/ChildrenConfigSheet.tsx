@@ -20,7 +20,11 @@ import {
 } from "@/components/ui/popover";
 import { childApi, type Child } from "@/lib/api/children";
 
-export function ChildrenConfigSheet() {
+interface ChildrenConfigSheetProps {
+    onChildrenChange?: () => void;
+}
+
+export function ChildrenConfigSheet({ onChildrenChange }: ChildrenConfigSheetProps) {
     const { t } = useTranslation();
     const [children, setChildren] = useState<Child[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +60,7 @@ export function ChildrenConfigSheet() {
             });
             setChildren([...children, newChild]);
             setNewChildName("");
+            onChildrenChange?.();
         } catch (error) {
             console.error("Failed to add child:", error);
         } finally {
@@ -67,6 +72,7 @@ export function ChildrenConfigSheet() {
         try {
             await childApi.update(id, { color });
             setChildren(children.map(c => c.id === id ? { ...c, color } : c));
+            onChildrenChange?.();
         } catch (error) {
             console.error("Failed to update child color:", error);
         }
@@ -77,6 +83,7 @@ export function ChildrenConfigSheet() {
             setDeleteError(null);
             await childApi.delete(id);
             setChildren(children.filter(c => c.id !== id));
+            onChildrenChange?.();
         } catch (error) {
             console.error("Failed to delete child:", error);
             setDeleteError({
