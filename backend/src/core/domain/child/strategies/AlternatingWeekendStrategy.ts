@@ -4,92 +4,110 @@ import { CustodyStrategy } from "./CustodyStrategy";
 import { TimeUtils } from "../TimeUtils";
 import { UuidProvider } from "../../../ports/UuidProvider";
 
+type Parent = "MOM" | "DAD";
+type Assignment = { start: string; end: string; parent: Parent };
+
+const FULL_DAY = (parent: Parent): Assignment[] => [
+    { start: "00:00", end: "23:59", parent },
+];
+
+const SPLIT_DAY = (
+    splitTime: string,
+    firstParent: Parent,
+    secondParent: Parent
+): Assignment[] => [
+        { start: "00:00", end: splitTime, parent: firstParent },
+        { start: splitTime, end: "23:59", parent: secondParent },
+    ];
+
 export class AlternatingWeekendStrategy implements CustodyStrategy {
     generate(config: CustodyPatternConfig, uuidProvider: UuidProvider): CustodyEntry[] {
         const entries: CustodyEntry[] = [];
         const dates = TimeUtils.getDatesInRange(config.startDate, config.endDate);
 
-        // Default parent is the non-starting parent (Usually A has week, B has weekend)
-        // Or if config.startingParent = MOM, does that mean MOM has the FIRST weekend?
-        // Let's assume startingParent OWNS the weekend.
+        // startingParent owns the first weekend; the other parent holds weekdays.
         const weekendParent = config.startingParent;
-        const weekdayParent = config.startingParent === 'MOM' ? 'DAD' : 'MOM';
+        const weekdayParent: Parent = config.startingParent === "MOM" ? "DAD" : "MOM";
 
-        // 14-day cycle reference. Start date is day 0.
-        // Assuming StartDate is FRIDAY as per Use Case 1.
-        // Week 1 (Day 0-6): WeekendParent has Fri-Sun.
-        // Week 2 (Day 7-13): WeekdayParent has Fri-Sun.
+        const handoverTime = config.handoverTime ?? "17:00";
+        const returnTime = config.handoverEndTime ?? config.handoverTime ?? "09:00";
 
-        const handoverTime = config.handoverTime || "17:00"; // Default 5pm
-        const returnTime = config.handoverEndTime || config.handoverTime || "09:00"; // Use handover end time for return, fallback to start time or default
-        const isSundayReturn = parseInt(returnTime.split(':')[0]) >= 12; // E.g., 12:00 or later -> Sunday return, otherwise Monday return
+        // If returnTime is noon or later we treat Sunday as the return day,
+        // otherwise the child stays Sunday night and returns Monday morning.
+        const returnOnSunday = parseInt(returnTime.split(":")[0], 10) >= 12;
 
-        dates.forEach(date => {
-            // Calculate days difference from anchor (stable reference)
-            const start = new Date((config.anchorDate || config.startDate) + "T00:00:00");
+        const anchorDate = new Date((config.anchorDate ?? config.startDate) + "T00:00:00");
+
+        dates.forEach((date) => {
             const current = new Date(date + "T00:00:00");
-            const diffTime = Math.abs(current.getTime() - start.getTime());
-            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round(
+                Math.abs(current.getTime() - anchorDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
 
             const cycleDay = diffDays % 14;
             const isWeek1 = cycleDay < 7;
-            const dayOfWeek = current.getDay(); // 0=Sun, 5=Fri, 6=Sat, 1=Mon
+            const dayOfWeek = current.getDay(); // 0=Sun 1=Mon … 5=Fri 6=Sat
 
-            console.log(`[AltWeekend] Date: ${date}, cycleDay: ${cycleDay}, isWeek1: ${isWeek1}, dayOfWeek: ${dayOfWeek}`);
+            console.log(
+                `[AltWeekend] Date: ${date}, cycleDay: ${cycleDay}, isWeek1: ${isWeek1}, dayOfWeek: ${dayOfWeek}`
+            );
 
-            const assignments: { start: string, end: string, parent: 'MOM' | 'DAD' }[] = [];
+            const assignments = isWeek1
+                ? this.getWeek1Assignments(dayOfWeek, weekendParent, weekdayParent, handoverTime, returnTime, returnOnSunday)
+                : this.getWeek2Assignments(weekdayParent);
 
-            // Logic for "Standard" Alternating Weekend starting on Friday
-            // Week 1: Weekend Parent ON.
-            if (isWeek1) {
-                if (dayOfWeek === 5) { // Friday
-                    // 00-17: WeekdayParent, 17-24: WeekendParent
-                    assignments.push({ start: "00:00", end: handoverTime, parent: weekdayParent });
-                    assignments.push({ start: handoverTime, end: "23:59", parent: weekendParent });
-                } else if (dayOfWeek === 6) { // Saturday
-                    // Full WeekendParent
-                    assignments.push({ start: "00:00", end: "23:59", parent: weekendParent });
-                } else if (dayOfWeek === 0) { // Sunday
-                    if (isSundayReturn) {
-                        assignments.push({ start: "00:00", end: returnTime, parent: weekendParent });
-                        assignments.push({ start: returnTime, end: "23:59", parent: weekdayParent });
-                    } else {
-                        // Full WeekendParent if returning Monday morning
-                        assignments.push({ start: "00:00", end: "23:59", parent: weekendParent });
-                    }
-                } else if (dayOfWeek === 1) { // Monday
-                    if (!isSundayReturn) {
-                        // Return day. 00-09 WeekendParent, 09-24 WeekdayParent
-                        assignments.push({ start: "00:00", end: returnTime, parent: weekendParent });
-                        assignments.push({ start: returnTime, end: "23:59", parent: weekdayParent });
-                    } else {
-                        assignments.push({ start: "00:00", end: "23:59", parent: weekdayParent });
-                    }
-                } else {
-                    // Tue-Thu: WeekdayParent
-                    assignments.push({ start: "00:00", end: "23:59", parent: weekdayParent });
-                }
-            } else {
-                // Week 2: "OFF" Weekend. WeekdayParent has everything.
-                // Wait, Week 2 Friday? Is it split? No, usually "Off" weekend means continuous custody for primary.
-                assignments.push({ start: "00:00", end: "23:59", parent: weekdayParent });
-            }
-
-            // Create entries
             assignments.forEach((assign) => {
                 entries.push({
                     id: uuidProvider.generate(),
                     childId: config.childId,
-                    date: date,
+                    date,
                     startTime: assign.start,
                     endTime: assign.end,
                     assignedTo: assign.parent,
                     isRecurring: true,
-                    priority: 0
+                    priority: 0,
                 });
             });
         });
 
         return entries;
+    }
+
+    // ─── Week 1: weekend parent is ON ────────────────────────────────────────
+
+    private getWeek1Assignments(
+        dayOfWeek: number,
+        weekendParent: Parent,
+        weekdayParent: Parent,
+        handoverTime: string,
+        returnTime: string,
+        returnOnSunday: boolean
+    ): Assignment[] {
+        switch (dayOfWeek) {
+            case 5: // Friday – handover from weekday → weekend parent at handoverTime
+                return SPLIT_DAY(handoverTime, weekdayParent, weekendParent);
+
+            case 6: // Saturday – entirely with weekend parent
+                return FULL_DAY(weekendParent);
+
+            case 0: // Sunday – return time depends on returnOnSunday flag
+                return returnOnSunday
+                    ? SPLIT_DAY(returnTime, weekendParent, weekdayParent)
+                    : FULL_DAY(weekendParent); // child stays; return is Monday morning
+
+            case 1: // Monday – return happens here when NOT returning on Sunday
+                return returnOnSunday
+                    ? FULL_DAY(weekdayParent)
+                    : SPLIT_DAY(returnTime, weekendParent, weekdayParent);
+
+            default: // Tue–Thu: regular weekday, no handover
+                return FULL_DAY(weekdayParent);
+        }
+    }
+
+    // ─── Week 2: "off" weekend – weekday parent holds the whole week ─────────
+
+    private getWeek2Assignments(weekdayParent: Parent): Assignment[] {
+        return FULL_DAY(weekdayParent);
     }
 }
