@@ -24,9 +24,10 @@ interface SingleBackgroundProps {
     containerStyle: React.CSSProperties;
     showLabels: boolean;
     compact?: boolean;
+    childColor?: string;
 }
 
-function SingleChildBackground({ entries, containerStyle, showLabels, compact = false }: SingleBackgroundProps) {
+function SingleChildBackground({ entries, containerStyle, showLabels, compact = false, childColor }: SingleBackgroundProps) {
     const { t } = useTranslation();
 
     const effectiveEntries = useMemo(() => {
@@ -140,10 +141,18 @@ function SingleChildBackground({ entries, containerStyle, showLabels, compact = 
         );
     }, [effectiveEntries, showLabels, t]);
 
-    if (effectiveEntries.length === 0) return null;
+    const borderStyle = useMemo(() => {
+        if (!childColor) return {};
+        return {
+            borderColor: childColor,
+            borderWidth: '2px',
+            borderStyle: 'solid',
+            borderRadius: '4px'
+        };
+    }, [childColor]);
 
     return (
-        <div className="absolute pointer-events-none z-0 border-b border-white/20 last:border-0" style={containerStyle}>
+        <div className="absolute pointer-events-none z-0 border-b border-white/20 last:border-0" style={{ ...containerStyle, ...borderStyle }}>
             <div className="absolute inset-0" style={backgroundStyle} />
             {labels}
         </div>
@@ -175,6 +184,10 @@ export function DayCellBackground({ entries, childrenList = [], compact = false 
     return (
         <div className="absolute inset-0 z-0 overflow-hidden rounded-md pointer-events-none" data-testid="day-cell-background">
             {entryGroups.map((group, index) => {
+                const childId = group[0].childId;
+                const child = childrenList.find(c => c.id === childId);
+                const childColor = count > 1 ? child?.color : undefined;
+
                 const style: React.CSSProperties = {
                     top: `${index * heightPercent}%`,
                     height: `${heightPercent}%`,
@@ -187,11 +200,12 @@ export function DayCellBackground({ entries, childrenList = [], compact = false 
                 // We'll show labels on all splits to indicate whose time is whose.
                 return (
                     <SingleChildBackground
-                        key={group[0].childId}
+                        key={childId}
                         entries={group}
                         containerStyle={style}
                         showLabels={true}
                         compact={compact}
+                        childColor={childColor}
                     />
                 );
             })}
