@@ -34,6 +34,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
             customBlockRepeatInterval: t.Optional(t.Number()),
             customBlockRepeatUnit: t.Optional(t.Union([t.Literal('DAYS'), t.Literal('WEEKS')])),
             customBlockEndDayOffset: t.Optional(t.Number()),
+            customBlockStartDay: t.Optional(t.Number()),
             anchorDate: t.Optional(t.String())
         })
     })
@@ -105,6 +106,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
             customBlockRepeatInterval: t.Optional(t.Number()),
             customBlockRepeatUnit: t.Optional(t.Union([t.Literal('DAYS'), t.Literal('WEEKS')])),
             customBlockEndDayOffset: t.Optional(t.Number()),
+            customBlockStartDay: t.Optional(t.Number()),
             anchorDate: t.Optional(t.String())
         })
     })
@@ -187,6 +189,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
                 customBlockRepeatInterval: t.Optional(t.Number()),
                 customBlockRepeatUnit: t.Optional(t.Union([t.Literal('DAYS'), t.Literal('WEEKS')])),
                 customBlockEndDayOffset: t.Optional(t.Number()),
+                customBlockStartDay: t.Optional(t.Number()),
                 anchorDate: t.Optional(t.String())
             }),
             excludeRuleId: t.Optional(t.String())
@@ -349,6 +352,7 @@ export const createCustodyController = (custodyRepository: CustodyRepository, sc
                 customBlockRepeatInterval: t.Optional(t.Number()),
                 customBlockRepeatUnit: t.Optional(t.Union([t.Literal('DAYS'), t.Literal('WEEKS')])),
                 customBlockEndDayOffset: t.Optional(t.Number()),
+                customBlockStartDay: t.Optional(t.Number()),
                 anchorDate: t.Optional(t.String())
             }))
         })
