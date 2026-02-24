@@ -29,10 +29,14 @@ describe("Rule Priority Engine (Formal Verification)", () => {
         // Base Step: Create Rule 0
         const baseConfig: CustodyPatternConfig = {
             childId: "child-1",
-            type: "ALTERNATING_WEEKEND",
+            type: "CUSTOM_BLOCK",
             startDate: TEST_DATE,
             endDate: TEST_DATE, // Single day rule for precision
-            startingParent: "DAD"
+            startingParent: "DAD",
+            customBlockEndDayOffset: 1, // 1 day duration
+            customBlockRepeatInterval: 1,
+            customBlockRepeatUnit: "WEEKS",
+            handoverTime: "00:00"
         };
         await scheduleService.createRule(baseConfig);
 
@@ -43,10 +47,14 @@ describe("Rule Priority Engine (Formal Verification)", () => {
 
             const config: CustodyPatternConfig = {
                 childId: "child-1",
-                type: "ALTERNATING_WEEKEND",
+                type: "CUSTOM_BLOCK",
                 startDate: TEST_DATE,
                 endDate: TEST_DATE,
-                startingParent: targetParent // This rule dictates the day
+                startingParent: targetParent, // This rule dictates the day
+                customBlockEndDayOffset: 1,
+                customBlockRepeatInterval: 1,
+                customBlockRepeatUnit: "WEEKS",
+                handoverTime: "00:00"
             };
 
             // Action: Create Rule (N+1)

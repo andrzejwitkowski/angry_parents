@@ -142,7 +142,7 @@ describe("CustodyGenerator", () => {
             startingParent: "DAD"
         }; */
 
-        // We assume generator allows merging/overwriting. 
+        // We assume generator allows merging/overwriting.
         // In a real app, we might call generate twice and merge.
         // Or providing a list of holidays in the config.
         // The Prompt says: "Holidays? : string[]" in config.
@@ -150,7 +150,7 @@ describe("CustodyGenerator", () => {
         // "Conflict Resolution... When saving entries... If New.priority > Existing.priority -> Overwrite"
         // This implies we generate entries separately and then save/merge.
         // For the UNIT TEST of the GENERATOR, we can test that the generator CAN produce high priority entries
-        // AND that we have a utility to merge them. 
+        // AND that we have a utility to merge them.
         // OR the generator takes exclusion dates.
         // Let's assume we simulate the "Conflict Resolution" logic here or in the generator.
         // Let's test that we can generate the Holiday entry with Priority 10.

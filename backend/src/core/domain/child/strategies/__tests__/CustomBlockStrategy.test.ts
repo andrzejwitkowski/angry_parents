@@ -28,13 +28,29 @@ describe("CustomBlockStrategy", () => {
 
         const entries = strategy.generate(config, uuidProvider);
 
-        // Expectation:
-        // Sunday (0): MOM 00:00 -> 23:59
-        // Monday (1): MOM 00:00 -> 09:00, DAD 09:00 -> 23:59
-        // Tuesday (2): DAD 00:00 -> 23:59
-        // Wednesday (3): DAD 00:00 -> 23:59
+        // Expectation (strategy only owns block days, off-block days return []):
+        // Sunday (cycleDay=0): MOM 00:00->17:00 + MOM 17:00->23:59 = SPLIT or FULL
+        // Monday (cycleDay=1): block end — MOM 00:00->09:00, DAD 09:00->23:59
+        // Tuesday (cycleDay=2): off-block — no entries from this strategy
+        // Wednesday (cycleDay=3): off-block — no entries from this strategy
 
-        expect(entries.length).toBe(6); // Each split day needs 2 entries (except purely 1 parent)
+        // Block start (Sun): split day = 2 entries, Block end (Mon): split day = 2 entries
+        // Off-days generate NO entries
+        expect(entries.length).toBe(4);
+
+        // Block start day (Sun Feb 1): MOM gets handover at 17:00
+        const sunMom = entries.find(e => e.date === "2026-02-01" && e.assignedTo === "MOM" && e.startTime === "17:00");
+        expect(sunMom).toBeDefined();
+
+        // Block end day (Mon Feb 2): block parent (MOM) holds until returnTime
+        const monMom = entries.find(e => e.date === "2026-02-02" && e.assignedTo === "MOM" && e.endTime === "09:00");
+        expect(monMom).toBeDefined();
+
+        // No entries for off-block days (Tue, Wed)
+        const tuesdayEntries = entries.filter(e => e.date === "2026-02-03");
+        expect(tuesdayEntries.length).toBe(0);
+        const wednesdayEntries = entries.filter(e => e.date === "2026-02-04");
+        expect(wednesdayEntries.length).toBe(0);
     });
 
     test("generates custom block with customBlockStartDay", () => {
@@ -57,12 +73,20 @@ describe("CustomBlockStrategy", () => {
 
         const entries = strategy.generate(config, uuidProvider);
 
-        // Expectation: 
-        // 2026-02-01 (Sun): DAD 00:00 -> 23:59
-        // 2026-02-02 (Mon): DAD 00:00 -> 23:59
-        // 2026-02-03 (Tue): DAD 00:00 -> 17:00, MOM 17:00 -> 23:59
-        // 2026-02-04 (Wed): MOM 00:00 -> 09:00, DAD 09:00 -> 23:59
-        // 2026-02-05 (Thu): DAD 00:00 -> 23:59
+        // Strategy only owns block days (Tue + Wed); off-block days return []
+        // 2026-02-01 (Sun): off-block — no entry
+        // 2026-02-02 (Mon): off-block — no entry
+        // 2026-02-03 (Tue): block start — DAD 00:00->17:00, MOM 17:00->23:59
+        // 2026-02-04 (Wed): block end — MOM 00:00->09:00, DAD 09:00->23:59
+        // 2026-02-05 (Thu): off-block — no entry
+
+        // Off-block days produce no entries
+        const sunEntries = entries.filter(e => e.date === "2026-02-01");
+        expect(sunEntries.length).toBe(0);
+        const monEntries = entries.filter(e => e.date === "2026-02-02");
+        expect(monEntries.length).toBe(0);
+        const thuEntries = entries.filter(e => e.date === "2026-02-05");
+        expect(thuEntries.length).toBe(0);
 
         // Let's find Tuesday's MOM entry
         const tueMom = entries.find(e => e.date === "2026-02-03" && e.assignedTo === "MOM");
@@ -123,13 +147,9 @@ describe("CustomBlockStrategy", () => {
         expect(wedFeb4Mom?.startTime).toBe("19:00");
         expect(wedFeb4Mom?.endTime).toBe("23:59");
 
-        // -- Feb 5 (Thursday): outside block — MOM full day only --
-        const thuFeb5Dad = entries.find(e => e.date === "2026-02-05" && e.assignedTo === "DAD");
-        expect(thuFeb5Dad).toBeUndefined();
-        const thuFeb5Mom = entries.find(e => e.date === "2026-02-05" && e.assignedTo === "MOM");
-        expect(thuFeb5Mom).toBeDefined();
-        expect(thuFeb5Mom?.startTime).toBe("00:00");
-        expect(thuFeb5Mom?.endTime).toBe("23:59");
+        // -- Feb 5 (Thursday): off-block — NO entries from this strategy --
+        const thuFeb5Entries = entries.filter(e => e.date === "2026-02-05");
+        expect(thuFeb5Entries.length).toBe(0);
 
         // -- Feb 17 (Tuesday, 2 weeks later): same block-start pattern --
         const tueFeb17Dad = entries.find(e => e.date === "2026-02-17" && e.assignedTo === "DAD");
@@ -143,8 +163,8 @@ describe("CustomBlockStrategy", () => {
         expect(wedFeb18Dad?.startTime).toBe("00:00");
         expect(wedFeb18Dad?.endTime).toBe("19:00");
 
-        // -- Feb 10 (Monday, off-week): entirely MOM --
-        const monFeb10Dad = entries.find(e => e.date === "2026-02-10" && e.assignedTo === "DAD");
-        expect(monFeb10Dad).toBeUndefined();
+        // -- Feb 10 (Monday, off-week): entirely off-block — no entries --
+        const monFeb10Entries = entries.filter(e => e.date === "2026-02-10");
+        expect(monFeb10Entries.length).toBe(0);
     });
 });

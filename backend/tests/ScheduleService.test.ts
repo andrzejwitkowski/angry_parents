@@ -133,14 +133,17 @@ describe("ScheduleService", () => {
         const entries1 = await custodyRepository.findByDateRange("child-1", "2024-01-01", "2024-01-14");
         expect(entries1.length).toBeGreaterThan(0);
         expect(entries1[0].sourceRuleId).toBe(rule1.id);
-        expect(entries1[0].assignedTo).toBe("DAD"); // Assuming DAD starts on Jan 1 based on logic, or at least one DAD entry
+        // Jan 3, 2024 is Wednesday. DAD is weekendParent, MOM is weekdayParent (full day Wednesday).
+        expect(entries1.find(e => e.date === "2024-01-03")?.assignedTo).toBe("MOM");
 
         // Verify Rule 2 Entries
         const entries2 = await custodyRepository.findByDateRange("child-1", "2024-02-01", "2024-02-14");
         expect(entries2.length).toBeGreaterThan(0);
         expect(entries2[0].sourceRuleId).toBe(rule2.id);
-        // Mom starts Feb 1 (Thursday). Logic assigns Weekday (Dad) on Thu, Handover (Mom) on Fri, Mom on Sat.
-        // Check Feb 3 (Saturday)
-        expect(entries2.find(e => e.date === "2024-02-03")?.assignedTo).toBe("MOM");
+        // Mom is startingParent (weekendParent). 
+        // Rule starts Feb 1 (Thu). Preceding Fri is Jan 26. 
+        // So Jan 26-Feb 1 is the 'On' week. Feb 2-8 is 'Off'. Feb 9-15 is 'On'.
+        // Check Feb 10 (Saturday of the second 'On' weekend)
+        expect(entries2.find(e => e.date === "2024-02-10")?.assignedTo).toBe("MOM");
     });
 });

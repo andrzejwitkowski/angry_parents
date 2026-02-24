@@ -25,7 +25,7 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
         const entries: CustodyEntry[] = [];
         const dates = TimeUtils.getDatesInRange(config.startDate, config.endDate);
 
-        // startingParent owns the first weekend; the other parent holds weekdays.
+        // startingParent owns the "on" weekends; the other parent holds weekdays.
         const weekendParent = config.startingParent;
         const weekdayParent: Parent = config.startingParent === "MOM" ? "DAD" : "MOM";
 
@@ -37,24 +37,48 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
         const returnOnSunday = parseInt(returnTime.split(":")[0], 10) >= 12;
 
         const anchorDate = new Date((config.anchorDate ?? config.startDate) + "T00:00:00");
+        const anchorDayOfWeek = anchorDate.getDay(); // 0=Sun 1=Mon … 5=Fri 6=Sat
+
+        // fridayOffset: Days from the preceding Friday to the anchor date.
+        // This ensures the week containing the anchorDate is always the "on" weekend phase (index 0-6).
+        // If anchor IS a Friday, fridayOffset = 0.
+        // If anchor is Monday, fridayOffset = 3.
+        const fridayOffset = (anchorDayOfWeek - 5 + 7) % 7;
 
         dates.forEach((date) => {
             const current = new Date(date + "T00:00:00");
             const diffDays = Math.round(
-                Math.abs(current.getTime() - anchorDate.getTime()) / (1000 * 60 * 60 * 24)
+                (current.getTime() - anchorDate.getTime()) / (1000 * 60 * 60 * 24)
             );
 
-            const cycleDay = diffDays % 14;
-            const isWeek1 = cycleDay < 7;
-            const dayOfWeek = current.getDay(); // 0=Sun 1=Mon … 5=Fri 6=Sat
+            // Normalise to [0, 13] — handles negative diffDays (dates before anchor)
+            const cycleDay = ((diffDays % 14) + 14) % 14;
+
+            // Position relative to the "on" Friday in this 14-day cycle:
+            //   0 → Friday (On) handover
+            //   1 → Saturday (On)
+            //   2 → Sunday (On) return or stay
+            //   3 → Monday (On) return if !returnOnSunday
+            //   4–6 → On week weekdays
+            //   7 → Friday (Off)
+            //   8 → Saturday (Off)
+            //   9 → Sunday (Off)
+            //   10 → Monday (Off)
+            //   11-13 → Off week weekdays
+            const relToFriday = (cycleDay + fridayOffset + 14) % 14;
 
             console.log(
-                `[AltWeekend] Date: ${date}, cycleDay: ${cycleDay}, isWeek1: ${isWeek1}, dayOfWeek: ${dayOfWeek}`
+                `[AltWeekend] Date: ${date}, cycleDay: ${cycleDay}, relToFriday: ${relToFriday}`
             );
 
-            const assignments = isWeek1
-                ? this.getWeek1Assignments(dayOfWeek, weekendParent, weekdayParent, handoverTime, returnTime, returnOnSunday)
-                : this.getWeek2Assignments(weekdayParent);
+            const assignments = this.getAssignmentsForRelativeDay(
+                relToFriday,
+                weekendParent,
+                weekdayParent,
+                handoverTime,
+                returnTime,
+                returnOnSunday
+            );
 
             assignments.forEach((assign) => {
                 entries.push({
@@ -73,41 +97,34 @@ export class AlternatingWeekendStrategy implements CustodyStrategy {
         return entries;
     }
 
-    // ─── Week 1: weekend parent is ON ────────────────────────────────────────
-
-    private getWeek1Assignments(
-        dayOfWeek: number,
+    // relToFriday:  0=Fri  1=Sat  2=Sun  3=Mon  4-13=weekday
+    private getAssignmentsForRelativeDay(
+        relToFriday: number,
         weekendParent: Parent,
         weekdayParent: Parent,
         handoverTime: string,
         returnTime: string,
         returnOnSunday: boolean
     ): Assignment[] {
-        switch (dayOfWeek) {
-            case 5: // Friday – handover from weekday → weekend parent at handoverTime
+        switch (relToFriday) {
+            case 0: // Friday – handover from weekday → weekend parent at handoverTime
                 return SPLIT_DAY(handoverTime, weekdayParent, weekendParent);
 
-            case 6: // Saturday – entirely with weekend parent
+            case 1: // Saturday – entirely with weekend parent
                 return FULL_DAY(weekendParent);
 
-            case 0: // Sunday – return time depends on returnOnSunday flag
+            case 2: // Sunday – return time depends on returnOnSunday flag
                 return returnOnSunday
                     ? SPLIT_DAY(returnTime, weekendParent, weekdayParent)
                     : FULL_DAY(weekendParent); // child stays; return is Monday morning
 
-            case 1: // Monday – return happens here when NOT returning on Sunday
+            case 3: // Monday – return happens here when NOT returning on Sunday
                 return returnOnSunday
                     ? FULL_DAY(weekdayParent)
                     : SPLIT_DAY(returnTime, weekendParent, weekdayParent);
 
-            default: // Tue–Thu: regular weekday, no handover
+            default: // All other days: weekday parent – no handover
                 return FULL_DAY(weekdayParent);
         }
-    }
-
-    // ─── Week 2: "off" weekend – weekday parent holds the whole week ─────────
-
-    private getWeek2Assignments(weekdayParent: Parent): Assignment[] {
-        return FULL_DAY(weekdayParent);
     }
 }

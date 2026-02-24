@@ -23,9 +23,8 @@ export class CustomBlockStrategy implements CustodyStrategy {
             const diffDays = this.calculateDiffDays(date, anchorDate);
 
             if (diffDays < 0) {
-                // Before pattern starts
-                const otherParent = this.getOtherParent(config.startingParent);
-                this.addAssignmentsToEntries([{ start: "00:00", end: "23:59", parent: otherParent }], date, config, uuidProvider, entries);
+                // Before pattern anchor — this strategy does not own these days.
+                // Lower-priority rules (e.g. GAP_FILL) will cover them.
                 return;
             }
 
@@ -95,10 +94,9 @@ export class CustomBlockStrategy implements CustodyStrategy {
             ];
         }
 
-        // Outside the block entirely
-        return [
-            { start: "00:00", end: "23:59", parent: otherParent }
-        ];
+        // Outside the block — this strategy does not own these days.
+        // Return empty so lower-priority rules (AltWeekend, GapFill) can claim them.
+        return [];
     }
 
     private isSingleDayBlock(adjustedCycleDay: number, blockEndDayOffset: number): boolean {
