@@ -16,46 +16,26 @@ import { TimelineServiceImpl } from "./application/TimelineService";
 import { createTimelineController } from "./adapters/primary/TimelineController";
 import { RealDateProvider } from "./adapters/secondary/RealDateProvider";
 import { RealUuidProvider } from "./adapters/secondary/RealUuidProvider";
-
-const dateProvider = new RealDateProvider();
-const uuidProvider = new RealUuidProvider();
-
-// Dependency Injection - Composition Root
-const timelineRepository = new InMemoryTimelineRepository();
-const timelineService = new TimelineServiceImpl(timelineRepository, dateProvider, uuidProvider);
-const timelineController = createTimelineController(timelineService);
-
+import { MongoRegistrationProcessRepository } from "./adapters/secondary/MongoRegistrationProcessRepository";
+import { createAdminController } from "./adapters/primary/AdminController";
 import { InMemoryCustodyRepository } from "./adapters/secondary/InMemoryCustodyRepository";
 import { createCustodyController } from "./adapters/primary/CustodyController";
 import { InMemoryScheduleRepository } from "./adapters/secondary/InMemoryScheduleRepository";
 import { ScheduleService } from "./application/ScheduleService";
-
 import { PropagationService } from "./application/PropagationService";
-
-const custodyRepository = new InMemoryCustodyRepository();
-const scheduleRepository = new InMemoryScheduleRepository();
-const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
-const propagationService = new PropagationService(scheduleRepository);
-const custodyController = createCustodyController(custodyRepository, scheduleService, propagationService, uuidProvider);
-
 import { InMemoryChildRepository } from "./adapters/secondary/InMemoryChildRepository";
 import { ChildService } from "./application/ChildService";
 import { createChildController } from "./adapters/primary/ChildController";
-
-const childRepository = new InMemoryChildRepository();
-const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
-const childController = createChildController(childService);
-
 import { InMemoryPasskeyRepository } from "./adapters/secondary/InMemoryPasskeyRepository";
 import { createWebAuthnController } from "./adapters/primary/WebAuthnController";
 import { createAuthController } from "./adapters/primary/AuthController";
+import { cors } from "@elysiajs/cors";
+import { MockBlockchainAnchor } from "./adapters/secondary/MockBlockchainAnchor";
 
-const passkeyRepository = new InMemoryPasskeyRepository();
-const webAuthnController = createWebAuthnController(passkeyRepository, dateProvider);
-const authController = createAuthController();
+const dateProvider = new RealDateProvider();
+const uuidProvider = new RealUuidProvider();
 
-// --- Task Scheduler & Forensic Pipeline Setup ---
-// Ensure MongoDB connection (required for TaskManager and ForensicRepo)
+// --- MongoDB & Repositories Setup ---
 try {
     const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/angry_parents";
     await mongoose.connect(mongoUri);
@@ -64,21 +44,38 @@ try {
     console.warn("[MongoDB] Connection failed, Task Scheduler may not function:", e);
 }
 
-// Initialize Secondary Adapters for Pipeline
 if (!mongoose.connection.db) {
     throw new Error("MongoDB connection not established");
 }
-const forensicRepository = new MongoForensicRepository(mongoose.connection.db);
-const cryptoService = new BunCryptoService();
-// Use Mock for now to avoid gas fees/RPC issues in E2E
-// const blockchainAnchor = new ViemBlockchainAnchor();
-import { MockBlockchainAnchor } from "./adapters/secondary/MockBlockchainAnchor";
-const blockchainAnchor = new MockBlockchainAnchor();
 
+// Repositories
+const registrationProcessRepository = new MongoRegistrationProcessRepository(mongoose.connection.db as any);
+const forensicRepository = new MongoForensicRepository(mongoose.connection.db as any);
+const timelineRepository = new InMemoryTimelineRepository();
+const custodyRepository = new InMemoryCustodyRepository();
+const scheduleRepository = new InMemoryScheduleRepository();
+const childRepository = new InMemoryChildRepository();
+const passkeyRepository = new InMemoryPasskeyRepository();
+
+// Services
+const timelineService = new TimelineServiceImpl(timelineRepository, dateProvider, uuidProvider);
+const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
+const propagationService = new PropagationService(scheduleRepository);
+const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
+const cryptoService = new BunCryptoService();
+const blockchainAnchor = new MockBlockchainAnchor();
 const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService, taskManager);
+
+// Controllers
+const timelineController = createTimelineController(timelineService);
+const custodyController = createCustodyController(custodyRepository, scheduleService, propagationService, uuidProvider);
+const childController = createChildController(childService);
+const webAuthnController = createWebAuthnController(passkeyRepository, dateProvider);
+const authController = createAuthController(registrationProcessRepository);
+const adminController = createAdminController(registrationProcessRepository);
 const forensicController = createForensicController({ forensicService, forensicRepository });
 
-// Register Handlers
+// Task Scheduler Configuration
 taskManager.registerHandler(
     TaskType.SYNC_USER_PENDING_DOCS,
     createSyncUserPendingDocsHandler(forensicRepository, taskManager)
@@ -100,16 +97,24 @@ taskManager.start().catch((err: unknown) => {
     console.error("[TaskManager] Failed to start:", message);
 });
 
-
-import { cors } from "@elysiajs/cors";
-
 // Create Elysia app
 const app = new Elysia();
 (globalThis as any).app = app;
 
 const finalApp = app
     .use(cors({
-        origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"], // Allow development ports
+        origin: (request) => {
+            const origin = request.headers.get("origin");
+            if (!origin) return false;
+
+            const isLocalhost = origin.startsWith("http://localhost:") || origin === "http://localhost";
+            const allowedStaticOrigins = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
+
+            if (isLocalhost || allowedStaticOrigins.includes(origin)) {
+                return true;
+            }
+            return false;
+        },
         credentials: true,
         allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
         methods: ["GET", "POST", "OPTIONS", "PATCH", "DELETE"]
@@ -120,9 +125,10 @@ const finalApp = app
     .group("/api/auth", app => app.use(authController))
     .use(forensicController)
     .use(childController)
+    .use(adminController)
     .get("/api/health", () => ({ status: "ok", timestamp: dateProvider.getIsoString() }))
     .get("/api/test", () => "test-ok")
-    .post("/api/test/trigger-sync", async ({ body }) => {
+    .post("/api/test/trigger-sync", async ({ body }: { body: any }) => {
         const { userId } = body as { userId: string };
         console.log(`[Test] Manually triggering Sync for User ${userId}`);
         await taskManager.schedule(TaskType.SYNC_USER_PENDING_DOCS, { userId });
@@ -166,12 +172,12 @@ const finalApp = app
 
         return { status: "cleared" };
     })
-    .get("/api/test/routes", ({ store }: { store: any }) => {
+    .get("/api/test/routes", () => {
         return (globalThis as any).app?.routes;
     })
     .listen({
         port: parseInt(process.env.PORT || "3000"),
-        hostname: "0.0.0.0" // Ensure it's reachable
+        hostname: "0.0.0.0"
     });
 
 console.log(`🚀 Server running at ${app.server?.hostname}:${app.server?.port}`);

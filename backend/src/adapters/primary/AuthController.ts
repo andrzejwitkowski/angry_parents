@@ -2,6 +2,8 @@ import { Elysia, t } from "elysia";
 import { auth } from "../../lib/auth";
 import { Family } from "../../models/Family";
 import { Invitation, type Gender } from "../../models/Invitation";
+import { RegistrationStatus } from "../../models/RegistrationProcess";
+import { MongoRegistrationProcessRepository } from "../secondary/MongoRegistrationProcessRepository";
 import { signJwt, verifyJwt } from "../../lib/jwt";
 import { sendInvitationEmail } from "../../lib/email";
 import {
@@ -53,16 +55,17 @@ async function createBetterAuthUser(email: string, name: string, username: strin
     if (webauthnCredentialId) updateData.webauthnCredentialId = webauthnCredentialId;
 
     if (Object.keys(updateData).length > 0) {
+        // @ts-ignore - BetterAuth type mismatch in some versions
         await auth.api.updateUser({
             headers: new Headers({ "Content-Type": "application/json" }),
-            body: { userId, user: updateData },
+            body: { userId, ...(updateData as any) },
         }).catch(() => { });
     }
 
     return { userId, email: signupResult.user.email, name: signupResult.user.name };
 }
 
-export const createAuthController = () => {
+export const createAuthController = (registrationRepo: MongoRegistrationProcessRepository) => {
     return new Elysia()
         .post("/register/parent-a/options", async ({ body, set }) => {
             console.log("[ParentA] options hit");
@@ -163,8 +166,10 @@ export const createAuthController = () => {
                         }
                         console.log("[ParentA] Registration response verified successfully.");
 
-                        const info = verification.registrationInfo;
-                        credentialId = isoBase64URL.fromBuffer(info.credentialID as Uint8Array);
+                        const info = verification.registrationInfo!;
+                        credentialId = typeof info.credential.id === 'string'
+                            ? info.credential.id
+                            : isoBase64URL.fromBuffer(info.credential.id);
                         userId = new mongoose.Types.ObjectId().toString(); // Generate a new ObjectId for the user
                         console.log(`[ParentA] Generated userId: ${userId}, credentialId: ${credentialId}`);
                     } catch (e) {
@@ -196,6 +201,18 @@ export const createAuthController = () => {
                 if (!isMock) {
                     registrationChallenges.delete(tempEmail!);
                     console.log(`[ParentA] Deleted challenge for ${tempEmail}`);
+                }
+
+                // Update Registration Process
+                const regProcess = await registrationRepo.findByFamilyId(family._id.toString());
+                if (regProcess) {
+                    regProcess.status = RegistrationStatus.PARENT_A_VALIDATED;
+                    regProcess.timeline.push({
+                        type: RegistrationStatus.PARENT_A_VALIDATED,
+                        message: `Rodzic A (${tempEmail}) zweryfikował tożsamość.`,
+                        timestamp: new Date()
+                    });
+                    await registrationRepo.save(regProcess);
                 }
 
                 const token = await signJwt({
@@ -281,6 +298,19 @@ export const createAuthController = () => {
             const inviterName = "Twój partner";
             const link = await sendInvitationEmail(email, inviteToken, inviterName);
             console.log(`[Invite] Invitation email sent to ${email}`);
+
+            // Update Registration Process
+            const regProcess = await registrationRepo.findByFamilyId(payload.familyId);
+            if (regProcess) {
+                regProcess.status = RegistrationStatus.INVITATION_SENT;
+                regProcess.parentBEmail = email;
+                regProcess.timeline.push({
+                    type: RegistrationStatus.INVITATION_SENT,
+                    message: `Wysłano zaproszenie do drugiego rodzica: ${email}`,
+                    timestamp: new Date()
+                });
+                await registrationRepo.save(regProcess);
+            }
 
             set.headers["Content-Type"] = "application/json";
             return { token: inviteToken, link };
@@ -403,8 +433,10 @@ export const createAuthController = () => {
                     }
                     console.log("[ParentB] Registration response verified successfully.");
 
-                    const info = verification.registrationInfo;
-                    credentialId = isoBase64URL.fromBuffer(info.credentialID as Uint8Array);
+                    const info = verification.registrationInfo!;
+                    credentialId = typeof info.credential.id === 'string'
+                        ? info.credential.id
+                        : isoBase64URL.fromBuffer(info.credential.id);
                     userId = new mongoose.Types.ObjectId().toString(); // Generate a new ObjectId for the user
                     console.log(`[ParentB] Generated userId: ${userId}, credentialId: ${credentialId}`);
                 } catch (e) {
@@ -435,6 +467,19 @@ export const createAuthController = () => {
             console.log(`[ParentB] Invitation ${tempToken} accepted.`);
             registrationChallenges.delete(tempToken!);
             console.log(`[ParentB] Deleted challenge for ${tempToken}`);
+
+            // Update Registration Process
+            const regProcess = await registrationRepo.findByFamilyId(tempFamilyId);
+            if (regProcess) {
+                regProcess.status = RegistrationStatus.COMPLETED;
+                regProcess.parentBName = "Parent B"; // Potential improvement: get name from body
+                regProcess.timeline.push({
+                    type: RegistrationStatus.COMPLETED,
+                    message: "Drugi rodzic ukończył rejestrację. Proces zakończony.",
+                    timestamp: new Date()
+                });
+                await registrationRepo.save(regProcess);
+            }
 
             const token = await signJwt({
                 userId: baUser.userId,
