@@ -25,6 +25,12 @@ export default function InvitePartner() {
         try {
             const result = await authApi.invite(email);
             setInviteLink(result.link);
+
+            if (result.previewHtml) {
+                const blob = new Blob([result.previewHtml], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : t("invite.error");
             setError(msg);
@@ -55,7 +61,7 @@ export default function InvitePartner() {
                     <CardTitle className="text-2xl">{t("invite.title")}</CardTitle>
                     <CardDescription>{t("invite.description")}</CardDescription>
                 </CardHeader>
-                
+
                 {!inviteLink ? (
                     <form onSubmit={handleInvite}>
                         <CardContent className="space-y-4">
@@ -64,7 +70,7 @@ export default function InvitePartner() {
                                     {error}
                                 </div>
                             )}
-                            
+
                             <div className="space-y-2">
                                 <Label htmlFor="partner-email">{t("invite.partnerEmail")}</Label>
                                 <Input
@@ -82,7 +88,7 @@ export default function InvitePartner() {
                                 <Mail className="w-4 h-4 mr-2" />
                                 {isLoading ? t("invite.sending") : t("invite.sendInvite")}
                             </Button>
-                            
+
                             <Button variant="outline" onClick={skipAndGoToDashboard} disabled={isLoading}>
                                 {t("invite.skip")}
                             </Button>
@@ -94,7 +100,7 @@ export default function InvitePartner() {
                             <Check className="w-5 h-5 inline-block mr-2" />
                             {t("invite.sent")}
                         </div>
-                        
+
                         <div className="space-y-2">
                             <Label>{t("invite.linkLabel")}</Label>
                             <div className="flex gap-2">
@@ -108,17 +114,17 @@ export default function InvitePartner() {
                                 </Button>
                             </div>
                         </div>
-                        
+
                         <p className="text-sm text-slate-500 text-center">
                             {t("invite.orSendManually")}
                         </p>
                     </CardContent>
                 )}
-                
+
                 <CardFooter className={inviteLink ? "pt-0" : ""}>
-                    <Button 
-                        variant="ghost" 
-                        className="w-full" 
+                    <Button
+                        variant="ghost"
+                        className="w-full"
                         onClick={skipAndGoToDashboard}
                     >
                         {t("invite.goToDashboard")}

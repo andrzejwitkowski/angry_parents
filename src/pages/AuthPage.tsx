@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +21,29 @@ export default function AuthPage() {
     const [username, setUsername] = useState('');
     const [gender, setGender] = useState<Gender>('dad');
 
+    const [searchParams] = useSearchParams();
+    const token = searchParams.get('token');
+
+    const [isFetchingInvitation, setIsFetchingInvitation] = useState(false);
+    const [invitationLoaded, setInvitationLoaded] = useState(false);
+
+    useEffect(() => {
+        if (token && !invitationLoaded) {
+            setIsFetchingInvitation(true);
+            authApi.getParentAInvitation(token)
+                .then(data => {
+                    if (data.email) setEmail(data.email);
+                    if (data.gender) setGender(data.gender);
+                    setInvitationLoaded(true);
+                })
+                .catch(err => {
+                    console.error("Failed to load invitation", err);
+                    setError(t("auth.regFailed") + " - Nieprawidłowy token zaproszenia.");
+                })
+                .finally(() => setIsFetchingInvitation(false));
+        }
+    }, [token, invitationLoaded, t]);
+
     const handleRegisterParentA = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
@@ -36,6 +59,7 @@ export default function AuthPage() {
                 tempUsername: username,
                 tempGender: gender,
                 mock: true,
+                token: token || undefined,
             });
 
             if (result.verified) {
@@ -133,60 +157,72 @@ export default function AuthPage() {
                             </CardHeader>
                             <form onSubmit={handleRegisterParentA}>
                                 <CardContent className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="reg-name">{t("auth.fullName")}</Label>
-                                        <Input
-                                            id="reg-name"
-                                            placeholder="Jan Kowalski"
-                                            required
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="reg-username">{t('auth.username')}</Label>
-                                        <Input
-                                            id="reg-username"
-                                            placeholder="jankowalski"
-                                            required
-                                            value={username}
-                                            onChange={(e) => setUsername(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="reg-email">{t('auth.email')}</Label>
-                                        <Input
-                                            id="reg-email"
-                                            type="email"
-                                            placeholder="name@example.com"
-                                            required
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>{t("auth.gender")}</Label>
-                                        <div className="flex gap-4">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    name="gender"
-                                                    value="dad"
-                                                    checked={gender === 'dad'}
-                                                    onChange={() => setGender('dad')}
-                                                />
-                                                <span className="text-indigo-600 font-medium">{t("auth.dad")}</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    name="gender"
-                                                    value="mom"
-                                                    checked={gender === 'mom'}
-                                                    onChange={() => setGender('mom')}
-                                                />
-                                                <span className="text-pink-600 font-medium">{t("auth.mom")}</span>
-                                            </label>
+                                    {isFetchingInvitation && (
+                                        <div className="text-sm text-muted-foreground flex items-center justify-center p-4">
+                                            {t("common.loading")}
+                                        </div>
+                                    )}
+                                    <div className={`space-y-4 ${isFetchingInvitation ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="reg-name">{t("auth.fullName")}</Label>
+                                            <Input
+                                                id="reg-name"
+                                                placeholder="Jan Kowalski"
+                                                required
+                                                value={name}
+                                                onChange={(e) => setName(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="reg-username">{t('auth.username')}</Label>
+                                            <Input
+                                                id="reg-username"
+                                                placeholder="jankowalski"
+                                                required
+                                                value={username}
+                                                onChange={(e) => setUsername(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="reg-email">{t('auth.email')}</Label>
+                                            <Input
+                                                id="reg-email"
+                                                type="email"
+                                                placeholder="name@example.com"
+                                                required
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>{t("auth.gender")}</Label>
+                                            <div className="flex gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name="gender"
+                                                        value="dad"
+                                                        checked={gender === 'dad'}
+                                                        onChange={() => setGender('dad')}
+                                                        disabled={!!token}
+                                                    />
+                                                    <span className={`font-medium ${gender === 'dad' ? 'text-indigo-600' : 'text-slate-500'} ${!!token ? 'opacity-70' : ''}`}>{t("auth.dad")}</span>
+                                                </label>
+                                                <label className={`flex items-center gap-2 ${!!token ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                                    <input
+                                                        type="radio"
+                                                        name="gender"
+                                                        value="mom"
+                                                        checked={gender === 'mom'}
+                                                        onChange={() => setGender('mom')}
+                                                        disabled={!!token}
+                                                    />
+                                                    <span className={`font-medium ${gender === 'mom' ? 'text-pink-600' : 'text-slate-500'} ${!!token ? 'opacity-70' : ''}`}>{t("auth.mom")}</span>
+                                                </label>
+                                            </div>
+                                            {!!token && (
+                                                <p className="text-xs text-muted-foreground italic mt-1 pb-1">Role is locked by invitation.</p>
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>
@@ -210,7 +246,12 @@ export default function AuthPage() {
                                                 setIsLoading(true);
                                                 setError(null);
                                                 try {
-                                                    const result = await authApi.devMockRegisterA({ email, name, gender });
+                                                    const result = await authApi.devMockRegisterA({
+                                                        email,
+                                                        name,
+                                                        gender,
+                                                        token: token || undefined
+                                                    });
                                                     if (result.verified) {
                                                         navigate('/dashboard');
                                                     }

@@ -33,6 +33,10 @@ export class MongoRegistrationProcessRepository {
         return RegistrationProcess.findOne({ familyId }).exec();
     }
 
+    async findByToken(token: string): Promise<IRegistrationProcess | null> {
+        return RegistrationProcess.findOne({ token }).exec();
+    }
+
     async addTimelineEvent(id: string, event: { type: string, message: string, data?: any }): Promise<void> {
         await RegistrationProcess.findByIdAndUpdate(id, {
             $push: {

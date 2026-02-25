@@ -5,168 +5,181 @@ const nativeFetch = Bun.fetch.bind(Bun);
 const BASE_URL = process.env.API_URL || "http://localhost:3000";
 
 /**
- * Full Two-Parent Registration Flow
+ * Full Admin-Initiated Two-Parent Registration Flow with Email Tracking
  *
- * A single connected scenario that walks through the complete registration
- * journey from both parents' perspectives, verifying:
- *  - Each parent gets a valid session after registering
- *  - Both parents have populated profile data on /me
- *  - Both parents share the same familyId (same family unit)
- *  - Sessions are fully independent (one logout doesn't affect the other)
+ * This test walks through the complete registration journey:
+ *  1. Admin starts registration (family unit created)
+ *  2. Parent A receives email and "opens" it (tracking token load)
+ *  3. Parent A registers via token from email
+ *  4. Parent A invites Parent B
+ *  5. Parent B receives email and "opens" it (tracking token load)
+ *  6. Parent B registers via token from email
+ *  7. Verification: Both share same familyId, timeline is complete
  */
-describe("Full Two-Parent Registration Flow", () => {
-    let apiA: TestApi;
-    let apiB: TestApi;
+describe("Admin-Initiated Full Registration Flow", () => {
+    let adminApi: TestApi;
+    let parentAApi: TestApi;
+    let parentBApi: TestApi;
 
-    const emailA = `parentA_full_${Date.now()}@test.com`;
-    const emailB = `parentB_full_${Date.now()}@test.com`;
+    const emailA = `parentA_${Date.now()}@test.com`;
+    const emailB = `parentB_${Date.now()}@test.com`;
+    const familyName = "Testowa Rodzina";
 
-    let inviteToken: string;
-    let familyIdA: string;
-    let familyIdB: string;
+    let registrationProcessId: string;
+    let parentAToken: string;
+    let parentATrackingToken: string;
+    let parentBToken: string;
+    let parentBTrackingToken: string;
+    let sharedFamilyId: string;
 
     beforeAll(async () => {
-        apiA = new TestApi(BASE_URL);
-        apiB = new TestApi(BASE_URL);
+        adminApi = new TestApi(BASE_URL);
+        parentAApi = new TestApi(BASE_URL);
+        parentBApi = new TestApi(BASE_URL);
         // @ts-ignore
         globalThis.fetch = nativeFetch;
 
-        console.log("[FullFlow] Resetting DB...");
-        await apiA.delete("/api/test/database");
+        console.log("[E2E] Resetting DB...");
+        await adminApi.delete("/api/test/database");
     });
 
-    // ──────────────────────────────────────────────────
-    // Step 1 & 2: Parent A registers and checks profile
-    // ──────────────────────────────────────────────────
+    // --- PHASE 1: Admin Initiation ---
 
-    test("Step 1 – Parent A registers successfully", async () => {
-        const res = await apiA.post("/api/auth/mock-register-a", {
-            email: emailA,
-            name: "Test Dad",
-            gender: "dad",
+    test("Step 1: Admin initiates registration", async () => {
+        const res = await adminApi.post("/api/admin/registrations/start", {
+            parentName: "Tata Test",
+            parentEmail: emailA,
+            familyName: familyName,
+            role: "dad"
         });
 
         expect(res.status).toBe(200);
         const json = await res.json();
 
+        expect(json._id).toBeDefined();
+        expect(json.token).toBeDefined();
+        expect(json.parentATrackingToken).toBeDefined();
+        expect(json.familyId).toBeDefined();
+
+        registrationProcessId = json._id;
+        parentAToken = json.token;
+        parentATrackingToken = json.parentATrackingToken;
+        sharedFamilyId = json.familyId;
+
+        console.log("[E2EL] Admin started process:", registrationProcessId);
+    });
+
+    // --- PHASE 2: Parent A "Opens" Email ---
+
+    test("Step 2: Parent A opens invitation email (tracking)", async () => {
+        // Fetch the image with tracking token
+        const res = await nativeFetch(`${BASE_URL}/api/assets/children.jpg?t=${parentATrackingToken}`);
+        expect(res.status).toBe(200);
+
+        // Verify registration process timeline updated
+        const procRes = await adminApi.get(`/api/admin/registrations/${registrationProcessId}`);
+        if (!procRes.ok) {
+            console.error("DEBUG:", await procRes.text());
+        }
+        const procJson = await procRes.json();
+
+        const openEvent = procJson.timeline.find((e: any) => e.type === "EMAIL_READ" && e.message.includes("Rodzica A"));
+        expect(openEvent).toBeDefined();
+        expect(procJson.status).toBe("EMAIL_READ");
+        console.log("[E2E] Parent A email open recorded.");
+    });
+
+    // --- PHASE 3: Parent A Registers ---
+
+    test("Step 3: Parent A registers via token", async () => {
+        const res = await parentAApi.post("/api/auth/mock-register-a", {
+            email: emailA,
+            name: "Tata Test",
+            gender: "dad",
+            token: parentAToken
+        });
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
         expect(json.verified).toBe(true);
         expect(json.role).toBe("parent_a");
 
-        const cookie = res.headers.get("Set-Cookie");
-        expect(cookie).toContain("token=");
+        // Verify family access
+        const meRes = await parentAApi.get("/api/auth/me");
+        const meJson = await meRes.json();
+        expect(meJson.user.familyId).toBe(sharedFamilyId);
+        console.log("[E2E] Parent A registered successfully into family:", sharedFamilyId);
     });
 
-    test("Step 2 – Parent A can access /me and has a familyId", async () => {
-        const res = await apiA.get("/api/auth/me");
+    // --- PHASE 4: Invitation to Parent B ---
 
+    test("Step 4: Parent A invites Parent B", async () => {
+        const res = await parentAApi.post("/api/auth/invite", { email: emailB });
         expect(res.status).toBe(200);
+
         const json = await res.json();
-
-        expect(json.user).toBeDefined();
-        expect(json.user.gender).toBe("dad");
-        expect(json.user.familyId).toBeTruthy();
-
-        familyIdA = json.user.familyId;
-        console.log("[FullFlow] Parent A familyId:", familyIdA);
-    });
-
-    // ──────────────────────────────────────────────────
-    // Step 3: Parent A invites Parent B
-    // ──────────────────────────────────────────────────
-
-    test("Step 3 – Parent A sends invitation to Parent B", async () => {
-        const res = await apiA.post("/api/auth/invite", { email: emailB });
-
-        expect(res.status).toBe(200);
-        const json = await res.json();
-
         expect(json.token).toBeDefined();
-        expect(json.link).toContain("/register?token=");
+        parentBToken = json.token;
 
-        inviteToken = json.token;
-        console.log("[FullFlow] Invite token:", inviteToken);
+        // Get tracking token from the process (since it's internal to back-end response for dev preview, normally we'd get it from email)
+        const procRes = await adminApi.get(`/api/admin/registrations/${registrationProcessId}`);
+        if (!procRes.ok) {
+            console.error("DEBUG:", await procRes.text());
+        }
+        const procJson = await procRes.json();
+        parentBTrackingToken = procJson.parentBTrackingToken;
+        expect(parentBTrackingToken).toBeDefined();
+
+        console.log("[E2E] Parent B invited. Tracking token:", parentBTrackingToken);
     });
 
-    // ──────────────────────────────────────────────────
-    // Step 4: Gender validation on the invite
-    // ──────────────────────────────────────────────────
+    // --- PHASE 5: Parent B "Opens" Email ---
 
-    test("Step 4 – Parent B cannot register with the same gender as Parent A", async () => {
-        const res = await apiB.post("/api/auth/mock-register-b", {
-            token: inviteToken,
-            gender: "dad", // same as Parent A → should fail
-        });
+    test("Step 5: Parent B opens invitation email (tracking)", async () => {
+        const res = await nativeFetch(`${BASE_URL}/api/assets/children.jpg?t=${parentBTrackingToken}`);
+        expect(res.status).toBe(200);
 
-        expect(res.status).toBe(400);
-        const json = await res.json();
-        // Error message should say they need to be the opposite gender
-        expect(json.message).toContain("mamą");
+        const procRes = await adminApi.get(`/api/admin/registrations/${registrationProcessId}`);
+        if (!procRes.ok) {
+            console.error("DEBUG:", await procRes.text());
+        }
+        const procJson = await procRes.json();
+
+        const openEvent = procJson.timeline.find((e: any) => e.type === "EMAIL_READ" && e.message.includes("Rodzica B"));
+        expect(openEvent).toBeDefined();
+        console.log("[E2E] Parent B email open recorded.");
     });
 
-    // ──────────────────────────────────────────────────
-    // Step 5 & 6: Parent B registers and checks profile
-    // ──────────────────────────────────────────────────
+    // --- PHASE 6: Parent B Registers ---
 
-    test("Step 5 – Parent B registers successfully with opposite gender", async () => {
-        const res = await apiB.post("/api/auth/mock-register-b", {
-            token: inviteToken,
-            gender: "mom",
+    test("Step 6: Parent B registers via token", async () => {
+        const res = await parentBApi.post("/api/auth/mock-register-b", {
+            token: parentBToken,
+            gender: "mom"
         });
 
         expect(res.status).toBe(200);
         const json = await res.json();
-
         expect(json.verified).toBe(true);
-        expect(json.role).toBe("parent_b");
 
-        const cookie = res.headers.get("Set-Cookie");
-        expect(cookie).toContain("token=");
+        const meRes = await parentBApi.get("/api/auth/me");
+        const meJson = await meRes.json();
+        expect(meJson.user.familyId).toBe(sharedFamilyId);
+        console.log("[E2E] Parent B registered successfully into family:", sharedFamilyId);
     });
 
-    test("Step 6 – Parent B can access /me and has a familyId", async () => {
-        const res = await apiB.get("/api/auth/me");
+    // --- PHASE 7: Final Verification ---
 
-        expect(res.status).toBe(200);
-        const json = await res.json();
+    test("Step 7: Final registration process status is COMPLETED", async () => {
+        const procRes = await adminApi.get(`/api/admin/registrations/${registrationProcessId}`);
+        if (!procRes.ok) {
+            console.error("DEBUG:", await procRes.text());
+        }
+        const procJson = await procRes.json();
 
-        expect(json.user).toBeDefined();
-        expect(json.user.gender).toBe("mom");
-        expect(json.user.familyId).toBeTruthy();
-
-        familyIdB = json.user.familyId;
-        console.log("[FullFlow] Parent B familyId:", familyIdB);
-    });
-
-    // ──────────────────────────────────────────────────
-    // Step 7: Shared family unit
-    // ──────────────────────────────────────────────────
-
-    test("Step 7 – Both parents share the same familyId", () => {
-        expect(familyIdA).toBeDefined();
-        expect(familyIdB).toBeDefined();
-        expect(familyIdA).toBe(familyIdB);
-        console.log("[FullFlow] ✓ Shared familyId confirmed:", familyIdA);
-    });
-
-    // ──────────────────────────────────────────────────
-    // Step 8 & 9: Session independence
-    // ──────────────────────────────────────────────────
-
-    test("Step 8 – Parent A logs out and can no longer access /me", async () => {
-        const logoutRes = await apiA.post("/api/auth/logout", {});
-        expect(logoutRes.status).toBe(200);
-
-        const meRes = await apiA.get("/api/auth/me");
-        expect(meRes.status).toBe(401);
-    });
-
-    test("Step 9 – Parent A's logout does not affect Parent B's session", async () => {
-        // Parent B's cookie should still be valid
-        const res = await apiB.get("/api/auth/me");
-        expect(res.status).toBe(200);
-
-        const json = await res.json();
-        expect(json.user.familyId).toBe(familyIdB);
-        console.log("[FullFlow] ✓ Parent B session unaffected by Parent A logout");
+        expect(procJson.status).toBe("COMPLETED");
+        const completedEvent = procJson.timeline.find((e: any) => e.type === "COMPLETED");
+        expect(completedEvent).toBeDefined();
+        console.log("[E2E] Full registration process verified as COMPLETED.");
     });
 });

@@ -7,7 +7,8 @@ export interface IInvitation extends Document {
     token: string;
     email: string;
     familyId: string;
-    invitedBy: string;
+    invitedBy?: string;
+    targetRole?: "parent_a" | "parent_b";
     createdByGender: Gender;
     expiresAt: Date;
     status: "pending" | "accepted" | "expired";
@@ -19,7 +20,8 @@ const InvitationSchema = new Schema<IInvitation>({
     token: { type: String, required: true, unique: true },
     email: { type: String, required: true },
     familyId: { type: String, ref: "Family", required: true },
-    invitedBy: { type: String, required: true },
+    invitedBy: { type: String },
+    targetRole: { type: String, enum: ["parent_a", "parent_b"], default: "parent_b" },
     createdByGender: { type: String, enum: ["mom", "dad"], required: true },
     expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
     status: { type: String, enum: ["pending", "accepted", "expired"], default: "pending" },

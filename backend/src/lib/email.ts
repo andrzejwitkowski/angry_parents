@@ -1,3 +1,6 @@
+import path from "path";
+import fs from "fs";
+
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 interface SendEmailOptions {
@@ -33,7 +36,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     }
 
     const nodemailer = await import("nodemailer");
-    
+
     const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: parseInt(smtpPort || "587"),
@@ -54,38 +57,98 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
 
 export async function sendInvitationEmail(
     to: string,
-    inviteToken: string,
-    inviterName: string
-): Promise<string> {
+    token: string,
+    familyName: string,
+    lang: "pl" | "en" = "pl",
+    trackingToken?: string
+): Promise<{ link: string; html: string }> {
     const baseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-    const link = `${baseUrl}/register?token=${inviteToken}`;
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:3000";
+    const link = `${baseUrl}/auth?token=${token}`;
+    const imageBaseUrl = `${backendUrl}/api/assets/children.jpg`;
+    const imageUrl = trackingToken ? `${imageBaseUrl}?t=${trackingToken}` : imageBaseUrl;
+
+    // Load locales
+    const localesPath = path.join(process.cwd(), "src/locales", `${lang}.json`);
+    const translations = JSON.parse(fs.readFileSync(localesPath, "utf-8")).translation;
+
+    const t = (key: string, data?: any) => {
+        let val = translations[key] || key;
+        if (data) {
+            Object.keys(data).forEach(k => {
+                val = val.replace(`{{${k}}}`, data[k]);
+            });
+        }
+        return val;
+    };
+
+    const imagePath = path.join(process.cwd(), "backend/src/assets/children.jpg");
 
     const html = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Zaproszenie do współrodzicielstwa</h2>
-            <p>Cześć!</p>
-            <p><strong>${inviterName}</strong> zaprosił/a Cię do wspólnej opieki nad dziećmi.</p>
-            <p>Kliknij poniższy link, aby zarejestrować się:</p>
-            <p>
-                <a href="${link}" style="background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                    Zarejestruj się
-                </a>
-            </p>
-            <p style="color: #666; font-size: 14px; margin-top: 20px;">
-                Link ważny przez 7 dni.<br>
-                Jeśli to nie Ty, zignoruj tę wiadomość.
-            </p>
-            <p style="color: #999; font-size: 12px; margin-top: 30px;">
-                — Team Angry Parents
-            </p>
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937; line-height: 1.6; background-color: #f9f9f7; padding: 20px; border-radius: 8px;">
+            <div style="text-align: center; padding: 20px 0;">
+                <h1 style="color: #4f46e5; margin: 0; font-size: 24px;">${t("email.parentA.title")}</h1>
+                <p style="color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px; margin-top: 5px; font-weight: 600;">
+                    ${t("email.parentA.subtitle")}
+                </p>
+            </div>
+            
+            <div style="margin-bottom: 25px; text-align: center;">
+                <img src="${IS_DEV ? imageUrl : 'cid:children_image'}" alt="Children" style="width: 70%; display: inline-block;" />
+            </div>
+
+            <div style="padding: 0 10px;">
+                <p style="font-size: 16px;">${t("email.parentA.greeting")}</p>
+                <p>${t("email.parentA.body1", { familyName })}</p>
+                <p>${t("email.parentA.body2")}</p>
+                
+                <div style="text-align: center; margin: 35px 0;">
+                    <a href="${link}" target="_blank" rel="noopener noreferrer" style="background-color: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);">
+                        ${t("email.parentA.button")}
+                    </a>
+                </div>
+
+                <p style="color: #6b7280; font-size: 13px;">
+                    ${t("email.parentA.manualLink")}<br>
+                    <a href="${link}" target="_blank" rel="noopener noreferrer" style="color: #4f46e5; word-break: break-all;">${link}</a>
+                </p>
+
+                <div style="margin-top: 40px; border-top: 1px solid #e5e7eb; padding-top: 25px;">
+                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #111827;">🔒 ${t("email.security.title")}</h3>
+                    <p style="font-size: 13px; color: #4b5563; margin: 0;">
+                        ${t("email.security.body")}
+                    </p>
+                </div>
+
+                <div style="margin-top: 40px; text-align: center; color: #9ca3af; font-size: 12px;">
+                    <p>© ${new Date().getFullYear()} Wspolne-wychowanie. Wszystkie prawa zastrzeżone.</p>
+                </div>
+            </div>
         </div>
     `;
 
-    await sendEmail({
+    // Attachments for image
+    const emailOptions: any = {
         to,
-        subject: "Zaproszenie do Angry Parents - rejestracja",
+        subject: t("email.parentA.subject", { familyName }),
         html,
-    });
+    };
 
-    return link;
+    if (!IS_DEV) {
+        emailOptions.attachments = [{
+            filename: 'children.jpg',
+            path: imagePath,
+            cid: 'children_image'
+        }];
+    } else {
+        console.log(`[CID Attachment] children_image -> ${imagePath}`);
+    }
+
+    await sendEmail(emailOptions);
+
+    return { link, html };
 }
+
+// Keep the old name as alias or remove if fully refactored. 
+// I'll update call sites.
+export { sendInvitationEmail as sendParentAInitiationEmail };

@@ -13,6 +13,7 @@ import { ForensicService } from "./application/ForensicService";
 import { forensicController as createForensicController } from "./adapters/primary/ForensicController";
 import { InMemoryTimelineRepository } from "./adapters/secondary/InMemoryTimelineRepository";
 import { TimelineServiceImpl } from "./application/TimelineService";
+import { t as translate } from "./lib/i18n";
 import { createTimelineController } from "./adapters/primary/TimelineController";
 import { RealDateProvider } from "./adapters/secondary/RealDateProvider";
 import { RealUuidProvider } from "./adapters/secondary/RealUuidProvider";
@@ -127,6 +128,41 @@ const finalApp = app
     .use(childController)
     .use(adminController)
     .get("/api/health", () => ({ status: "ok", timestamp: dateProvider.getIsoString() }))
+    .get("/api/assets/children.jpg", async ({ query }) => {
+        const { t } = query as { t?: string };
+        if (t) {
+            try {
+                const { RegistrationProcess, RegistrationStatus } = await import("./models/RegistrationProcess");
+                const process = await RegistrationProcess.findOne({
+                    $or: [
+                        { parentATrackingToken: t },
+                        { parentBTrackingToken: t }
+                    ]
+                });
+
+                if (process) {
+                    const isParentA = process.parentATrackingToken === t;
+                    const openedAtField = isParentA ? "parentAOpenedAt" : "parentBOpenedAt";
+
+                    if (!(process as any)[openedAtField]) {
+                        (process as any)[openedAtField] = new Date();
+                        process.status = RegistrationStatus.EMAIL_READ;
+                        process.timeline.push({
+                            type: RegistrationStatus.EMAIL_READ,
+                            familyName: process.familyName || (translate("common.familyDefault") as string),
+                            message: isParentA ? translate("admin.log.email_read_parent_a") as string : translate("admin.log.email_read_parent_b") as string,
+                            timestamp: new Date()
+                        });
+                        await process.save();
+                        console.log(`[Tracking] Email opened event logged for ${isParentA ? "Parent A" : "Parent B"} (Token: ${t})`);
+                    }
+                }
+            } catch (err) {
+                console.error("[Tracking] Failed to log email opened event:", err);
+            }
+        }
+        return Bun.file("backend/src/assets/children.jpg");
+    })
     .get("/api/test", () => "test-ok")
     .post("/api/test/trigger-sync", async ({ body }: { body: any }) => {
         const { userId } = body as { userId: string };

@@ -4,6 +4,8 @@ export enum RegistrationStatus {
     FLOW_STARTED = "FLOW_STARTED",
     PARENT_A_VALIDATED = "PARENT_A_VALIDATED",
     INVITATION_SENT = "INVITATION_SENT",
+    EMAIL_READ = "EMAIL_READ",
+    EMAIL_FAILED = "EMAIL_FAILED",
     PARENT_B_REGISTERED = "PARENT_B_REGISTERED",
     COMPLETED = "COMPLETED",
 }
@@ -18,6 +20,12 @@ export interface IRegistrationTimelineEvent {
 export interface IRegistrationProcess extends Document {
     _id: mongoose.Types.ObjectId;
     familyId?: string;
+    familyName?: string;
+    token?: string;
+    parentATrackingToken?: string;
+    parentBTrackingToken?: string;
+    parentAOpenedAt?: Date;
+    parentBOpenedAt?: Date;
     parentAName?: string;
     parentAEmail?: string;
     parentBName?: string;
@@ -38,6 +46,12 @@ const RegistrationTimelineEventSchema = new Schema({
 
 const RegistrationProcessSchema = new Schema<IRegistrationProcess>({
     familyId: { type: String, ref: "Family" },
+    familyName: { type: String },
+    token: { type: String },
+    parentATrackingToken: { type: String },
+    parentBTrackingToken: { type: String },
+    parentAOpenedAt: { type: Date },
+    parentBOpenedAt: { type: Date },
     parentAName: { type: String },
     parentAEmail: { type: String },
     parentBName: { type: String },

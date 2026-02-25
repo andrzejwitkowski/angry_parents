@@ -1,7 +1,10 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+import { t } from "../lib/i18n";
+
 export interface IFamily extends Document {
     _id: mongoose.Types.ObjectId;
+    name: string;
     parentIds: string[];
     children: {
         id: string;
@@ -20,6 +23,7 @@ const FamilyChildSchema = new Schema({
 }, { _id: false });
 
 const FamilySchema = new Schema<IFamily>({
+    name: { type: String, default: () => t("common.familyDefault") as any },
     parentIds: [{ type: String, ref: "User", default: [] }],
     children: [FamilyChildSchema],
     custodyPatterns: [{ type: Schema.Types.Mixed, default: [] }],

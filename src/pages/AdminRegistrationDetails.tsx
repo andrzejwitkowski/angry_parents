@@ -1,250 +1,444 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { useParams, Link } from "react-router-dom";
+import {
+    ChevronLeft,
+    Calendar,
+    Clock,
+    User,
+    Mail,
+    FileText,
+    History,
+    Save,
+    CheckCircle2,
+    AlertCircle,
+    Activity,
+    Play,
+    UserCheck,
+    MailOpen,
+    MailX,
+    UserPlus,
+    HelpCircle
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api-client";
-import { CheckCircle2, Clock, MapPin, Shield, User, Info, ArrowLeft, Zap } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
+import { pl } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
+import { RegistrationStatus, REGISTRATION_STATUS_ORDER, REGISTRATION_STATUS_CONFIG } from "@/types/registration";
 
-const AdminRegistrationDetails = () => {
-    const { id } = useParams<{ id: string }>();
+interface TimelineEvent {
+    type: string;
+    message: string;
+    timestamp: string;
+}
+
+interface RegistrationDetails {
+    _id: string;
+    familyName: string;
+    parentAName: string;
+    parentAEmail: string;
+    parentBName?: string;
+    parentBEmail?: string;
+    status: string;
+    adminNotes: string;
+    timeline: TimelineEvent[];
+    token?: string; // Parent A token
+    parentBToken?: string; // Parent B token (populated in dev)
+    createdAt: string;
+    updatedAt: string;
+}
+
+const AdminRegistrationDetails: React.FC = () => {
     const { t } = useTranslation();
-    const navigate = useNavigate();
-    const [process, setProcess] = useState<any>(null);
+    const { id } = useParams<{ id: string }>();
+    const [registration, setRegistration] = useState<RegistrationDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [note, setNote] = useState("");
-    const [savingNote, setSavingNote] = useState(false);
+    const [isSavingNote, setIsSavingNote] = useState(false);
 
     useEffect(() => {
-        if (id) fetchDetails();
+        fetchDetails();
     }, [id]);
 
     const fetchDetails = async () => {
         try {
-            const data = await api.get(`/admin/registrations/${id}`);
-            setProcess(data);
-            setNote(data.adminNotes || "");
-        } catch (e) {
-            console.error("Failed to fetch process details", e);
+            const response = await fetch(`/api/admin/registrations/${id}`);
+            if (response.ok) {
+                const data = await response.json();
+                setRegistration(data);
+                setNote(data.adminNotes || "");
+            }
+        } catch (error) {
+            console.error("Error fetching registration details:", error);
         } finally {
             setLoading(false);
         }
     };
 
     const handleSaveNote = async () => {
-        setSavingNote(true);
+        setIsSavingNote(true);
         try {
-            await api.post(`/admin/registrations/${id}/notes`, { notes: note });
-            fetchDetails();
-        } catch (e) {
-            console.error("Failed to save note", e);
+            const response = await fetch(`/api/admin/registrations/${id}/notes`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ notes: note }),
+            });
+            if (response.ok) {
+                fetchDetails();
+            }
+        } catch (error) {
+            console.error("Error saving notes:", error);
         } finally {
-            setSavingNote(false);
+            setIsSavingNote(false);
         }
     };
 
     const handleForceComplete = async () => {
-        if (!confirm("Are you sure you want to force complete this process?")) return;
+        if (!confirm(t('admin.confirm_force_complete'))) return;
+
         try {
-            await api.post(`/admin/registrations/${id}/force-complete`);
-            fetchDetails();
-        } catch (e) {
-            console.error("Failed to force complete", e);
+            const response = await fetch(`/api/admin/registrations/${id}/complete`, {
+                method: "POST",
+            });
+            if (response.ok) {
+                fetchDetails();
+            }
+        } catch (error) {
+            console.error("Error completing registration:", error);
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-zinc-500">{t("dashboard.loading")}</div>;
-    if (!process) return <div className="p-8 text-center text-red-500">Process not found</div>;
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
 
-    const getElapsedTime = () => {
-        const start = new Date(process.createdAt);
-        const now = new Date();
-        const diff = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        return t("admin.days_ago", { count: diff });
-    };
+    if (!registration) {
+        return (
+            <div className="p-8 text-center">
+                <h2 className="text-2xl font-bold">{t('admin.registration_not_found')}</h2>
+                <Button asChild className="mt-4">
+                    <Link to="/admin">{t('common.back')}</Link>
+                </Button>
+            </div>
+        );
+    }
 
-    const getMilestone = () => {
-        const order = ["FLOW_STARTED", "PARENT_A_VALIDATED", "INVITATION_SENT", "PARENT_B_REGISTERED", "COMPLETED"];
-        const index = order.indexOf(process.status);
-        return t("admin.step", { count: index + 1 });
-    };
+    const currentStatusConfig = REGISTRATION_STATUS_CONFIG[registration.status as RegistrationStatus] || { color: "gray", icon: "HelpCircle" };
 
-    const isStepCompleted = (status: string) => {
-        const order = ["FLOW_STARTED", "PARENT_A_VALIDATED", "INVITATION_SENT", "PARENT_B_REGISTERED", "COMPLETED"];
-        return order.indexOf(process.status) >= order.indexOf(status);
+    const StatusIcon = ({ status, className }: { status: string, className?: string }) => {
+        const config = REGISTRATION_STATUS_CONFIG[status as RegistrationStatus] || { color: "gray", icon: "HelpCircle" };
+        const IconComponent = {
+            Play,
+            UserCheck,
+            Mail,
+            MailOpen,
+            MailX,
+            UserPlus,
+            CheckCircle2,
+            HelpCircle
+        }[config.icon] || HelpCircle;
+
+        return <IconComponent className={className} />;
     };
 
     return (
-        <div className="min-h-screen bg-zinc-50/50 p-8 text-zinc-900">
-            <div className="mx-auto max-w-6xl space-y-8">
-                <header className="space-y-4">
-                    <Button variant="ghost" onClick={() => navigate("/admin")} className="px-0 hover:bg-transparent text-zinc-500 hover:text-zinc-900">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        {t("common.cancel")}
-                    </Button>
-                    <div>
-                        <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900">
-                            {t("admin.details_title", { id: process._id.slice(-4) })}
-                        </h1>
-                        <p className="text-zinc-500 mt-2">{t("admin.details_desc")}</p>
-                    </div>
-                </header>
+        <div className="p-8 max-w-6xl mx-auto space-y-6">
+            <div className="flex items-center gap-4 mb-2">
+                <Button variant="ghost" size="sm" asChild className="hover:bg-primary/5">
+                    <Link to="/admin" className="flex items-center gap-2">
+                        <ChevronLeft className="w-4 h-4" />
+                        {t('common.back')}
+                    </Link>
+                </Button>
+            </div>
 
-                {/* Stats Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card className="bg-white border-zinc-200 shadow-sm border-t-4 border-t-orange-500">
-                        <CardHeader className="pb-2 text-[10px] uppercase font-bold tracking-wider text-zinc-400">
-                            {t("admin.flow_status")}
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-orange-500" />
-                                <span className="text-2xl font-bold">{t("admin.in_progress")}</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-zinc-200 shadow-sm border-t-4 border-t-zinc-200">
-                        <CardHeader className="pb-2 text-[10px] uppercase font-bold tracking-wider text-zinc-400">
-                            {t("admin.elapsed_time")}
-                        </CardHeader>
-                        <CardContent>
-                            <span className="text-2xl font-bold">{getElapsedTime()}</span>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-zinc-200 shadow-sm border-t-4 border-t-zinc-200">
-                        <CardHeader className="pb-2 text-[10px] uppercase font-bold tracking-wider text-zinc-400">
-                            {t("admin.current_milestone")}
-                        </CardHeader>
-                        <CardContent>
-                            <span className="text-2xl font-bold">{getMilestone()}</span>
-                        </CardContent>
-                    </Card>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-extrabold tracking-tight">
+                        {t('admin.details_title', { id: registration._id.slice(-6) })}
+                    </h1>
+                    <p className="text-muted-foreground mt-1">{t('admin.details_desc')}</p>
                 </div>
+                <div className="flex gap-3">
+                    {registration.status !== RegistrationStatus.COMPLETED && (
+                        <Button variant="outline" onClick={handleForceComplete} className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
+                            <AlertCircle className="w-4 h-4 mr-2" />
+                            {t('admin.force_complete')}
+                        </Button>
+                    )}
+                </div>
+            </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Main Content: Timeline */}
-                    <div className="lg:col-span-2 space-y-8">
-                        <Card className="bg-white border-zinc-200 shadow-sm overflow-hidden">
-                            <CardHeader className="border-b border-zinc-100 bg-zinc-50/50">
-                                <CardTitle className="text-lg font-bold">{t("admin.timeline")}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-8">
-                                <div className="relative space-y-12">
-                                    {/* Vertical Line */}
-                                    <div className="absolute left-4 top-2 bottom-2 w-px bg-zinc-100" />
-
-                                    {/* Timeline Steps */}
-                                    {[
-                                        { key: "FLOW_STARTED", icon: CheckCircle2 },
-                                        { key: "PARENT_A_VALIDATED", icon: CheckCircle2 },
-                                        { key: "INVITATION_SENT", icon: Clock, details: { email: process.parentAEmail, token: "XYZ789" } },
-                                        { key: "PARENT_B_REGISTERED", icon: User },
-                                        { key: "COMPLETED", icon: Shield }
-                                    ].map((step, i) => {
-                                        const completed = isStepCompleted(step.key);
-                                        const current = process.status === step.key;
-                                        const Icon = step.icon;
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Info Column */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Status Tracker */}
+                    <Card className="border-border/50 shadow-sm relative overflow-hidden">
+                        <div className={`absolute top-0 left-0 w-1 h-full bg-${currentStatusConfig.color}-500`} />
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Activity className="w-5 h-5 text-primary" />
+                                    {t('admin.flow_status')}
+                                </div>
+                                <Badge className={`bg-${currentStatusConfig.color}-500/10 text-${currentStatusConfig.color}-500 border-${currentStatusConfig.color}-500/20 px-4 py-1.5 text-sm`}>
+                                    <div className="flex items-center gap-2">
+                                        <StatusIcon status={registration.status} className="w-4 h-4" />
+                                        {t(`admin.status.${registration.status}`)}
+                                    </div>
+                                </Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="relative pt-8 pb-4">
+                                <div className="absolute top-1/2 left-0 w-full h-1 bg-secondary -translate-y-1/2 rounded-full" />
+                                <div
+                                    className={`absolute top-1/2 left-0 h-1 bg-${currentStatusConfig.color}-500 -translate-y-1/2 rounded-full transition-all duration-1000`}
+                                    style={{
+                                        width: `${((REGISTRATION_STATUS_ORDER.indexOf(registration.status as RegistrationStatus) + 1) / REGISTRATION_STATUS_ORDER.length) * 100}%`
+                                    }}
+                                />
+                                <div className="relative flex justify-between items-center">
+                                    {REGISTRATION_STATUS_ORDER.map((s, idx) => {
+                                        const isPast = REGISTRATION_STATUS_ORDER.indexOf(registration.status as RegistrationStatus) >= idx;
+                                        const isCurrent = registration.status === s;
+                                        const config = REGISTRATION_STATUS_CONFIG[s] || { color: "gray", icon: "Circle" };
 
                                         return (
-                                            <div key={step.key} className="relative pl-12">
-                                                <div className={`absolute left-0 p-1 rounded-full border-2 bg-white z-10 
-                                                    ${completed ? "border-green-500 text-green-500" : current ? "border-indigo-500 text-indigo-500" : "border-zinc-200 text-zinc-300"}`}>
-                                                    <Icon className="h-6 w-6" />
+                                            <div key={s} className="flex flex-col items-center group">
+                                                <div className={`
+                                                    w-10 h-10 rounded-full flex items-center justify-center z-10 
+                                                    transition-all duration-300 border-4 border-background
+                                                    ${isCurrent ? `bg-${config.color}-500 text-white scale-125 shadow-lg` :
+                                                        isPast ? `bg-${config.color}-500/80 text-white` : 'bg-secondary text-muted-foreground'}
+                                                `}>
+                                                    <StatusIcon status={s} className="w-5 h-5" />
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <h3 className={`font-bold ${completed ? "text-zinc-900" : "text-zinc-400"}`}>
-                                                        {t(`admin.status.${step.key}`)}
-                                                    </h3>
-                                                    {completed && <p className="text-xs text-zinc-400">{t("admin.status.COMPLETED")} • {getElapsedTime()}</p>}
-                                                    {!completed && current && <p className="text-xs text-orange-500 font-medium">{t("admin.in_progress")}</p>}
-
-                                                    {step.key === "INVITATION_SENT" && current && (
-                                                        <div className="mt-4 p-4 rounded-xl border border-zinc-100 bg-zinc-50/50 space-y-2 text-sm">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-zinc-500">Email:</span>
-                                                                <span className="font-medium text-zinc-900">{process.parentAEmail}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-zinc-500">Token:</span>
-                                                                <code className="bg-white px-1 border border-zinc-200 rounded text-xs">XYZ789</code>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {current && step.key !== "COMPLETED" && (
-                                                        <Button
-                                                            onClick={handleForceComplete}
-                                                            size="sm"
-                                                            className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-100"
-                                                        >
-                                                            <Zap className="mr-2 h-4 w-4 fill-current" />
-                                                            {t("admin.force_complete")}
-                                                        </Button>
-                                                    )}
-                                                </div>
+                                                <span className={`
+                                                    absolute top-12 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap
+                                                    ${isCurrent || isPast ? 'text-foreground' : 'text-muted-foreground opacity-50'}
+                                                `}>
+                                                    {t(`admin.status.${s}`).split(' ')[0]}
+                                                </span>
                                             </div>
                                         );
                                     })}
                                 </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Information Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="border-border/50 shadow-sm">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                                    <User className="w-4 h-4" />
+                                    {t('admin.parentName')}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-xl font-extrabold">{registration.parentAName}</p>
+                                <div className="flex items-center gap-2 mt-2 text-sm text-primary font-medium">
+                                    <Mail className="w-3.5 h-3.5" />
+                                    {registration.parentAEmail}
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-border/50 shadow-sm">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                                    <Calendar className="w-4 h-4" />
+                                    {t('admin.familyName')}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-xl font-extrabold truncate">{registration.familyName}</p>
+                                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    {t('common.created')}: {format(new Date(registration.createdAt), "dd.MM.yyyy HH:mm", { locale: pl })}
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
 
-                    {/* Sidebar: Notes & Logs */}
-                    <div className="space-y-6">
-                        {/* Admin Notes */}
-                        <Card className="bg-white border-zinc-200 shadow-sm">
-                            <CardHeader className="flex flex-row items-center gap-2">
-                                <Info className="h-5 w-5 text-indigo-600" />
-                                <CardTitle className="text-sm font-bold">{t("admin.notes")}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <Textarea
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                    placeholder={t("admin.add_note_placeholder")}
-                                    className="min-h-[120px] bg-zinc-50/50 border-zinc-200 focus:bg-white transition-colors"
-                                />
-                                <Button
-                                    onClick={handleSaveNote}
-                                    disabled={savingNote}
-                                    className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-bold border-none"
-                                >
-                                    {savingNote ? "..." : t("admin.save_note")}
-                                </Button>
-                            </CardContent>
-                        </Card>
-
-                        {/* Recent Process Logs */}
-                        <Card className="bg-white border-zinc-200 shadow-sm overflow-hidden">
-                            <CardHeader className="flex flex-row items-center justify-between bg-zinc-50/50 border-b border-zinc-100 px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                    <Clock className="h-5 w-5 text-zinc-400" />
-                                    <CardTitle className="text-sm font-bold">{t("admin.logs")}</CardTitle>
-                                </div>
-                                <Button variant="ghost" size="sm" className="text-indigo-600 font-bold text-xs h-auto p-0 hover:bg-transparent">
-                                    {t("admin.view_all")}
-                                </Button>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <div className="divide-y divide-zinc-50">
-                                    {process.timeline?.slice().reverse().map((event: any, i: number) => (
-                                        <div key={i} className="p-4 hover:bg-zinc-50/50 transition-colors">
-                                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
-                                                <span className="text-zinc-900">{event.type}</span>
-                                                <span className="text-zinc-400">{new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                            </div>
-                                            <p className="text-xs text-zinc-600 leading-relaxed">{event.message}</p>
+                    {/* Timeline */}
+                    <Card className="border-border/50 shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <History className="w-5 h-5 text-indigo-500" />
+                                {t('admin.timeline')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-6">
+                                {registration.timeline.map((event, idx) => (
+                                    <div key={idx} className="flex gap-4 relative">
+                                        {idx !== registration.timeline.length - 1 && (
+                                            <div className="absolute left-[17px] top-8 w-0.5 h-calc[100%+24px] bg-border/40" />
+                                        )}
+                                        <div className={`
+                                            w-9 h-9 rounded-full flex items-center justify-center shrink-0 z-10
+                                            bg-${REGISTRATION_STATUS_CONFIG[event.type as RegistrationStatus]?.color || 'gray'}-500/10 
+                                            text-${REGISTRATION_STATUS_CONFIG[event.type as RegistrationStatus]?.color || 'gray'}-500
+                                            border border-${REGISTRATION_STATUS_CONFIG[event.type as RegistrationStatus]?.color || 'gray'}-500/20
+                                        `}>
+                                            <StatusIcon status={event.type} className="w-4 h-4" />
                                         </div>
-                                    ))}
+                                        <div className="space-y-1 pb-4">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-bold text-foreground/90">{event.message}</h4>
+                                                <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded uppercase font-bold">
+                                                    {t(`admin.status.${event.type}`)}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                                                <Clock className="w-3.5 h-3.5" />
+                                                {format(new Date(event.timestamp), "HH:mm:ss", { locale: pl })}
+                                                <span className="opacity-50 mx-1">•</span>
+                                                {format(new Date(event.timestamp), "dd MMMM yyyy", { locale: pl })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )).reverse()}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Sidebar Column */}
+                <div className="space-y-6">
+                    {/* Admin Notes */}
+                    <Card className="border-border/50 shadow-sm">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-amber-500" />
+                                {t('admin.notes')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <Textarea
+                                placeholder={t('admin.add_note_placeholder')}
+                                className="min-h-[200px] resize-none focus:ring-amber-500/20"
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                            />
+                            <Button
+                                className="w-full bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
+                                onClick={handleSaveNote}
+                                disabled={isSavingNote}
+                            >
+                                {isSavingNote ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <Save className="w-4 h-4" />
+                                        {t('admin.save_note')}
+                                    </div>
+                                )}
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Secondary Parent Info (if exists) */}
+                    {registration.parentBEmail && (
+                        <Card className="border-border/50 shadow-sm bg-primary/5">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary/80 uppercase tracking-wider">
+                                    <UserPlus className="w-4 h-4" />
+                                    {t('admin.parentB')}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div>
+                                    <p className="text-base font-bold">{registration.parentBName || t('common.waiting')}</p>
+                                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                                        <Mail className="w-3 h-3" />
+                                        {registration.parentBEmail}
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>
-                    </div>
+                    )}
+
+                    {/* Developer Tools (Dev only) */}
+                    {(registration.token || registration.parentBToken) && (
+                        <Card className="border-purple-200 bg-purple-50/30 overflow-hidden">
+                            <CardHeader className="pb-3 bg-purple-100/50">
+                                <CardTitle className="text-sm font-bold flex items-center gap-2 text-purple-700 uppercase tracking-wider">
+                                    <Activity className="w-4 h-4" />
+                                    Dev Actions
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-4 space-y-4">
+                                {registration.token && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-bold text-purple-600 uppercase">Rejestracja Rodzica A:</p>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 bg-white"
+                                                onClick={() => {
+                                                    const url = `${window.location.origin}/auth?token=${registration.token}`;
+                                                    window.open(url, '_blank');
+                                                }}
+                                            >
+                                                Otwórz Link
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="bg-white"
+                                                onClick={() => {
+                                                    const url = `${window.location.origin}/auth?token=${registration.token}`;
+                                                    navigator.clipboard.writeText(url);
+                                                }}
+                                            >
+                                                Kopiuj
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {registration.parentBToken && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-bold text-purple-600 uppercase">Rejestracja Rodzica B:</p>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 bg-white"
+                                                onClick={() => {
+                                                    const url = `${window.location.origin}/register?token=${registration.parentBToken}`;
+                                                    window.open(url, '_blank');
+                                                }}
+                                            >
+                                                Otwórz Link
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="bg-white"
+                                                onClick={() => {
+                                                    const url = `${window.location.origin}/register?token=${registration.parentBToken}`;
+                                                    navigator.clipboard.writeText(url);
+                                                }}
+                                            >
+                                                Kopiuj
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
         </div>

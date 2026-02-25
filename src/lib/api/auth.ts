@@ -21,13 +21,18 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 export type Gender = "mom" | "dad";
 
 export const authApi = {
+    getParentAInvitation: (token: string) =>
+        fetchApi<{ email: string; gender: Gender }>(
+            `/register/parent-a/invitation?token=${token}`
+        ),
+
     registerParentAOptions: (data: { email: string; name: string; username: string; gender: Gender }) =>
         fetchApi<{ challenge: string; tempEmail: string; tempName: string; tempUsername: string; tempGender: Gender }>(
             "/register/parent-a/options",
             { method: "POST", body: JSON.stringify(data) }
         ),
 
-    registerParentAVerify: (data: { registrationResponse: unknown; tempEmail: string; tempName?: string; tempUsername?: string; tempGender?: Gender; mock?: boolean }) =>
+    registerParentAVerify: (data: { registrationResponse: unknown; tempEmail: string; tempName?: string; tempUsername?: string; tempGender?: Gender; mock?: boolean; token?: string }) =>
         fetchApi<{ verified: boolean; role: string }>(
             "/register/parent-a/verify",
             { method: "POST", body: JSON.stringify(data) }
@@ -45,7 +50,7 @@ export const authApi = {
         ),
 
     invite: (email: string) =>
-        fetchApi<{ token: string; link: string }>(
+        fetchApi<{ token: string; link: string; previewHtml?: string }>(
             "/invite",
             { method: "POST", body: JSON.stringify({ email }) }
         ),
@@ -65,7 +70,7 @@ export const authApi = {
     logout: () =>
         fetchApi<{ ok: boolean }>("/logout", { method: "POST" }),
 
-    devMockRegisterA: (data: { email: string; name: string; gender: Gender }) =>
+    devMockRegisterA: (data: { email: string; name: string; gender: Gender; token?: string }) =>
         fetchApi<{ verified: boolean; role: string }>(
             "/mock-register-a",
             { method: "POST", body: JSON.stringify(data) }

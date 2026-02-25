@@ -3,9 +3,11 @@ import { createAdminController } from "../AdminController";
 import { InMemoryRegistrationProcessRepository } from "../../secondary/__tests__/InMemoryRegistrationProcessRepository";
 import { RegistrationStatus } from "../../../models/RegistrationProcess";
 
-// Mock Family model
+// Mock models
 import { Family } from "../../../models/Family";
+import { Invitation } from "../../../models/Invitation";
 (Family as any).prototype.save = async function () { this._id = "mock_family_id"; return this; };
+(Invitation as any).prototype.save = async function () { this._id = "mock_invitation_id"; return this; };
 
 describe("AdminController", () => {
     let repo: InMemoryRegistrationProcessRepository;
@@ -32,6 +34,7 @@ describe("AdminController", () => {
             body: JSON.stringify({
                 parentName: "Alice",
                 parentEmail: "alice@example.com",
+                familyName: "Test Family",
                 role: "Mom"
             })
         }));

@@ -1,8 +1,12 @@
-import { Elysia, t } from "elysia";
+import { Elysia, t as T } from "elysia";
 import { RegistrationStatus } from "../../models/RegistrationProcess";
 import { MongoRegistrationProcessRepository } from "../secondary/MongoRegistrationProcessRepository";
 import { auth } from "../../lib/auth";
 import { Family } from "../../models/Family";
+import { Invitation } from "../../models/Invitation";
+import { sendParentAInitiationEmail } from "../../lib/email";
+import crypto from "crypto";
+import { t as translate } from "../../lib/i18n";
 
 export const createAdminController = (repo: MongoRegistrationProcessRepository) => {
     const rbacMiddleware = async ({ request, set }: { request: Request, set: any }) => {
@@ -32,10 +36,13 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
 
     const toJSON = (doc: any) => {
         const obj = doc && typeof doc.toJSON === "function" ? doc.toJSON() : doc;
+        const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+
         return {
             ...obj,
             _id: obj._id?.toString() || obj._id,
             familyId: obj.familyId?.toString() || obj.familyId,
+            token: isDev ? obj.token : undefined, // Expose token only in dev
             timeline: (obj.timeline || []).map((t: any) => ({
                 ...t,
                 timestamp: t.timestamp instanceof Date ? t.timestamp.toISOString() : (t.timestamp?.toISOString ? t.timestamp.toISOString() : t.timestamp)
@@ -50,44 +57,90 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
             return processes.map(toJSON);
         })
         .post("/registrations/start", async ({ body }) => {
-            const { parentName, parentEmail, role } = body;
+            const { parentName, parentEmail, familyName, role } = body;
 
             // 1. Create family
             const family = new Family({
+                name: familyName || (translate("common.familyDefault") as string),
                 parentIds: [], // Will be updated during actual registration
                 children: [],
                 custodyPatterns: [],
             });
             await family.save();
 
-            // 2. Create process
-            const process = await repo.save({
+            // 2. Generate tokens and invitation
+            const token = crypto.randomBytes(32).toString("hex");
+            const parentATrackingToken = crypto.randomUUID();
+
+            const invitation = new Invitation({
+                token,
+                email: parentEmail,
                 familyId: family._id.toString(),
+                targetRole: "parent_a",
+                createdByGender: (role || "dad").toLowerCase() as any, // "mom" or "dad"
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                status: "pending"
+            });
+            await invitation.save();
+
+            // 3. Send email (async)
+            const { html } = await sendParentAInitiationEmail(parentEmail, token, familyName || (translate("common.familyDefault") as string), "pl", parentATrackingToken);
+
+            // 4. Create process record
+            const regProcess = await repo.save({
+                familyId: family._id.toString(),
+                familyName: familyName || (translate("common.familyDefault") as string),
+                token,
+                parentATrackingToken,
                 parentAName: parentName,
                 parentAEmail: parentEmail,
                 status: RegistrationStatus.FLOW_STARTED,
                 timeline: [{
                     type: "FLOW_STARTED",
-                    message: `Rozpoczęto proces rejestracji dla ID #${family._id.toString().slice(-4)}`,
+                    message: translate("admin.log.flow_started_with_family", {
+                        familyName: familyName || (translate("common.familyDefault") as string),
+                        id: family._id.toString().slice(-4)
+                    }) as string,
                     timestamp: new Date()
                 }]
             });
 
-            return toJSON(process);
+            const result = toJSON(regProcess);
+            const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+            if (isDev) {
+                result.previewHtml = html;
+            }
+            return result;
         }, {
-            body: t.Object({
-                parentName: t.String(),
-                parentEmail: t.String(),
-                role: t.String(), // Mom/Dad
+            body: T.Object({
+                parentName: T.String(),
+                parentEmail: T.String(),
+                familyName: T.Optional(T.String()),
+                role: T.String(), // mom/dad
             })
         })
         .get("/registrations/:id", async ({ params, set }) => {
-            const process = await repo.findById(params.id);
-            if (!process) {
+            const regProcess = await repo.findById(params.id);
+            if (!regProcess) {
                 set.status = 404;
                 return { error: "Process not found" };
             }
-            return toJSON(process);
+
+            const result = toJSON(regProcess) as any;
+            const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+
+            if (isDev && regProcess.familyId) {
+                // If in dev, try to find the Parent B invitation token
+                const invitation = await Invitation.findOne({
+                    familyId: regProcess.familyId,
+                    targetRole: "parent_b"
+                });
+                if (invitation) {
+                    result.parentBToken = invitation.token;
+                }
+            }
+
+            return result;
         })
         .post("/registrations/:id/notes", async ({ params, body, set }) => {
             const process = await repo.findById(params.id);
@@ -99,8 +152,8 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
             await repo.save(process);
             return { success: true };
         }, {
-            body: t.Object({
-                notes: t.String()
+            body: T.Object({
+                notes: T.String()
             })
         })
         .post("/registrations/:id/force-complete", async ({ params, set }) => {
@@ -113,7 +166,7 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
             process.status = RegistrationStatus.COMPLETED;
             process.timeline.push({
                 type: "FORCE_COMPLETE",
-                message: "Proces został wymuszony jako zakończony przez administratora",
+                message: translate("admin.log.force_completed_by_admin") as string,
                 timestamp: new Date()
             });
             await repo.save(process);

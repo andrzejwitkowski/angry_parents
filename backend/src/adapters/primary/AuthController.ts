@@ -12,6 +12,7 @@ import {
     verifyRegistrationResponse,
     verifyAuthenticationResponse,
 } from "@simplewebauthn/server";
+import { t as translate } from "../../lib/i18n";
 import { isoUint8Array, isoBase64URL } from "@simplewebauthn/server/helpers";
 import mongoose from "mongoose";
 
@@ -116,16 +117,50 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 gender: t.Union([t.Literal("mom"), t.Literal("dad")]),
             }),
         })
+        .get("/register/parent-a/invitation", async ({ query, set }) => {
+            console.log("[ParentA] GET invitation hit");
+            const token = query.token;
+            if (!token) {
+                set.status = 400;
+                return { message: "Missing token" };
+            }
+
+            const regProcess = await registrationRepo.findByToken(token);
+            if (!regProcess) {
+                set.status = 404;
+                return { message: "Invalid or expired token" };
+            }
+
+            // Find the corresponding invitation to get the targetRole/createdByGender if needed,
+            // or we know that Parent A's gender is the OPPOSITE of who created it, or it was manually set.
+            // Actually, in Admin /start, we save role as createdByGender for the invitation.
+            // Let's find the invitation:
+            const invitation = await Invitation.findOne({ token, targetRole: "parent_a" });
+            if (!invitation) {
+                set.status = 404;
+                return { message: "Invitation not found" };
+            }
+
+            return {
+                email: regProcess.parentAEmail,
+                gender: invitation.createdByGender === "dad" ? "dad" : "mom", // In start, role is the Parent A's role. Wait, start payload 'role' is passed as createdByGender? Let's check start payload.
+            };
+        }, {
+            query: t.Object({
+                token: t.String()
+            })
+        })
         .post("/register/parent-a/verify", async ({ body, set }) => {
             console.log("[ParentA] verify hit", JSON.stringify(body));
             try {
-                const { registrationResponse, tempEmail, tempName, tempUsername, tempGender, mock } = body as {
+                const { registrationResponse, tempEmail, tempName, tempUsername, tempGender, mock, token } = body as {
                     registrationResponse?: unknown;
                     tempEmail?: string;
                     tempName?: string;
                     tempUsername?: string;
                     tempGender?: Gender;
                     mock?: boolean;
+                    token?: string;
                 };
 
                 const isMock = !!mock;
@@ -133,19 +168,37 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
                 let userId: string;
                 let credentialId = "mock-credential";
+                let familyIdToUse: string | undefined;
+
+                // If token is provided, this is an Admin-initiated flow
+                if (token) {
+                    const invitation = await Invitation.findOne({ token, targetRole: "parent_a", status: "pending" });
+                    if (!invitation) {
+                        set.status = 400;
+                        return { message: "Invalid or expired invitation token" };
+                    }
+                    familyIdToUse = invitation.familyId.toString();
+                    console.log(`[ParentA] Token valid. Joining family: ${familyIdToUse}`);
+
+                    // Mark invitation as accepted
+                    invitation.status = "accepted";
+                    await invitation.save();
+                }
 
                 if (isDev && isMock) {
                     userId = new mongoose.Types.ObjectId().toString();
                     console.log("[ParentA] Mock mode, generated userId:", userId);
                 } else {
                     console.log("[ParentA] WebAuthn mode for", tempEmail);
-                    if (!tempEmail) {
+                    const emailToVerify = tempEmail || (token ? (await Invitation.findOne({ token }))?.email : undefined);
+
+                    if (!emailToVerify) {
                         set.status = 400;
-                        return { message: "Missing tempEmail" };
+                        return { message: "Missing email for verification" };
                     }
-                    const expectedChallenge = registrationChallenges.get(tempEmail!);
+                    const expectedChallenge = registrationChallenges.get(emailToVerify);
                     if (!expectedChallenge) {
-                        console.error("[ParentA] Challenge not found or expired for", tempEmail);
+                        console.error("[ParentA] Challenge not found or expired for", emailToVerify);
                         set.status = 400;
                         return { message: "Challenge not found or expired" };
                     }
@@ -179,43 +232,59 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     }
                 }
 
-                console.log(`[ParentA] Creating family for userId: ${userId}`);
-                const family = new Family({
-                    parentIds: [userId],
-                    children: [],
-                    custodyPatterns: [],
-                });
-                await family.save();
-                console.log(`[ParentA] Family created: ${family._id}`);
+                let family;
+                if (familyIdToUse) {
+                    family = await Family.findById(familyIdToUse);
+                    if (family) {
+                        if (!family.parentIds.includes(userId)) {
+                            family.parentIds.push(userId);
+                            await family.save();
+                        }
+                    } else {
+                        throw new Error("Family not found");
+                    }
+                } else {
+                    console.log(`[ParentA] Creating family for userId: ${userId}`);
+                    family = new Family({
+                        parentIds: [userId],
+                        children: [],
+                        custodyPatterns: [],
+                    });
+                    await family.save();
+                    console.log(`[ParentA] Family created: ${family._id}`);
+                }
+
+                const finalEmail = tempEmail || (token ? (await Invitation.findOne({ token, status: "accepted" }))?.email : "unknown@example.com");
 
                 const baUser = await createBetterAuthUser(
-                    tempEmail!,
+                    finalEmail!,
                     tempName || "Parent A",
-                    tempUsername || tempEmail!.split("@")[0],
+                    tempUsername || finalEmail!.split("@")[0],
                     tempGender,
                     family._id.toString(),
                     credentialId
                 );
-                console.log(`[ParentA] BetterAuth user created for ${tempEmail}, userId: ${baUser.userId}`);
+                console.log(`[ParentA] BetterAuth user created for ${finalEmail}, userId: ${baUser.userId}`);
 
-                if (!isMock) {
-                    registrationChallenges.delete(tempEmail!);
-                    console.log(`[ParentA] Deleted challenge for ${tempEmail}`);
+                if (!isMock && finalEmail) {
+                    registrationChallenges.delete(finalEmail);
+                    console.log(`[ParentA] Deleted challenge for ${finalEmail}`);
                 }
 
                 // Update Registration Process
                 const regProcess = await registrationRepo.findByFamilyId(family._id.toString());
                 if (regProcess) {
                     regProcess.status = RegistrationStatus.PARENT_A_VALIDATED;
+                    if (!regProcess.parentAName) regProcess.parentAName = tempName;
                     regProcess.timeline.push({
                         type: RegistrationStatus.PARENT_A_VALIDATED,
-                        message: `Rodzic A (${tempEmail}) zweryfikował tożsamość.`,
+                        message: translate("admin.log.parent_a_validated", { email: finalEmail }) as string,
                         timestamp: new Date()
                     });
                     await registrationRepo.save(regProcess);
                 }
 
-                const token = await signJwt({
+                const tokenValue = await signJwt({
                     userId: baUser.userId,
                     familyId: family._id.toString(),
                     role: "parent_a",
@@ -223,7 +292,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 });
                 console.log("[ParentA] JWT signed.");
 
-                set.headers["Set-Cookie"] = setCookie(token);
+                set.headers["Set-Cookie"] = setCookie(tokenValue);
                 set.headers["Content-Type"] = "application/json";
                 console.log("[ParentA] verify success");
                 return { verified: true, role: "parent_a" };
@@ -234,6 +303,61 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             }
         }, {
             body: t.Any(),
+        })
+        .post("/mock-register-a", async ({ body, set }) => {
+            console.log("[Mock] register-a hit", body);
+            const { email, name, gender, token } = body as { email: string, name: string, gender: Gender, token?: string };
+
+            // Call verify endpoint logic internally
+            const res = await (globalThis as any).app.handle(new Request("http://localhost/api/auth/register/parent-a/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tempEmail: email,
+                    tempName: name,
+                    tempGender: gender,
+                    mock: true,
+                    token
+                })
+            }));
+
+            if (res.status !== 200) {
+                set.status = res.status;
+                return await res.json();
+            }
+
+            set.headers["Set-Cookie"] = res.headers.get("Set-Cookie");
+            return await res.json();
+        })
+        .post("/mock-register-b", async ({ body, set }) => {
+            console.log("[Mock] register-b hit", body);
+            const { token, gender } = body as { token: string, gender: Gender };
+
+            const invitation = await Invitation.findOne({ token, status: "pending" });
+            if (!invitation) {
+                set.status = 400;
+                return { message: "Invalid or expired token" };
+            }
+
+            const res = await (globalThis as any).app.handle(new Request("http://localhost/api/auth/register/parent-b/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tempToken: token,
+                    tempFamilyId: invitation.familyId.toString(),
+                    tempCreatedByGender: invitation.createdByGender,
+                    gender,
+                    mock: true
+                })
+            }));
+
+            if (res.status !== 200) {
+                set.status = res.status;
+                return await res.json();
+            }
+
+            set.headers["Set-Cookie"] = res.headers.get("Set-Cookie");
+            return await res.json();
         })
         .post("/invite", async ({ request, body, set }) => {
             console.log("[Invite] hit");
@@ -281,7 +405,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
             const cryptoModule = await import("crypto");
             const inviteToken = cryptoModule.randomUUID();
-            console.log(`[Invite] Generated invite token: ${inviteToken} for ${email}`);
+            const parentBTrackingToken = cryptoModule.randomUUID();
+            console.log(`[Invite] Generated invite token: ${inviteToken}, tracking: ${parentBTrackingToken} for ${email}`);
 
             const invitation = new Invitation({
                 token: inviteToken,
@@ -295,8 +420,11 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             await invitation.save();
             console.log(`[Invite] Invitation saved for ${email}`);
 
-            const inviterName = "Twój partner";
-            const link = await sendInvitationEmail(email, inviteToken, inviterName);
+            // Fetch family name for email
+            const family = await Family.findById(payload.familyId);
+            const familyName = family?.name || "Rodzina";
+
+            const { html } = await sendInvitationEmail(email, inviteToken, familyName, "pl", parentBTrackingToken);
             console.log(`[Invite] Invitation email sent to ${email}`);
 
             // Update Registration Process
@@ -304,16 +432,22 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             if (regProcess) {
                 regProcess.status = RegistrationStatus.INVITATION_SENT;
                 regProcess.parentBEmail = email;
+                regProcess.parentBTrackingToken = parentBTrackingToken;
                 regProcess.timeline.push({
                     type: RegistrationStatus.INVITATION_SENT,
-                    message: `Wysłano zaproszenie do drugiego rodzica: ${email}`,
+                    message: translate("admin.log.invitation_sent", { email: email }) as string,
                     timestamp: new Date()
                 });
                 await registrationRepo.save(regProcess);
             }
 
             set.headers["Content-Type"] = "application/json";
-            return { token: inviteToken, link };
+            const response: any = { token: inviteToken, link: `${process.env.FRONTEND_URL || "http://localhost:5173"}/register?token=${inviteToken}` };
+            const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+            if (isDev) {
+                response.previewHtml = html;
+            }
+            return response;
         }, {
             body: t.Object({
                 email: t.String(),
@@ -475,7 +609,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 regProcess.parentBName = "Parent B"; // Potential improvement: get name from body
                 regProcess.timeline.push({
                     type: RegistrationStatus.COMPLETED,
-                    message: "Drugi rodzic ukończył rejestrację. Proces zakończony.",
+                    message: translate("admin.log.parent_b_registered", { email: invitation.email }) as string,
                     timestamp: new Date()
                 });
                 await registrationRepo.save(regProcess);
@@ -584,99 +718,59 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             return { ok: true };
         })
         .post("/mock-register-a", async ({ body, set }) => {
-            console.log("[MockRegA] hit");
-            const isDev = process.env.NODE_ENV !== "production";
-            if (!isDev) {
-                set.status = 403;
-                return { message: "Dev endpoint only" };
+            console.log("[MockRegA] hit", body);
+            const { email, name, gender, token } = body as { email: string, name: string, gender: Gender, token?: string };
+
+            const res = await (globalThis as any).app.handle(new Request("http://localhost/api/auth/register/parent-a/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tempEmail: email,
+                    tempName: name,
+                    tempGender: gender,
+                    mock: true,
+                    token
+                })
+            }));
+
+            const json = await res.json();
+            if (res.status !== 200) {
+                set.status = res.status;
+                return json;
             }
 
-            const { email, name, gender } = body as {
-                email: string;
-                name: string;
-                gender: Gender;
-            };
-
-            if (!email || !name || !gender) {
-                set.status = 400;
-                return { message: "Missing required fields" };
-            }
-
-            try {
-                // Inline mock logic — no internal HTTP call, no BetterAuth (avoids hangs)
-                const userId = new mongoose.Types.ObjectId().toString();
-                console.log("[MockRegA] Generated userId:", userId);
-
-                const family = new Family({
-                    parentIds: [userId],
-                    children: [],
-                    custodyPatterns: [],
-                });
-                await family.save();
-                console.log("[MockRegA] Family created:", family._id.toString());
-
-                const token = await signJwt({
-                    userId,
-                    familyId: family._id.toString(),
-                    role: "parent_a",
-                    gender,
-                });
-                console.log("[MockRegA] JWT signed for", email);
-
-                set.headers["Set-Cookie"] = setCookie(token);
-                set.headers["Content-Type"] = "application/json";
-                return { verified: true, role: "parent_a" };
-            } catch (err) {
-                console.error("[MockRegA] error:", err);
-                set.status = 500;
-                return { message: err instanceof Error ? err.message : "Internal error" };
-            }
+            set.headers["Set-Cookie"] = res.headers.get("Set-Cookie");
+            return json;
         })
         .post("/mock-register-b", async ({ body, set }) => {
-            console.log("[MockRegB] hit");
-            const isDev = process.env.NODE_ENV !== "production";
-            if (!isDev) {
-                set.status = 403;
-                return { message: "Dev endpoint only" };
-            }
-
-            const { token, gender } = body as {
-                token?: string;
-                gender?: Gender;
-            };
-
-            if (!token || !gender) {
-                set.status = 400;
-                return { message: "Missing token or gender" };
-            }
+            console.log("[MockRegB] hit", body);
+            const { token, gender } = body as { token: string, gender: Gender };
 
             const invitation = await Invitation.findOne({ token, status: "pending" });
             if (!invitation) {
                 set.status = 400;
-                return { message: "Invalid invitation" };
+                return { message: "Invalid or expired invitation" };
             }
 
-            const mockBody = {
-                mock: true,
-                tempToken: token,
-                tempFamilyId: invitation.familyId.toString(),
-                tempCreatedByGender: invitation.createdByGender,
-                gender,
-            };
-
-            // Use dynamic port so this works under any test runner (port 3000 locally, 3002 in npm run test)
-            const selfPort = process.env.PORT || "3000";
-            const res = await fetch(`http://127.0.0.1:${selfPort}/api/auth/register/parent-b/verify`, {
+            const res = await (globalThis as any).app.handle(new Request("http://localhost/api/auth/register/parent-b/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(mockBody),
-            });
+                body: JSON.stringify({
+                    tempToken: token,
+                    tempFamilyId: invitation.familyId.toString(),
+                    tempCreatedByGender: invitation.createdByGender,
+                    gender,
+                    mock: true
+                })
+            }));
 
             const json = await res.json();
-            console.log(`[MockRegB] Status: ${res.status}, Body:`, json);
-            const cookie = res.headers.get("Set-Cookie") || "";
-            set.headers["Set-Cookie"] = cookie;
-            set.status = res.status;
+            if (res.status !== 200) {
+                set.status = res.status;
+                return json;
+            }
+
+            set.headers["Set-Cookie"] = res.headers.get("Set-Cookie");
             return json;
         })
         .post("/mock-login", async ({ body, set }) => {
