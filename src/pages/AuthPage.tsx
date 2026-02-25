@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
-import { authClient } from '@/lib/auth-client';
+import { authApi, type Gender } from '@/lib/api/auth';
+import { KeyRound, ShieldCheck } from 'lucide-react';
 
 export default function AuthPage() {
     const { t } = useTranslation();
@@ -15,51 +16,54 @@ export default function AuthPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Form states
     const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [username, setUsername] = useState('');
     const [name, setName] = useState('');
+    const [username, setUsername] = useState('');
+    const [gender, setGender] = useState<Gender>('dad');
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleRegisterParentA = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
 
-        await authClient.signIn.email({
-            email,
-            password,
-        }, {
-            onSuccess: () => {
+        try {
+            await authApi.registerParentAOptions({ email, name, username, gender });
+
+            const result = await authApi.registerParentAVerify({
+                registrationResponse: {},
+                tempEmail: email,
+                tempName: name,
+                tempUsername: username,
+                tempGender: gender,
+                mock: true,
+            });
+
+            if (result.verified) {
                 navigate('/dashboard');
-            },
-            onError: (ctx) => {
-                setError(ctx.error.message || t("auth.loginFailed"));
-                setIsLoading(false);
             }
-        });
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : t("auth.regFailed");
+            setError(msg);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const handleRegister = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleLogin = async () => {
         setIsLoading(true);
         setError(null);
 
-        await authClient.signUp.email({
-            email,
-            password,
-            name,
-            username,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any, {
-            onSuccess: () => {
-                navigate('/setup-passkey');
-            },
-            onError: (ctx) => {
-                setError(ctx.error.message || t("auth.regFailed"));
-                setIsLoading(false);
+        try {
+            const result = await authApi.devMockLogin();
+            if (result.verified) {
+                navigate('/dashboard');
             }
-        });
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : t("auth.loginFailed");
+            setError(msg);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -78,7 +82,7 @@ export default function AuthPage() {
                 <Tabs defaultValue="login" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-4">
                         <TabsTrigger value="login">{t('auth.login')}</TabsTrigger>
-                        <TabsTrigger value="register">{t('auth.register')}</TabsTrigger>
+                        <TabsTrigger value="register">{t('auth.registerParentA')}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="login">
@@ -87,52 +91,53 @@ export default function AuthPage() {
                                 <CardTitle>{t('auth.login')}</CardTitle>
                                 <CardDescription>{t("auth.loginDesc")}</CardDescription>
                             </CardHeader>
-                            <form onSubmit={handleLogin}>
-                                <CardContent className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="email">{t('auth.email')}</Label>
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            placeholder="name@example.com"
-                                            required
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="password">{t('auth.password')}</Label>
-                                        <Input
-                                            id="password"
-                                            type="password"
-                                            required
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                        />
-                                    </div>
-                                </CardContent>
-                                <CardFooter>
-                                    <Button className="w-full" type="submit" disabled={isLoading}>
-                                        {isLoading ? "..." : t("auth.signInBtn")}
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">{t('auth.email')}</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="name@example.com"
+                                        required
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                    />
+                                </div>
+                            </CardContent>
+                            <CardFooter className="flex flex-col gap-3">
+                                <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
+                                    <KeyRound className="w-4 h-4 mr-2" />
+                                    {t("auth.loginWithKey")}
+                                </Button>
+
+                                {import.meta.env.DEV && (
+                                    <Button
+                                        variant="outline"
+                                        className="w-full border-dashed border-slate-300"
+                                        onClick={handleLogin}
+                                        disabled={isLoading}
+                                    >
+                                        <ShieldCheck className="w-4 h-4 mr-2" />
+                                        {t("auth.devSimulateLogin")}
                                     </Button>
-                                </CardFooter>
-                            </form>
+                                )}
+                            </CardFooter>
                         </Card>
                     </TabsContent>
 
                     <TabsContent value="register">
                         <Card>
                             <CardHeader>
-                                <CardTitle>{t('auth.register')}</CardTitle>
-                                <CardDescription>{t("auth.regDesc")}</CardDescription>
+                                <CardTitle>{t('auth.registerParentA')}</CardTitle>
+                                <CardDescription>{t("auth.registerParentADesc")}</CardDescription>
                             </CardHeader>
-                            <form onSubmit={handleRegister}>
+                            <form onSubmit={handleRegisterParentA}>
                                 <CardContent className="space-y-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="reg-name">{t("auth.fullName")}</Label>
                                         <Input
                                             id="reg-name"
-                                            placeholder="John Doe"
+                                            placeholder="Jan Kowalski"
                                             required
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
@@ -142,7 +147,7 @@ export default function AuthPage() {
                                         <Label htmlFor="reg-username">{t('auth.username')}</Label>
                                         <Input
                                             id="reg-username"
-                                            placeholder="johndoe"
+                                            placeholder="jankowalski"
                                             required
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
@@ -160,20 +165,68 @@ export default function AuthPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="reg-password">{t('auth.password')}</Label>
-                                        <Input
-                                            id="reg-password"
-                                            type="password"
-                                            required
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                        />
+                                        <Label>{t("auth.gender")}</Label>
+                                        <div className="flex gap-4">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="gender"
+                                                    value="dad"
+                                                    checked={gender === 'dad'}
+                                                    onChange={() => setGender('dad')}
+                                                />
+                                                <span className="text-indigo-600 font-medium">{t("auth.dad")}</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="gender"
+                                                    value="mom"
+                                                    checked={gender === 'mom'}
+                                                    onChange={() => setGender('mom')}
+                                                />
+                                                <span className="text-pink-600 font-medium">{t("auth.mom")}</span>
+                                            </label>
+                                        </div>
                                     </div>
                                 </CardContent>
-                                <CardFooter>
+                                <CardFooter className="flex flex-col gap-3">
                                     <Button className="w-full" type="submit" disabled={isLoading}>
-                                        {isLoading ? "..." : t("auth.signUpBtn")}
+                                        <KeyRound className="w-4 h-4 mr-2" />
+                                        {isLoading ? t("auth.registering") : t("auth.registerWithKey")}
                                     </Button>
+
+                                    {import.meta.env.DEV && (
+                                        <Button
+                                            variant="outline"
+                                            className="w-full border-dashed border-slate-300"
+                                            type="button"
+                                            onClick={async (e) => {
+                                                e.preventDefault();
+                                                if (!email || !name || !gender) {
+                                                    setError(t("auth.regFailed") + ": brakujące pola");
+                                                    return;
+                                                }
+                                                setIsLoading(true);
+                                                setError(null);
+                                                try {
+                                                    const result = await authApi.devMockRegisterA({ email, name, gender });
+                                                    if (result.verified) {
+                                                        navigate('/dashboard');
+                                                    }
+                                                } catch (err: unknown) {
+                                                    const msg = err instanceof Error ? err.message : t("auth.regFailed");
+                                                    setError(msg);
+                                                } finally {
+                                                    setIsLoading(false);
+                                                }
+                                            }}
+                                            disabled={isLoading}
+                                        >
+                                            <ShieldCheck className="w-4 h-4 mr-2" />
+                                            {t("auth.devSimulateRegister")}
+                                        </Button>
+                                    )}
                                 </CardFooter>
                             </form>
                         </Card>

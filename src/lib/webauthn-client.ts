@@ -1,6 +1,6 @@
-import { startRegistration } from "@simplewebauthn/browser";
+import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
 
-const API_BASE = "http://localhost:3000/api/auth/webauthn";
+const API_BASE = "http://localhost:3000/api/auth";
 
 export const registerPasskey = async () => {
     // 1. Get options
@@ -82,3 +82,42 @@ export const mockRegisterPasskey = async () => {
 
     return true;
 }
+
+export const loginWithPasskey = async () => {
+    const optionsResp = await fetch(`${API_BASE}/login/options`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+    });
+
+    if (!optionsResp.ok) {
+        throw new Error("Failed to get login options");
+    }
+
+    const options = await optionsResp.json();
+
+    let authenticationResponse;
+    try {
+        authenticationResponse = await startAuthentication(options);
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            throw new Error(`Authentication failed: ${error.message}`);
+        }
+        throw error;
+    }
+
+    const verifyResp = await fetch(`${API_BASE}/login/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authenticationResponse }),
+        credentials: "include",
+    });
+
+    if (!verifyResp.ok) {
+        const err = await verifyResp.json().catch(() => ({ message: verifyResp.statusText }));
+        throw new Error(err.message || "Login verification failed");
+    }
+
+    const result = await verifyResp.json();
+    return result.verified;
+};

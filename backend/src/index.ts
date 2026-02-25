@@ -48,9 +48,11 @@ const childController = createChildController(childService);
 
 import { InMemoryPasskeyRepository } from "./adapters/secondary/InMemoryPasskeyRepository";
 import { createWebAuthnController } from "./adapters/primary/WebAuthnController";
+import { createAuthController } from "./adapters/primary/AuthController";
 
 const passkeyRepository = new InMemoryPasskeyRepository();
 const webAuthnController = createWebAuthnController(passkeyRepository, dateProvider);
+const authController = createAuthController();
 
 // --- Task Scheduler & Forensic Pipeline Setup ---
 // Ensure MongoDB connection (required for TaskManager and ForensicRepo)
@@ -102,27 +104,22 @@ taskManager.start().catch((err: unknown) => {
 import { cors } from "@elysiajs/cors";
 
 // Create Elysia app
-const app = new Elysia()
+const app = new Elysia();
+(globalThis as any).app = app;
+
+const finalApp = app
     .use(cors({
-        origin: ["http://localhost:5173", "http://localhost:5175"], // Allow both development ports
+        origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"], // Allow development ports
         credentials: true,
-        allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
         methods: ["GET", "POST", "OPTIONS", "PATCH", "DELETE"]
     }))
-    // Mount timeline controller (already has /api prefix)
     .use(timelineController)
     .use(custodyController)
     .use(webAuthnController)
+    .group("/api/auth", app => app.use(authController))
     .use(forensicController)
     .use(childController)
-    // Mount better-auth handler with a more robust catch-all
-    .all("/api/auth/*", async ({ request }) => {
-        // Log for debugging (optional, can be removed once verified)
-        console.log(`Auth request: ${request.method} ${request.url}`);
-        const res = await auth.handler(request);
-        console.log(`Auth response status: ${res.status}`);
-        return res;
-    })
     .get("/api/health", () => ({ status: "ok", timestamp: dateProvider.getIsoString() }))
     .get("/api/test", () => "test-ok")
     .post("/api/test/trigger-sync", async ({ body }) => {
@@ -133,72 +130,44 @@ const app = new Elysia()
     })
     .post("/api/test/process-tasks", async () => {
         console.log("[Test] Manually processing tasks...");
-        // This is a bit of a hack to reach into TaskManager internals for testing
-        // We call claimAndProcess a few times to flush the queue
         let processedCount = 0;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const tm = taskManager as any;
-        for (let i = 0; i < 5; i++) {
-            const task = await tm.claimTask();
-            if (task) {
-                await tm.processTask(task);
-                processedCount++;
-            } else {
-                break;
-            }
+        if (tm.claimAndProcess) {
+            await tm.claimAndProcess();
+            processedCount++;
         }
         return { status: "processed", count: processedCount };
     })
     .delete("/api/test/database", async ({ set }) => {
-        if (process.env.NODE_ENV === "production") {
+        const isDev = process.env.NODE_ENV !== "production";
+        if (!isDev) {
             set.status = 403;
-            return { message: "Not allowed in production" };
+            return { error: "Only available in dev mode" };
         }
-        console.log("[Test] Clearing Test Database...");
 
-        // Clear MongoDB Collections
+        console.log("[Test] Resetting database...");
         if (mongoose.connection.db) {
-            const collections = await mongoose.connection.db.collections();
-            for (const collection of collections) {
-                await collection.deleteMany({});
-                console.log(`[Test] Cleared collection: ${collection.collectionName}`);
+            const collections = await mongoose.connection.db.listCollections().toArray();
+            for (const col of collections) {
+                await mongoose.connection.db.collection(col.name).deleteMany({});
+                console.log(`[Test] Cleared collection: ${col.name}`);
             }
         }
 
-        // Clear In-Memory Repositories
-        // We cast to any or the specific implementation if we know it has a clear method/property.
-
-        // MockBlockchainAnchor: reset()
-        if ((blockchainAnchor as any).reset) {
-            (blockchainAnchor as any).reset();
-        }
-
-        // InMemoryTimelineRepository: clear()
-        if ((timelineRepository as any).clear) {
-            (timelineRepository as any).clear();
-        }
-
-        // InMemoryCustodyRepository: deleteAll()
-        if ((custodyRepository as any).deleteAll) {
-            await (custodyRepository as any).deleteAll();
-        }
-
-        // InMemoryScheduleRepository: clear()
-        if ((scheduleRepository as any).clear) {
-            (scheduleRepository as any).clear();
-        }
-
-        // InMemoryPasskeyRepository: clear()
         if ((passkeyRepository as any).clear) {
             (passkeyRepository as any).clear();
+            console.log("[PasskeyRepo] Cleared.");
         }
 
-        // InMemoryChildRepository: clear()
-        if ((childRepository as any).clear) {
-            (childRepository as any).clear();
+        if ((blockchainAnchor as any).reset) {
+            (blockchainAnchor as any).reset();
+            console.log("[MockBlockchain] Reset.");
         }
 
         return { status: "cleared" };
+    })
+    .get("/api/test/routes", ({ store }: { store: any }) => {
+        return (globalThis as any).app?.routes;
     })
     .listen({
         port: parseInt(process.env.PORT || "3000"),

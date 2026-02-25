@@ -4,6 +4,8 @@ import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import PasskeySetup from './pages/PasskeySetup';
 import Settings from './pages/Settings';
+import InvitePartner from './pages/InvitePartner';
+import RegisterParentB from './pages/RegisterParentB';
 import './i18n';
 
 function App() {
@@ -15,6 +17,8 @@ function App() {
         <Route path="/setup-passkey" element={<PasskeySetup />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/invite-partner" element={<InvitePartner />} />
+        <Route path="/register" element={<RegisterParentB />} />
       </Routes>
     </Router>
   );

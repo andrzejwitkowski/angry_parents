@@ -44,6 +44,7 @@ export class TestApi {
                 mockCredentialPublicKey
             }),
         });
+        this.updateCookies(res);
         return res.json();
     }
 
@@ -56,6 +57,7 @@ export class TestApi {
             },
             body: JSON.stringify(body),
         });
+        this.updateCookies(res);
         return res; // Return Response object to check status
     }
 
@@ -65,6 +67,7 @@ export class TestApi {
                 "Cookie": this.cookieJar
             }
         });
+        this.updateCookies(res);
         return res;
     }
 
@@ -75,6 +78,7 @@ export class TestApi {
                 "Cookie": this.cookieJar
             }
         });
+        this.updateCookies(res);
         return res;
     }
 
@@ -87,9 +91,13 @@ export class TestApi {
                 : (res.headers.get("set-cookie") ?? "").split(/,(?=[^ ])/).filter(Boolean);
 
         if (allCookies.length > 0) {
-            // Extract name=value from each Set-Cookie string (strip directives after ;)
-            const pairs = allCookies.map(c => c.split(';')[0].trim()).filter(Boolean);
-            this.cookieJar = pairs.join('; ');
+            // Extract all name=value pairs from all Set-Cookie headers
+            const cookies = allCookies.flatMap(c => {
+                const parts = c.split(';');
+                return parts[0].trim();
+            }).filter(Boolean);
+
+            this.cookieJar = cookies.join('; ');
         }
     }
 }

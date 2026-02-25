@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { authClient } from '@/lib/auth-client';
+import { authApi } from '@/lib/api/auth';
 import { checkHasPasskey } from '@/lib/webauthn-client';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -46,21 +46,22 @@ export default function Dashboard() {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const session = await authClient.getSession();
-                if (!session.data) {
-                    navigate('/auth');
-                    return;
-                }
+                // Race against a 4-second timeout so the spinner never hangs
+                const timeout = new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('Auth timeout')), 4000)
+                );
+                const me = await Promise.race([authApi.getMe(), timeout]) as Awaited<ReturnType<typeof authApi.getMe>>;
+                setUser(me.user as any);
 
-                setUser(session.data.user);
-
-                // Check if user has registered a hardware key
-                const hasKey = await checkHasPasskey();
-                if (!hasKey) {
-                    navigate('/setup-passkey');
+                // In DEV mode skip the hardware key check so the app is usable without a YubiKey
+                if (!import.meta.env.DEV) {
+                    const hasKey = await checkHasPasskey();
+                    if (!hasKey) {
+                        navigate('/setup-passkey');
+                    }
                 }
-            } catch (error) {
-                console.error("Auth check failed", error);
+            } catch {
+                // getMe() throws on 401 or timeout → redirect to login
                 navigate('/auth');
             } finally {
                 setLoading(false);

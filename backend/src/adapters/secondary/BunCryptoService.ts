@@ -8,18 +8,14 @@ export class BunCryptoService implements ICryptoService {
         signatureBase64: string
     ): Promise<boolean> {
         try {
-            const signature = Buffer.from(signatureBase64, "base64");
-            const dataBuffer = Buffer.from(data);
+            const signature = new Uint8Array(Buffer.from(signatureBase64, "base64"));
+            const dataBuffer = new Uint8Array(Buffer.from(data, "utf-8"));
 
             // Import Public Key
-            // Assuming SPKI format for generic WebAuthn keys? 
-            // Or if it's a raw PEM. Bun.crypto can handle various formats.
-            // For simplicity, we assume standard PEM or attempt to import.
-
-            // Note: Use global crypto.subtle (Web Crypto API standard)
+            const keyData = new Uint8Array(Buffer.from(publicKeyPem, "base64url"));
             const key = await crypto.subtle.importKey(
                 "spki",
-                Buffer.from(publicKeyPem, "base64"), // Assuming the stored pk is base64 encoded SPKI
+                keyData,
                 {
                     name: "ECDSA",
                     namedCurve: "P-256", // Common for WebAuthn
@@ -28,7 +24,7 @@ export class BunCryptoService implements ICryptoService {
                 ["verify"]
             );
 
-            return await crypto.subtle.verify(
+            const isValid = await crypto.subtle.verify(
                 {
                     name: "ECDSA",
                     hash: "SHA-256",
@@ -37,6 +33,12 @@ export class BunCryptoService implements ICryptoService {
                 signature,
                 dataBuffer
             );
+
+            if (!isValid) {
+                console.error(`[BunCryptoService] Signature verification failed for data length: ${dataBuffer.length}`);
+            }
+
+            return isValid;
         } catch (e) {
             console.error("Signature verification failed", e);
             return false;

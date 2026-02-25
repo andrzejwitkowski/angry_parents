@@ -46,7 +46,7 @@ export const createProcessDocumentIntegrityHandler = (
         }
 
         // Convert keyId (Base64 string) to Uint8Array for lookup
-        const credentialIdBuffer = Buffer.from(sig.keyId, 'base64');
+        const credentialIdBuffer = Buffer.from(sig.keyId, 'base64url');
         const passkey = await passkeyRepo.findByCredentialID(credentialIdBuffer);
 
         if (!passkey) {
@@ -54,7 +54,7 @@ export const createProcessDocumentIntegrityHandler = (
             throw new Error(`Passkey not found for keyId ${sig.keyId}`);
         }
 
-        const publicKeyBase64 = Buffer.from(passkey.credentialPublicKey).toString('base64');
+        const publicKeyBase64 = Buffer.from(passkey.credentialPublicKey).toString('base64url');
 
         const isValid = await cryptoService.verifySignature(publicKeyBase64, doc.hash, sig.signature);
         if (!isValid) {

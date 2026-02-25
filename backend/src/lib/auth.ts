@@ -36,6 +36,19 @@ export const auth = betterAuth({
                 required: true,
                 unique: true,
             },
+            gender: {
+                type: "string",
+                required: false,
+                options: ["mom", "dad"],
+            },
+            familyId: {
+                type: "string",
+                required: false,
+            },
+            webauthnCredentialId: {
+                type: "string",
+                required: false,
+            },
         },
     },
     trustedOrigins: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
