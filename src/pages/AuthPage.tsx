@@ -50,8 +50,6 @@ export default function AuthPage() {
         setError(null);
 
         try {
-            await authApi.registerOptions({ email, name, username, gender });
-
             const result = await authApi.registerVerify({
                 registrationResponse: {},
                 tempEmail: email,

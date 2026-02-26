@@ -38,12 +38,6 @@ export const authApi = {
             { method: "POST", body: JSON.stringify(data) }
         ),
 
-    invite: (email: string) =>
-        fetchApi<{ token: string; link: string; previewHtml?: string }>(
-            "/invite",
-            { method: "POST", body: JSON.stringify({ email }) }
-        ),
-
     loginOptions: () =>
         fetchApi<{ challenge: string }>("/login/options", { method: "POST" }),
 

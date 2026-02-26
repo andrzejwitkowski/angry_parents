@@ -4,6 +4,7 @@ trigger: always_on
 
 0. Plan first and always wait for my acceptance
 You have to plan for every request I made and show me the detailed planning list and wait for acceptance
+0.1 Use mgrep instead of grep
 1. Environment & Stack
 Runtime: Bun (Always). Use Bun-native APIs for file system, hashing, and server logic.
 

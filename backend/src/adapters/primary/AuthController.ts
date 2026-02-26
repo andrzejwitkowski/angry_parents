@@ -150,39 +150,41 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     tempUsername?: string;
                     tempGender?: Gender;
                     mock?: boolean;
-                    token?: string;
+                    token: string; // Token is now mandatory
                 };
 
                 const isMock = !!mock;
                 const isDev = process.env.NODE_ENV !== "production";
 
+                if (!token) {
+                    set.status = 400;
+                    return { message: "Registration token is required" };
+                }
+
                 let userId: string;
                 let credentialId = "mock-credential";
                 let familyIdToUse: string | undefined;
 
-                // If token is provided, this is an Admin-initiated flow
-                let invitationRole: "dad" | "mom" | undefined;
-                if (token) {
-                    const invitation = await Invitation.findOne({ token, status: "pending", targetRole: { $in: ["dad", "mom"] } });
-                    if (!invitation) {
-                        set.status = 400;
-                        return { message: "Invalid or expired invitation token" };
-                    }
-                    familyIdToUse = invitation.familyId.toString();
-                    invitationRole = invitation.targetRole as "dad" | "mom";
-                    console.log(`[Register] Token valid. Joining family: ${familyIdToUse} as ${invitationRole}`);
-
-                    // Mark invitation as accepted
-                    invitation.status = "accepted";
-                    await invitation.save();
+                // Invitation must exist for the given token
+                const invitation = await Invitation.findOne({ token, status: "pending", targetRole: { $in: ["dad", "mom"] } });
+                if (!invitation) {
+                    set.status = 400;
+                    return { message: "Invalid or expired invitation token" };
                 }
+                familyIdToUse = invitation.familyId.toString();
+                const invitationRole = invitation.targetRole as "dad" | "mom";
+                console.log(`[Register] Token valid. Joining family: ${familyIdToUse} as ${invitationRole}`);
+
+                // Mark invitation as accepted
+                invitation.status = "accepted";
+                await invitation.save();
 
                 if (isDev && isMock) {
                     userId = new mongoose.Types.ObjectId().toString();
-                    console.log("[ParentA] Mock mode, generated userId:", userId);
+                    console.log("[Register] Mock mode, generated userId:", userId);
                 } else {
-                    console.log("[ParentA] WebAuthn mode for", tempEmail);
-                    const emailToVerify = tempEmail || (token ? (await Invitation.findOne({ token }))?.email : undefined);
+                    console.log("[Register] WebAuthn mode for", tempEmail);
+                    const emailToVerify = tempEmail || invitation.email;
 
                     if (!emailToVerify) {
                         set.status = 400;
@@ -190,12 +192,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     }
                     const expectedChallenge = registrationChallenges.get(emailToVerify);
                     if (!expectedChallenge) {
-                        console.error("[ParentA] Challenge not found or expired for", emailToVerify);
+                        console.error("[Register] Challenge not found or expired for", emailToVerify);
                         set.status = 400;
                         return { message: "Challenge not found or expired" };
                     }
                     try {
-                        console.log("[ParentA] Verifying registration response...");
+                        console.log("[Register] Verifying registration response...");
                         const verification = await verifyRegistrationResponse({
                             // @ts-expect-error - WebAuthn types
                             response: registrationResponse,
@@ -205,67 +207,55 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         });
 
                         if (!verification.verified || !verification.registrationInfo) {
-                            console.error("[ParentA] Verification failed:", verification);
+                            console.error("[Register] Verification failed:", verification);
                             set.status = 400;
                             return { message: "Verification failed" };
                         }
-                        console.log("[ParentA] Registration response verified successfully.");
+                        console.log("[Register] Registration response verified successfully.");
 
                         const info = verification.registrationInfo!;
                         credentialId = typeof info.credential.id === 'string'
                             ? info.credential.id
                             : isoBase64URL.fromBuffer(info.credential.id);
                         userId = new mongoose.Types.ObjectId().toString(); // Generate a new ObjectId for the user
-                        console.log(`[ParentA] Generated userId: ${userId}, credentialId: ${credentialId}`);
+                        console.log(`[Register] Generated userId: ${userId}, credentialId: ${credentialId}`);
                     } catch (e) {
-                        console.error("[ParentA] Verification error", e);
+                        console.error("[Register] Verification error", e);
                         set.status = 400;
                         return { message: e instanceof Error ? e.message : "Verification failed" };
                     }
                 }
 
-                let family;
-                if (familyIdToUse) {
-                    family = await Family.findById(familyIdToUse);
-                    if (family) {
-                        if (!family.parentIds.includes(userId)) {
-                            family.parentIds.push(userId);
-                            await family.save();
-                        }
-                    } else {
-                        throw new Error("Family not found");
-                    }
-                } else {
-                    console.log(`[ParentA] Creating family for userId: ${userId}`);
-                    family = new Family({
-                        parentIds: [userId],
-                        children: [],
-                        custodyPatterns: [],
-                    });
-                    await family.save();
-                    console.log(`[ParentA] Family created: ${family._id}`);
+                const family = await Family.findById(familyIdToUse);
+                if (!family) {
+                    throw new Error("Family not found");
                 }
 
-                const finalEmail = tempEmail || (token ? (await Invitation.findOne({ token, status: "accepted" }))?.email : "unknown@example.com");
+                if (!family.parentIds.includes(userId)) {
+                    family.parentIds.push(userId);
+                    await family.save();
+                }
+
+                const finalEmail = invitation.email || "unknown@example.com";
 
                 const baUser = await createBetterAuthUser(
                     finalEmail!,
-                    tempName || "Parent A",
+                    tempName || "Parent",
                     tempUsername || finalEmail!.split("@")[0],
-                    tempGender,
+                    tempGender || invitationRole,
                     family._id.toString(),
                     credentialId
                 );
-                console.log(`[ParentA] BetterAuth user created for ${finalEmail}, userId: ${baUser.userId}`);
+                console.log(`[Register] BetterAuth user created for ${finalEmail}, userId: ${baUser.userId}`);
 
                 if (!isMock && finalEmail) {
                     registrationChallenges.delete(finalEmail);
-                    console.log(`[ParentA] Deleted challenge for ${finalEmail}`);
+                    console.log(`[Register] Deleted challenge for ${finalEmail}`);
                 }
 
                 // Update Registration Process
                 const regProcess = await registrationRepo.findByFamilyId(family._id.toString());
-                const roleUsed = invitationRole || tempGender || "dad";
+                const roleUsed = invitationRole;
 
                 if (regProcess) {
                     if (roleUsed === "dad") {
@@ -282,14 +272,14 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         regProcess.status = RegistrationStatus.COMPLETED;
                         regProcess.timeline.push({
                             type: RegistrationStatus.COMPLETED,
-                            message: translate("admin.log.force_completed_by_admin") as string, // Might need better translation key
+                            message: translate("admin.log.force_completed_by_admin") as string,
                             timestamp: new Date()
                         });
                     }
 
                     regProcess.timeline.push({
                         type: "PARENT_REGISTERED",
-                        message: translate("admin.log.parent_a_registered", { email: finalEmail }) as string, // Reusing existing translate
+                        message: translate("admin.log.parent_a_registered", { email: finalEmail }) as string,
                         timestamp: new Date()
                     });
                     await registrationRepo.save(regProcess);
@@ -308,117 +298,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 console.log("[Register] verify success");
                 return { verified: true, role: roleUsed };
             } catch (err) {
-                console.error("[ParentA] verify error:", err);
+                console.error("[Register] verify error:", err);
                 set.status = 500;
                 return { message: err instanceof Error ? err.message : "Internal error" };
             }
         }, {
             body: t.Any(),
-        })
-
-        .post("/invite", async ({ request, body, set }) => {
-            console.log("[Invite] hit");
-            const token = getJwtFromCookie(request);
-            if (!token) {
-                set.status = 401;
-                return { message: "Unauthorized" };
-            }
-
-            const payload = await verifyJwt(token);
-            if (!payload || !payload.userId) {
-                set.status = 401;
-                return { message: "Invalid token" };
-            }
-            console.log(`[Invite] User ${payload.userId} is inviting.`);
-
-            const { email } = body as { email: string };
-            if (!email) {
-                set.status = 400;
-                return { message: "Email is required" };
-            }
-
-            if (!payload.familyId) {
-                set.status = 400;
-                return { message: "User has no family" };
-            }
-
-            const inviterGender = payload.gender;
-            if (!inviterGender) {
-                set.status = 400;
-                return { message: "Inviter has no gender set" };
-            }
-
-            const existingInvitation = await Invitation.findOne({
-                email,
-                familyId: payload.familyId,
-                status: "pending",
-                expiresAt: { $gt: new Date() },
-            });
-
-            if (existingInvitation) {
-                set.status = 400;
-                return { message: "Invitation already sent to this email" };
-            }
-
-            const cryptoModule = await import("crypto");
-            const inviteToken = cryptoModule.randomUUID();
-            const parentBTrackingToken = cryptoModule.randomUUID();
-            console.log(`[Invite] Generated invite token: ${inviteToken}, tracking: ${parentBTrackingToken} for ${email}`);
-
-            const targetRole = inviterGender === "dad" ? "mom" : "dad";
-
-            const invitation = new Invitation({
-                token: inviteToken,
-                email,
-                familyId: payload.familyId,
-                invitedBy: payload.userId,
-                createdByGender: inviterGender,
-                targetRole,
-                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                status: "pending",
-            });
-            await invitation.save();
-            console.log(`[Invite] Invitation saved for ${email}`);
-
-            // Fetch family name for email
-            const family = await Family.findById(payload.familyId);
-            const familyName = family?.name || "Rodzina";
-
-            const { html } = await sendInvitationEmail(email, inviteToken, familyName, "pl", parentBTrackingToken);
-            console.log(`[Invite] Invitation email sent to ${email}`);
-
-            // Update Registration Process
-            const regProcess = await registrationRepo.findByFamilyId(payload.familyId);
-            if (regProcess) {
-                if (targetRole === "dad") {
-                    regProcess.dadStatus = ParentRegistrationStatus.INVITATION_SENT;
-                    regProcess.dadEmail = email;
-                    regProcess.dadTrackingToken = parentBTrackingToken;
-                } else {
-                    regProcess.momStatus = ParentRegistrationStatus.INVITATION_SENT;
-                    regProcess.momEmail = email;
-                    regProcess.momTrackingToken = parentBTrackingToken;
-                }
-
-                regProcess.timeline.push({
-                    type: "INVITATION_SENT" as any, // Timeline still accepts this string usually
-                    message: translate("admin.log.invitation_sent", { email: email }) as string,
-                    timestamp: new Date()
-                });
-                await registrationRepo.save(regProcess);
-            }
-
-            set.headers["Content-Type"] = "application/json";
-            const response: any = { token: inviteToken, link: `${process.env.FRONTEND_URL || "http://localhost:5173"}/register?token=${inviteToken}` };
-            const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
-            if (isDev) {
-                response.previewHtml = html;
-            }
-            return response;
-        }, {
-            body: t.Object({
-                email: t.String(),
-            }),
         })
 
         .post("/login/options", async ({ set }) => {
@@ -512,6 +397,11 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
         .post("/mock-register", async ({ body, set }) => {
             console.log("[MockReg] hit", body);
             const { email, name, gender, token } = body as { email: string, name: string, gender: Gender, token?: string };
+
+            if (!token) {
+                set.status = 400;
+                return { message: "Registration token is required" };
+            }
 
             const res = await (globalThis as any).app.handle(new Request("http://localhost/api/auth/register/verify", {
                 method: "POST",

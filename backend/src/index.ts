@@ -100,7 +100,6 @@ taskManager.start().catch((err: unknown) => {
 
 // Create Elysia app
 const app = new Elysia();
-(globalThis as any).app = app;
 
 const finalApp = app
     .use(cors({
@@ -219,6 +218,8 @@ const finalApp = app
         port: parseInt(process.env.PORT || "3000"),
         hostname: "0.0.0.0"
     });
+
+(globalThis as any).app = finalApp;
 
 console.log(`🚀 Server running at ${app.server?.hostname}:${app.server?.port}`);
 console.log(`   - Auth API: /api/auth/*`);

@@ -72,7 +72,7 @@ describe("Auth Controller Integration", () => {
     });
 
     describe("POST /mock-register", () => {
-        it("should register a user in mock mode", async () => {
+        it("should return 400 without token", async () => {
             const response = await app.handle(
                 new Request("http://localhost/api/auth/mock-register", {
                     method: "POST",
@@ -85,72 +85,42 @@ describe("Auth Controller Integration", () => {
                 })
             );
 
-            expect(response.status).toBe(200);
-            const json = await response.json() as { verified: boolean; role: string };
-            expect(json.verified).toBe(true);
-            expect(json.role).toBe("dad");
-
-            const cookie = response.headers.get("Set-Cookie");
-            expect(cookie).toContain("token=");
+            expect(response.status).toBe(400);
         });
 
-        it("should handle invalid gender input", async () => {
+        it("should register a user with a valid token", async () => {
+            // Create a mock family and invitation
+            const family = new Family({ parentIds: [], children: [], custodyPatterns: [] });
+            await family.save();
+
+            const invitation = new Invitation({
+                token: "valid-token-123",
+                email: "test@example.com",
+                familyId: family._id,
+                targetRole: "dad",
+                status: "pending",
+                expiresAt: new Date(Date.now() + 1000000)
+            });
+            await invitation.save();
+
             const response = await app.handle(
                 new Request("http://localhost/api/auth/mock-register", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        email: "parent-a@test.com",
-                        name: "Test",
-                        gender: "invalid-gender", // Elysia should reject this if schema is strict
-                    }),
-                })
-            );
-
-            // If it returns 200, it means validation is missing in the controller.
-            // For now, let's just assert it shouldn't be 500.
-            expect(response.status).not.toBe(500);
-        });
-    });
-
-    describe("Invitation Flow Integration", () => {
-        it("should allow a user to invite another via /invite", async () => {
-            // First register as dad
-            const regRes = await app.handle(
-                new Request("http://localhost/api/auth/mock-register", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        email: "dad@test.com",
-                        name: "Dad",
+                        email: "test@example.com",
+                        name: "Test User",
                         gender: "dad",
-                    }),
-                })
-            );
-            const cookie = regRes.headers.get("Set-Cookie")!;
-
-            // Now invite mom
-            const inviteRes = await app.handle(
-                new Request("http://localhost/api/auth/invite", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Cookie": cookie
-                    },
-                    body: JSON.stringify({
-                        email: "mom@test.com"
+                        token: "valid-token-123"
                     }),
                 })
             );
 
-            expect(inviteRes.status).toBe(200);
-            const inviteJson = await inviteRes.json() as { token: string };
-            expect(inviteJson.token).toBeDefined();
-
-            // Verify invitation created in DB
-            const invitation = await Invitation.findOne({ email: "mom@test.com" });
-            expect(invitation).toBeDefined();
-            expect(invitation?.targetRole).toBe("mom");
+            expect(response.status).toBe(200);
+            const json = await response.json() as { verified: boolean; role: string };
+            expect(json.verified).toBe(true);
+            expect(json.role).toBe("dad");
         });
     });
 });
+

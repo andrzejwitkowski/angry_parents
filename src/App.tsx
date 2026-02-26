@@ -4,8 +4,6 @@ import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import PasskeySetup from './pages/PasskeySetup';
 import Settings from './pages/Settings';
-import InvitePartner from './pages/InvitePartner';
-import RegisterParentB from './pages/RegisterParentB';
 import AdminPage from './pages/AdminPage';
 import AdminRegistrationDetails from './pages/AdminRegistrationDetails';
 import AdminRoute from './components/auth/AdminRoute';
@@ -20,8 +18,6 @@ function App() {
         <Route path="/setup-passkey" element={<PasskeySetup />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/invite-partner" element={<InvitePartner />} />
-        <Route path="/register" element={<RegisterParentB />} />
         <Route
           path="/admin"
           element={
