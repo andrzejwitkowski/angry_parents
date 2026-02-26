@@ -32,8 +32,8 @@ import {
     REGISTRATION_STATUS_CONFIG,
     ParentRegistrationStatus,
     PARENT_REGISTRATION_STATUS_ORDER,
-    PARENT_REGISTRATION_STATUS_CONFIG
 } from "@/types/registration";
+
 
 interface TimelineEvent {
     type: string;
@@ -156,72 +156,110 @@ const AdminRegistrationDetails: React.FC = () => {
         return <IconComponent className={className} />;
     };
 
-    const ParentFlowTracker = ({ title, status, email, name }: { title: string, status?: ParentRegistrationStatus, email?: string, name?: string }) => {
-        const fallBackStatus = ParentRegistrationStatus.INVITATION_SENT;
-        const currentStatus = status || fallBackStatus;
-        const currentConfig = PARENT_REGISTRATION_STATUS_CONFIG[currentStatus] || { color: "gray", icon: "HelpCircle" };
-        const currentIndex = PARENT_REGISTRATION_STATUS_ORDER.indexOf(currentStatus);
-        const progressPercent = currentIndex === -1 ? 0 : (currentIndex / (PARENT_REGISTRATION_STATUS_ORDER.length - 1)) * 100;
+    // Step color config with static classes for Tailwind JIT compatibility
+    const STEP_STYLE: Record<ParentRegistrationStatus, { bg: string; text: string; border: string; line: string }> = {
+        [ParentRegistrationStatus.INVITATION_SENT]: {
+            bg: "bg-purple-500",
+            text: "text-purple-600",
+            border: "border-purple-300",
+            line: "bg-purple-500",
+        },
+        [ParentRegistrationStatus.EMAIL_OPENED]: {
+            bg: "bg-cyan-500",
+            text: "text-cyan-600",
+            border: "border-cyan-300",
+            line: "bg-cyan-500",
+        },
+        [ParentRegistrationStatus.REGISTERED]: {
+            bg: "bg-green-500",
+            text: "text-green-600",
+            border: "border-green-300",
+            line: "bg-green-500",
+        },
+    };
+
+    const STEP_ICONS: Record<ParentRegistrationStatus, React.ReactNode> = {
+        [ParentRegistrationStatus.INVITATION_SENT]: <Mail className="w-4 h-4" />,
+        [ParentRegistrationStatus.EMAIL_OPENED]: <MailOpen className="w-4 h-4" />,
+        [ParentRegistrationStatus.REGISTERED]: <CheckCircle2 className="w-4 h-4" />,
+    };
+
+    const STEP_LABELS: Record<ParentRegistrationStatus, string> = {
+        [ParentRegistrationStatus.INVITATION_SENT]: t("admin.step.invitation_sent"),
+        [ParentRegistrationStatus.EMAIL_OPENED]: t("admin.step.email_opened"),
+        [ParentRegistrationStatus.REGISTERED]: t("admin.step.registered"),
+    };
+
+    const ParentProgressRow = ({
+        parentLabel,
+        icon,
+        status,
+    }: {
+        parentLabel: string;
+        icon: React.ReactNode;
+        status: ParentRegistrationStatus;
+    }) => {
+        const currentIndex = PARENT_REGISTRATION_STATUS_ORDER.indexOf(status);
 
         return (
-            <Card className="border-border/50 shadow-sm relative overflow-hidden flex flex-col">
-                <div className={`absolute top-0 left-0 w-1 h-full bg-${currentConfig.color}-500`} />
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-bold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
-                        <div className="flex items-center gap-2">
-                            <User className="w-4 h-4" />
-                            {title}
-                        </div>
-                        <Badge className={`bg-${currentConfig.color}-500/10 text-${currentConfig.color}-500 border-${currentConfig.color}-500/20 px-3 py-1 text-xs`}>
-                            {t(`admin.status.${currentStatus}`)}
-                        </Badge>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col justify-between">
-                    <div>
-                        <p className="text-xl font-extrabold">{name || t('common.waiting')}</p>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-primary font-medium">
-                            <Mail className="w-3.5 h-3.5" />
-                            {email || t('common.waiting')}
-                        </div>
-                    </div>
-
-                    <div className="relative mt-8 mb-6">
-                        {/* The line that connects the steps */}
-                        <div className="absolute top-5 left-0 w-full h-1 bg-secondary rounded-full -translate-y-1/2 mt-0.5" />
+            <div>
+                <div className="flex items-center gap-2 mb-4">
+                    <span className="text-muted-foreground">{icon}</span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        {parentLabel}
+                    </span>
+                </div>
+                {/* Grid: N equal columns so circles spread across full container width */}
+                <div
+                    className="relative grid"
+                    style={{ gridTemplateColumns: `repeat(${PARENT_REGISTRATION_STATUS_ORDER.length}, 1fr)` }}
+                >
+                    {/* Background line: runs between centers of first and last circle (50%/N from each edge) */}
+                    <div
+                        className="absolute h-0.5 bg-border top-5"
+                        style={{
+                            left: `calc(100% / ${PARENT_REGISTRATION_STATUS_ORDER.length * 2})`,
+                            right: `calc(100% / ${PARENT_REGISTRATION_STATUS_ORDER.length * 2})`,
+                        }}
+                    />
+                    {/* Active progress line */}
+                    {currentIndex > 0 && (
                         <div
-                            className={`absolute top-5 left-0 h-1 bg-${currentConfig.color}-500 rounded-full transition-all duration-1000 -translate-y-1/2 mt-0.5`}
-                            style={{ width: `${progressPercent}%` }}
+                            className={`absolute h-0.5 top-5 transition-all duration-700 ${STEP_STYLE[status]?.line ?? "bg-gray-400"}`}
+                            style={{
+                                left: `calc(100% / ${PARENT_REGISTRATION_STATUS_ORDER.length * 2})`,
+                                width: `calc(${currentIndex} * (100% - 100% / ${PARENT_REGISTRATION_STATUS_ORDER.length}) / ${PARENT_REGISTRATION_STATUS_ORDER.length - 1})`,
+                            }}
                         />
-                        <div className="relative flex justify-between items-center z-10">
-                            {PARENT_REGISTRATION_STATUS_ORDER.map((stepStatus, idx) => {
-                                const isPast = currentIndex >= idx;
-                                const isCurrent = currentStatus === stepStatus;
-                                const config = PARENT_REGISTRATION_STATUS_CONFIG[stepStatus] || { color: "gray", icon: "Circle" };
+                    )}
+                    {PARENT_REGISTRATION_STATUS_ORDER.map((stepStatus, idx) => {
+                        const isDone = currentIndex > idx;
+                        const isCurrent = currentIndex === idx;
+                        const isPending = currentIndex < idx;
+                        const style = STEP_STYLE[stepStatus];
 
-                                return (
-                                    <div key={stepStatus} className="flex flex-col items-center relative w-10">
-                                        <div className={`
-                                            w-10 h-10 rounded-full flex items-center justify-center 
-                                            transition-all duration-300 border-4 border-background mx-auto
-                                            ${isCurrent ? `bg-${config.color}-500 text-white shadow-md scale-110` :
-                                                isPast ? `bg-${config.color}-500 text-white` : 'bg-secondary text-muted-foreground'}
-                                        `}>
-                                            <StatusIcon status={stepStatus} className="w-5 h-5" />
-                                        </div>
-                                        <span className={`
-                                            absolute top-12 mt-1 text-[9px] font-bold uppercase tracking-wider text-center w-24 left-1/2 -translate-x-1/2
-                                            ${isCurrent || isPast ? 'text-foreground' : 'text-muted-foreground opacity-50'}
-                                        `}>
-                                            {t(`admin.status.${stepStatus}`)}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                        return (
+                            <div key={stepStatus} className="flex flex-col items-center gap-2 z-10">
+                                <div
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-2 shrink-0
+                                        ${isDone || isCurrent
+                                            ? `${style.bg} text-white border-transparent ${isCurrent ? "ring-2 ring-offset-2 ring-offset-card " + style.border + " scale-110 shadow-md" : ""}`
+                                            : "bg-muted text-muted-foreground border-border"
+                                        }`}
+                                >
+                                    {isDone ? <CheckCircle2 className="w-4 h-4" /> : STEP_ICONS[stepStatus]}
+                                </div>
+                                <span
+                                    className={`text-[10px] font-semibold uppercase tracking-wide text-center leading-tight
+                                        ${isPending ? "text-muted-foreground opacity-50" : style.text}`}
+                                >
+                                    {STEP_LABELS[stepStatus]}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
         );
     };
 
@@ -256,21 +294,28 @@ const AdminRegistrationDetails: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Info Column */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Parent Trackers */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <ParentFlowTracker
-                            title="TATA"
-                            status={registration.dadStatus}
-                            email={registration.dadEmail}
-                            name={registration.dadName}
-                        />
-                        <ParentFlowTracker
-                            title="MAMA"
-                            status={registration.momStatus}
-                            email={registration.momEmail}
-                            name={registration.momName}
-                        />
-                    </div>
+                    {/* Registration Progress Card */}
+                    <Card className="border-border/50 shadow-sm">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-primary" />
+                                {t('admin.registration_progress')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-8">
+                            <ParentProgressRow
+                                parentLabel={t('admin.parent_dad')}
+                                icon={<User className="w-4 h-4" />}
+                                status={registration.dadStatus ?? ParentRegistrationStatus.INVITATION_SENT}
+                            />
+                            <div className="border-t border-border/50" />
+                            <ParentProgressRow
+                                parentLabel={t('admin.parent_mom')}
+                                icon={<User className="w-4 h-4" />}
+                                status={registration.momStatus ?? ParentRegistrationStatus.INVITATION_SENT}
+                            />
+                        </CardContent>
+                    </Card>
 
                     {/* Family Info */}
                     <Card className="border-border/50 shadow-sm relative overflow-hidden">

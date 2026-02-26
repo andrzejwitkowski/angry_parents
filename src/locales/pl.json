@@ -360,6 +360,12 @@
         "admin.view_all": "Pokaż wszystkie",
         "admin.in_progress": "W toku",
         "admin.days_ago": "{{count}} dni temu",
-        "admin.step": "Krok {{count}}"
+        "admin.step": "Krok {{count}}",
+        "admin.registration_progress": "Postęp Rejestracji",
+        "admin.parent_dad": "STATUS: TATA",
+        "admin.parent_mom": "STATUS: MAMA",
+        "admin.step.invitation_sent": "Zaproszenie Wysłane",
+        "admin.step.email_opened": "E-mail Otwarty",
+        "admin.step.registered": "Zarejestrowano"
     }
 }

@@ -345,6 +345,12 @@
         "admin.view_all": "View all",
         "admin.in_progress": "In progress",
         "admin.days_ago": "{{count}} days ago",
-        "admin.step": "Step {{count}}"
+        "admin.step": "Step {{count}}",
+        "admin.registration_progress": "Registration Progress",
+        "admin.parent_dad": "STATUS: DAD",
+        "admin.parent_mom": "STATUS: MOM",
+        "admin.step.invitation_sent": "Invitation Sent",
+        "admin.step.email_opened": "Email Opened",
+        "admin.step.registered": "Registered"
     }
 }
