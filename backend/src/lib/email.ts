@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 
-const IS_DEV = process.env.NODE_ENV !== "production";
+const getIsDev = () => process.env.NODE_ENV !== "production";
 
 interface SendEmailOptions {
     to: string;
@@ -12,7 +12,7 @@ interface SendEmailOptions {
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
     const { to, subject, html } = options;
 
-    if (IS_DEV) {
+    if (getIsDev()) {
         console.log("========================================");
         console.log("[DEV EMAIL]");
         console.log(`To: ${to}`);
@@ -94,7 +94,7 @@ export async function sendInvitationEmail(
             </div>
             
             <div style="margin-bottom: 25px; text-align: center;">
-                <img src="${IS_DEV ? imageUrl : 'cid:children_image'}" alt="Children" style="width: 70%; display: inline-block;" />
+                <img src="${getIsDev() ? imageUrl : 'cid:children_image'}" alt="Children" style="width: 70%; display: inline-block;" />
             </div>
 
             <div style="padding: 0 10px;">
@@ -134,7 +134,7 @@ export async function sendInvitationEmail(
         html,
     };
 
-    if (!IS_DEV) {
+    if (!getIsDev()) {
         emailOptions.attachments = [{
             filename: 'children.jpg',
             path: imagePath,

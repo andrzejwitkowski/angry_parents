@@ -34,7 +34,12 @@ export class MongoRegistrationProcessRepository {
     }
 
     async findByToken(token: string): Promise<IRegistrationProcess | null> {
-        return RegistrationProcess.findOne({ token }).exec();
+        return RegistrationProcess.findOne({
+            $or: [
+                { dadToken: token },
+                { momToken: token }
+            ]
+        }).exec();
     }
 
     async addTimelineEvent(id: string, event: { type: string, message: string, data?: any }): Promise<void> {

@@ -13,6 +13,18 @@ mock.module('@/lib/api/timeline', () => ({
     },
 }));
 
+// Mock useChildren hook to avoid act() warnings from useEffect
+mock.module("@/hooks/useChildren", () => ({
+    useChildren: () => ({
+        getChildrenByIds: jest.fn().mockReturnValue([]),
+        isLoading: false,
+        error: null,
+        children: [],
+        getChildById: jest.fn(),
+        refresh: jest.fn(),
+    }),
+}));
+
 const mockItem: NoteItem = {
     id: 'note-1',
     type: 'NOTE',

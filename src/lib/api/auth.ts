@@ -21,31 +21,20 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 export type Gender = "mom" | "dad";
 
 export const authApi = {
-    getParentAInvitation: (token: string) =>
+    getInvitation: (token: string) =>
         fetchApi<{ email: string; gender: Gender }>(
-            `/register/parent-a/invitation?token=${token}`
+            `/register/invitation?token=${token}`
         ),
 
-    registerParentAOptions: (data: { email: string; name: string; username: string; gender: Gender }) =>
+    registerOptions: (data: { email: string; name: string; username: string; gender: Gender }) =>
         fetchApi<{ challenge: string; tempEmail: string; tempName: string; tempUsername: string; tempGender: Gender }>(
-            "/register/parent-a/options",
+            "/register/options",
             { method: "POST", body: JSON.stringify(data) }
         ),
 
-    registerParentAVerify: (data: { registrationResponse: unknown; tempEmail: string; tempName?: string; tempUsername?: string; tempGender?: Gender; mock?: boolean; token?: string }) =>
+    registerVerify: (data: { registrationResponse: unknown; tempEmail: string; tempName?: string; tempUsername?: string; tempGender?: Gender; mock?: boolean; token?: string }) =>
         fetchApi<{ verified: boolean; role: string }>(
-            "/register/parent-a/verify",
-            { method: "POST", body: JSON.stringify(data) }
-        ),
-
-    registerParentBOptions: (token: string) =>
-        fetchApi<{ challenge: string; tempToken: string; tempFamilyId: string; tempCreatedByGender: Gender }>(
-            `/register/parent-b/options?token=${token}`
-        ),
-
-    registerParentBVerify: (data: { registrationResponse?: unknown; tempToken: string; tempFamilyId: string; tempCreatedByGender: Gender; gender: Gender; mock?: boolean }) =>
-        fetchApi<{ verified: boolean; role: string }>(
-            "/register/parent-b/verify",
+            "/register/verify",
             { method: "POST", body: JSON.stringify(data) }
         ),
 
@@ -70,15 +59,9 @@ export const authApi = {
     logout: () =>
         fetchApi<{ ok: boolean }>("/logout", { method: "POST" }),
 
-    devMockRegisterA: (data: { email: string; name: string; gender: Gender; token?: string }) =>
+    devMockRegister: (data: { email: string; name: string; gender: Gender; token?: string }) =>
         fetchApi<{ verified: boolean; role: string }>(
-            "/mock-register-a",
-            { method: "POST", body: JSON.stringify(data) }
-        ),
-
-    devMockRegisterB: (data: { token: string; gender: Gender }) =>
-        fetchApi<{ verified: boolean; role: string }>(
-            "/mock-register-b",
+            "/mock-register",
             { method: "POST", body: JSON.stringify(data) }
         ),
 

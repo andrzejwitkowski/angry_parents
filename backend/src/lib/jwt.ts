@@ -7,7 +7,7 @@ const JWT_EXPIRY = "7d";
 export interface JwtPayload extends JWTPayload {
     userId: string;
     familyId?: string;
-    role?: "parent_a" | "parent_b";
+    role?: "parent_a" | "parent_b" | "dad" | "mom";
     gender?: "mom" | "dad";
 }
 

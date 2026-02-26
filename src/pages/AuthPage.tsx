@@ -30,7 +30,7 @@ export default function AuthPage() {
     useEffect(() => {
         if (token && !invitationLoaded) {
             setIsFetchingInvitation(true);
-            authApi.getParentAInvitation(token)
+            authApi.getInvitation(token)
                 .then(data => {
                     if (data.email) setEmail(data.email);
                     if (data.gender) setGender(data.gender);
@@ -44,15 +44,15 @@ export default function AuthPage() {
         }
     }, [token, invitationLoaded, t]);
 
-    const handleRegisterParentA = async (e: React.FormEvent) => {
+    const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
 
         try {
-            await authApi.registerParentAOptions({ email, name, username, gender });
+            await authApi.registerOptions({ email, name, username, gender });
 
-            const result = await authApi.registerParentAVerify({
+            const result = await authApi.registerVerify({
                 registrationResponse: {},
                 tempEmail: email,
                 tempName: name,
@@ -106,7 +106,7 @@ export default function AuthPage() {
                 <Tabs defaultValue="login" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-4">
                         <TabsTrigger value="login">{t('auth.login')}</TabsTrigger>
-                        <TabsTrigger value="register">{t('auth.registerParentA')}</TabsTrigger>
+                        <TabsTrigger value="register">{t('auth.register')}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="login">
@@ -152,10 +152,10 @@ export default function AuthPage() {
                     <TabsContent value="register">
                         <Card>
                             <CardHeader>
-                                <CardTitle>{t('auth.registerParentA')}</CardTitle>
-                                <CardDescription>{t("auth.registerParentADesc")}</CardDescription>
+                                <CardTitle>{t('auth.register')}</CardTitle>
+                                <CardDescription>{t("auth.regDesc")}</CardDescription>
                             </CardHeader>
-                            <form onSubmit={handleRegisterParentA}>
+                            <form onSubmit={handleRegister}>
                                 <CardContent className="space-y-4">
                                     {isFetchingInvitation && (
                                         <div className="text-sm text-muted-foreground flex items-center justify-center p-4">
@@ -246,7 +246,7 @@ export default function AuthPage() {
                                                 setIsLoading(true);
                                                 setError(null);
                                                 try {
-                                                    const result = await authApi.devMockRegisterA({
+                                                    const result = await authApi.devMockRegister({
                                                         email,
                                                         name,
                                                         gender,

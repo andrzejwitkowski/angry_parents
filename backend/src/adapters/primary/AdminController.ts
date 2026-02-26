@@ -1,5 +1,5 @@
 import { Elysia, t as T } from "elysia";
-import { RegistrationStatus } from "../../models/RegistrationProcess";
+import { RegistrationStatus, ParentRegistrationStatus } from "../../models/RegistrationProcess";
 import { MongoRegistrationProcessRepository } from "../secondary/MongoRegistrationProcessRepository";
 import { auth } from "../../lib/auth";
 import { Family } from "../../models/Family";
@@ -42,7 +42,8 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
             ...obj,
             _id: obj._id?.toString() || obj._id,
             familyId: obj.familyId?.toString() || obj.familyId,
-            token: isDev ? obj.token : undefined, // Expose token only in dev
+            dadToken: isDev ? obj.dadToken : undefined,
+            momToken: isDev ? obj.momToken : undefined,
             timeline: (obj.timeline || []).map((t: any) => ({
                 ...t,
                 timestamp: t.timestamp instanceof Date ? t.timestamp.toISOString() : (t.timestamp?.toISOString ? t.timestamp.toISOString() : t.timestamp)
@@ -57,7 +58,7 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
             return processes.map(toJSON);
         })
         .post("/registrations/start", async ({ body }) => {
-            const { parentName, parentEmail, familyName, role } = body;
+            const { familyName, dadEmail, momEmail } = body;
 
             // 1. Create family
             const family = new Family({
@@ -69,31 +70,49 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
             await family.save();
 
             // 2. Generate tokens and invitation
-            const token = crypto.randomBytes(32).toString("hex");
-            const parentATrackingToken = crypto.randomUUID();
+            const dadToken = crypto.randomBytes(32).toString("hex");
+            const momToken = crypto.randomBytes(32).toString("hex");
+            const dadTrackingToken = crypto.randomUUID();
+            const momTrackingToken = crypto.randomUUID();
 
-            const invitation = new Invitation({
-                token,
-                email: parentEmail,
+            const dadInvitation = new Invitation({
+                token: dadToken,
+                email: dadEmail,
                 familyId: family._id.toString(),
-                targetRole: "parent_a",
-                createdByGender: (role || "dad").toLowerCase() as any, // "mom" or "dad"
+                targetRole: "dad",
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
                 status: "pending"
             });
-            await invitation.save();
+
+            const momInvitation = new Invitation({
+                token: momToken,
+                email: momEmail,
+                familyId: family._id.toString(),
+                targetRole: "mom",
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                status: "pending"
+            });
+
+            await Promise.all([dadInvitation.save(), momInvitation.save()]);
 
             // 3. Send email (async)
-            const { html } = await sendParentAInitiationEmail(parentEmail, token, familyName || (translate("common.familyDefault") as string), "pl", parentATrackingToken);
+            const [dadEmailResponse, momEmailResponse] = await Promise.all([
+                sendParentAInitiationEmail(dadEmail, dadToken, familyName || (translate("common.familyDefault") as string), "pl", dadTrackingToken),
+                sendParentAInitiationEmail(momEmail, momToken, familyName || (translate("common.familyDefault") as string), "pl", momTrackingToken)
+            ]);
 
             // 4. Create process record
             const regProcess = await repo.save({
                 familyId: family._id.toString(),
                 familyName: familyName || (translate("common.familyDefault") as string),
-                token,
-                parentATrackingToken,
-                parentAName: parentName,
-                parentAEmail: parentEmail,
+                dadToken,
+                momToken,
+                dadTrackingToken,
+                momTrackingToken,
+                dadEmail,
+                momEmail,
+                dadStatus: ParentRegistrationStatus.INVITATION_SENT,
+                momStatus: ParentRegistrationStatus.INVITATION_SENT,
                 status: RegistrationStatus.FLOW_STARTED,
                 timeline: [{
                     type: "FLOW_STARTED",
@@ -108,15 +127,15 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
             const result = toJSON(regProcess);
             const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
             if (isDev) {
-                result.previewHtml = html;
+                result.dadPreviewHtml = dadEmailResponse.html;
+                result.momPreviewHtml = momEmailResponse.html;
             }
             return result;
         }, {
             body: T.Object({
-                parentName: T.String(),
-                parentEmail: T.String(),
+                dadEmail: T.String(),
+                momEmail: T.String(),
                 familyName: T.Optional(T.String()),
-                role: T.String(), // mom/dad
             })
         })
         .get("/registrations/:id", async ({ params, set }) => {
@@ -130,14 +149,17 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
             const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 
             if (isDev && regProcess.familyId) {
-                // If in dev, try to find the Parent B invitation token
-                const invitation = await Invitation.findOne({
+                // If in dev, try to expose tokens from invitations just in case
+                const dadInv = await Invitation.findOne({
                     familyId: regProcess.familyId,
-                    targetRole: "parent_b"
+                    targetRole: "dad"
                 });
-                if (invitation) {
-                    result.parentBToken = invitation.token;
-                }
+                const momInv = await Invitation.findOne({
+                    familyId: regProcess.familyId,
+                    targetRole: "mom"
+                });
+                if (dadInv) result.dadToken = dadInv.token;
+                if (momInv) result.momToken = momInv.token;
             }
 
             return result;
@@ -180,7 +202,6 @@ export const createAdminController = (repo: MongoRegistrationProcessRepository) 
                 return (processObj.timeline || []).map((t: any) => ({
                     ...t,
                     processId: processObj._id,
-                    parentAName: processObj.parentAName
                 }));
             });
             return allLogs.sort((a, b) =>

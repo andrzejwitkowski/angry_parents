@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, mock, beforeAll } from 'bun:test';
 import { TimelineHistoryDialog } from './TimelineHistoryDialog';
 import type { TimelineItem } from '@/types/timeline.types';
@@ -73,11 +73,6 @@ const mockItem: TimelineItem = {
 };
 
 describe('TimelineHistoryDialog', () => {
-    beforeAll(() => {
-        // Setup i18n
-        i18n.init();
-    });
-
     it('renders child names instead of IDs in audit log', async () => {
         render(
             <I18nextProvider i18n={i18n}>
@@ -87,26 +82,23 @@ describe('TimelineHistoryDialog', () => {
 
         // Click to open dialog
         const trigger = screen.getByText('Open History');
-        trigger.click();
+
+        // Wrap in act to fix Dialog state update warning
+        fireEvent.click(trigger);
 
         // Wait for dialog to open and content to render
         await waitFor(() => {
             expect(screen.getByText('Alice')).toBeInTheDocument();
-        });
+        }, { timeout: 2000 });
 
         // Check if "Alice" is displayed for the update (childIds: ['child-1'])
-        // We might want to be more specific, but for now just checking presence is a good start.
-        // The previous implementation would show "child-1" or json array.
-        // We strictly want names to appear.
         expect(screen.getAllByText(/Alice/).length).toBeGreaterThan(0);
 
-        // Ensure IDs are NOT displayed (unless they happen to be names, which they aren't here)
+        // Ensure IDs are NOT displayed
         expect(screen.queryByText('child-1')).not.toBeInTheDocument();
         expect(screen.queryByText(/child-1/)).not.toBeInTheDocument();
 
         // Check for "No children assigned" text
-        // It might appear multiple times if the audit log has multiple entries with empty children, 
-        // or if the text is broken up. Using getAllByText is safer here.
         expect(screen.getAllByText('No children assigned').length).toBeGreaterThan(0);
     });
 });

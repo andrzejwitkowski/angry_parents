@@ -1,6 +1,34 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, jest } from 'bun:test';
+import { describe, it, expect, jest, mock } from 'bun:test';
 import { MedicalForm } from './MedicalForm';
+
+// Mock the API
+mock.module("@/lib/api/timeline", () => ({
+    timelineApi: {
+        create: jest.fn().mockResolvedValue({ id: "new-id" }),
+    },
+}));
+
+// Mock useChildren hook to avoid act() warnings from useEffect
+mock.module("@/hooks/useChildren", () => ({
+    useChildren: () => ({
+        children: [
+            { id: "child-1", name: "Child 1", color: "#FF0000" },
+            { id: "child-2", name: "Child 2", color: "#00FF00" },
+        ],
+        isLoading: false,
+        error: null,
+        getChildrenByIds: (ids: string[]) => [
+            { id: "child-1", name: "Child 1", color: "#FF0000" },
+            { id: "child-2", name: "Child 2", color: "#00FF00" },
+        ].filter(c => ids.includes(c.id)),
+        getChildById: (id: string) => [
+            { id: "child-1", name: "Child 1", color: "#FF0000" },
+            { id: "child-2", name: "Child 2", color: "#00FF00" },
+        ].find(c => c.id === id),
+        refresh: jest.fn(),
+    }),
+}));
 
 describe('MedicalForm', () => {
     it('renders correctly', () => {

@@ -135,26 +135,30 @@ const finalApp = app
                 const { RegistrationProcess, RegistrationStatus } = await import("./models/RegistrationProcess");
                 const process = await RegistrationProcess.findOne({
                     $or: [
-                        { parentATrackingToken: t },
-                        { parentBTrackingToken: t }
+                        { dadTrackingToken: t },
+                        { momTrackingToken: t }
                     ]
                 });
 
                 if (process) {
-                    const isParentA = process.parentATrackingToken === t;
-                    const openedAtField = isParentA ? "parentAOpenedAt" : "parentBOpenedAt";
+                    const isDad = process.dadTrackingToken === t;
+                    const openedAtField = isDad ? "dadOpenedAt" : "momOpenedAt";
 
                     if (!(process as any)[openedAtField]) {
                         (process as any)[openedAtField] = new Date();
-                        process.status = RegistrationStatus.EMAIL_READ;
+                        if (isDad) {
+                            process.dadStatus = "EMAIL_OPENED";
+                        } else {
+                            process.momStatus = "EMAIL_OPENED";
+                        }
                         process.timeline.push({
-                            type: RegistrationStatus.EMAIL_READ,
+                            type: "EMAIL_READ",
                             familyName: process.familyName || (translate("common.familyDefault") as string),
-                            message: isParentA ? translate("admin.log.email_read_parent_a") as string : translate("admin.log.email_read_parent_b") as string,
+                            message: translate("admin.log.email_read_parent_a") as string, // keeping same translation key for now
                             timestamp: new Date()
                         });
                         await process.save();
-                        console.log(`[Tracking] Email opened event logged for ${isParentA ? "Parent A" : "Parent B"} (Token: ${t})`);
+                        console.log(`[Tracking] Email opened event logged for ${isDad ? "Dad" : "Mom"} (Token: ${t})`);
                     }
                 }
             } catch (err) {

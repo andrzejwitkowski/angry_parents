@@ -26,7 +26,7 @@ describe("Auth Flow E2E", () => {
     test("Full Parent A Registration", async () => {
         const email = `parentA_${Date.now()}@test.com`;
 
-        const res = await apiA.post("/api/auth/mock-register-a", {
+        const res = await apiA.post("/api/auth/mock-register", {
             email,
             name: "Test Parent A",
             gender: "dad",
@@ -35,7 +35,7 @@ describe("Auth Flow E2E", () => {
         expect(res.status).toBe(200);
         const json = await res.json();
         expect(json.verified).toBe(true);
-        expect(json.role).toBe("parent_a");
+        expect(json.role).toBe("dad");
 
         const cookie = res.headers.get("Set-Cookie");
         expect(cookie).toContain("token=");
@@ -52,22 +52,26 @@ describe("Auth Flow E2E", () => {
         expect(inviteJson.link).toContain("/register?token=");
     });
 
-    test("Parent B cannot register with same gender", async () => {
-        const email = `parentB_same_${Date.now()}@test.com`;
+    test("Parent B is forced to opposite gender from invitation", async () => {
+        const email = `parentB_force_${Date.now()}@test.com`;
 
         const inviteRes = await apiA.post("/api/auth/invite", {
             email,
         });
         const inviteJson = await inviteRes.json();
 
-        const failRes = await apiB.post("/api/auth/mock-register-b", {
+        // apiA registered as "dad", so apiB invitation targetRole is "mom"
+        const okRes = await apiB.post("/api/auth/mock-register", {
+            email,
+            name: "Parent B Test",
             token: inviteJson.token,
-            gender: "dad",
+            gender: "dad", // trying to be dad again
         });
 
-        expect(failRes.status).toBe(400);
-        const failJson = await failRes.json();
-        expect(failJson.message).toContain("mamą");
+        expect(okRes.status).toBe(200);
+        const okJson = await okRes.json();
+        // Should be forced to "mom" because Parent A is already "dad" in this family
+        expect(okJson.role).toBe("mom");
     });
 
     test("Parent B can register with opposite gender", async () => {
@@ -78,7 +82,9 @@ describe("Auth Flow E2E", () => {
         });
         const inviteJson = await inviteRes.json();
 
-        const okRes = await apiB.post("/api/auth/mock-register-b", {
+        const okRes = await apiB.post("/api/auth/mock-register", {
+            email,
+            name: "Parent B Correct",
             token: inviteJson.token,
             gender: "mom",
         });
@@ -86,7 +92,7 @@ describe("Auth Flow E2E", () => {
         expect(okRes.status).toBe(200);
         const okJson = await okRes.json();
         expect(okJson.verified).toBe(true);
-        expect(okJson.role).toBe("parent_b");
+        expect(okJson.role).toBe("mom");
 
         const cookie = okRes.headers.get("Set-Cookie");
         expect(cookie).toContain("token=");

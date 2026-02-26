@@ -30,12 +30,15 @@ import { Link } from "react-router-dom";
 interface RegistrationProcess {
     _id: string;
     familyName: string;
-    parentAName: string;
-    parentAEmail: string;
+    dadName?: string;
+    dadEmail?: string;
+    momName?: string;
+    momEmail?: string;
     status: string;
     createdAt: string;
     updatedAt: string;
-    token?: string; // Parent A registration token
+    dadToken?: string; // Dad registration token
+    momToken?: string; // Mom registration token
 }
 
 const AdminPage: React.FC = () => {
@@ -45,12 +48,11 @@ const AdminPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState("");
 
     // Form state for new registration
-    const [parentName, setParentName] = useState("");
-    const [parentEmail, setParentEmail] = useState("");
+    const [dadEmail, setDadEmail] = useState("");
+    const [momEmail, setMomEmail] = useState("");
     const [familyName, setFamilyName] = useState("");
-    const [role, setRole] = useState("dad");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [lastInitiated, setLastInitiated] = useState<{ id: string, token: string, familyName: string, previewHtml?: string } | null>(null);
+    const [lastInitiated, setLastInitiated] = useState<{ id: string, dadToken: string, momToken: string, familyName: string, dadPreviewHtml?: string, momPreviewHtml?: string } | null>(null);
 
     useEffect(() => {
         fetchRegistrations();
@@ -77,19 +79,21 @@ const AdminPage: React.FC = () => {
             const response = await fetch("/api/admin/registrations/start", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ parentName, parentEmail, familyName, role }),
+                body: JSON.stringify({ dadEmail, momEmail, familyName }),
             });
             if (response.ok) {
                 const data = await response.json();
                 // Reset form and refresh list
-                setParentName("");
-                setParentEmail("");
+                setDadEmail("");
+                setMomEmail("");
                 setFamilyName("");
                 setLastInitiated({
                     id: data._id,
-                    token: data.token,
+                    dadToken: data.dadToken,
+                    momToken: data.momToken,
                     familyName: data.familyName || t('common.familyDefault'),
-                    previewHtml: data.previewHtml
+                    dadPreviewHtml: data.dadPreviewHtml,
+                    momPreviewHtml: data.momPreviewHtml
                 });
                 fetchRegistrations();
             }
@@ -102,8 +106,10 @@ const AdminPage: React.FC = () => {
 
     const filteredRegistrations = registrations.filter(reg =>
         reg.familyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        reg.parentAName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        reg.parentAEmail.toLowerCase().includes(searchQuery.toLowerCase())
+        (reg.dadName && reg.dadName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (reg.momName && reg.momName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (reg.dadEmail && reg.dadEmail.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (reg.momEmail && reg.momEmail.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
     const getStatusConfig = (status: string) => {
@@ -195,9 +201,9 @@ const AdminPage: React.FC = () => {
                                                             {reg.familyName}
                                                         </h3>
                                                         <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                                                            <span className="font-medium text-foreground/80">{reg.parentAName}</span>
+                                                            <span className="font-medium text-foreground/80">{reg.dadName || reg.momName || t('common.waiting')}</span>
                                                             <span>•</span>
-                                                            <span>{reg.parentAEmail}</span>
+                                                            <span>{reg.dadEmail || reg.momEmail}</span>
                                                         </div>
                                                     </div>
                                                     <Badge className={`bg-${getStatusConfig(reg.status).color}-500/10 text-${getStatusConfig(reg.status).color}-500 border-${getStatusConfig(reg.status).color}-500/20 px-3 py-1`}>
@@ -220,7 +226,7 @@ const AdminPage: React.FC = () => {
                                                             {t('common.updated')}: {formatDistanceToNow(new Date(reg.updatedAt), { addSuffix: true, locale: pl })}
                                                         </span>
                                                         <div className="flex items-center gap-3">
-                                                            {reg.token && (
+                                                            {reg.dadToken && (
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
@@ -228,12 +234,28 @@ const AdminPage: React.FC = () => {
                                                                     onClick={(e) => {
                                                                         e.preventDefault();
                                                                         e.stopPropagation();
-                                                                        const url = `${window.location.origin}/auth?token=${reg.token}`;
+                                                                        const url = `${window.location.origin}/auth?token=${reg.dadToken}`;
                                                                         navigator.clipboard.writeText(url);
                                                                     }}
                                                                 >
                                                                     <Mail className="w-3 h-3 mr-1" />
-                                                                    Kopiuj Link Rodzica A
+                                                                    Kopiuj Link Taty
+                                                                </Button>
+                                                            )}
+                                                            {reg.momToken && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 px-2 text-[10px] text-primary hover:bg-primary/10"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        const url = `${window.location.origin}/auth?token=${reg.momToken}`;
+                                                                        navigator.clipboard.writeText(url);
+                                                                    }}
+                                                                >
+                                                                    <Mail className="w-3 h-3 mr-1" />
+                                                                    Kopiuj Link Mamy
                                                                 </Button>
                                                             )}
                                                             <div className="flex items-center gap-1 text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
@@ -270,22 +292,23 @@ const AdminPage: React.FC = () => {
                         <CardContent>
                             <form onSubmit={handleStartRegistration} className="space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-semibold ml-1">{t('admin.parentName')}</label>
+                                    <label className="text-sm font-semibold ml-1">E-mail Taty</label>
                                     <Input
-                                        placeholder="np. Jan Kowalski"
-                                        value={parentName}
-                                        onChange={(e) => setParentName(e.target.value)}
+                                        type="email"
+                                        placeholder="tata@example.com"
+                                        value={dadEmail}
+                                        onChange={(e) => setDadEmail(e.target.value)}
                                         required
                                         className="bg-background/50 focus:bg-background"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-semibold ml-1">{t('admin.parentEmail')}</label>
+                                    <label className="text-sm font-semibold ml-1">E-mail Mamy</label>
                                     <Input
                                         type="email"
-                                        placeholder="jan@example.com"
-                                        value={parentEmail}
-                                        onChange={(e) => setParentEmail(e.target.value)}
+                                        placeholder="mama@example.com"
+                                        value={momEmail}
+                                        onChange={(e) => setMomEmail(e.target.value)}
                                         required
                                         className="bg-background/50 focus:bg-background"
                                     />
@@ -298,27 +321,6 @@ const AdminPage: React.FC = () => {
                                         onChange={(e) => setFamilyName(e.target.value)}
                                         className="bg-background/50 focus:bg-background"
                                     />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-semibold ml-1">{t('auth.gender')}</label>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            type="button"
-                                            variant={role === "dad" ? "default" : "outline"}
-                                            className="flex-1"
-                                            onClick={() => setRole("dad")}
-                                        >
-                                            {t('auth.dad')}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant={role === "mom" ? "default" : "outline"}
-                                            className="flex-1"
-                                            onClick={() => setRole("mom")}
-                                        >
-                                            {t('auth.mom')}
-                                        </Button>
-                                    </div>
                                 </div>
                                 <Button
                                     type="submit"
@@ -342,7 +344,7 @@ const AdminPage: React.FC = () => {
                             <CardHeader className="pb-3 flex flex-row items-center justify-between">
                                 <div className="flex items-center gap-2 text-green-700">
                                     <CheckCircle2 className="w-5 h-5" />
-                                    <CardTitle className="text-base font-bold">Inicjacja zakończona sukcesem!</CardTitle>
+                                    <CardTitle className="text-base font-bold">{t('admin.success.title')}</CardTitle>
                                 </div>
                                 <Button
                                     variant="ghost"
@@ -355,30 +357,30 @@ const AdminPage: React.FC = () => {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <p className="text-sm text-green-800">
-                                    Proces dla rodziny <strong className="font-bold">{lastInitiated.familyName}</strong> został utworzony.
+                                    {t('admin.success.body', { familyName: lastInitiated.familyName })}
                                 </p>
 
                                 <div className="space-y-2 pt-2 border-t border-green-500/20">
                                     <Label className="text-xs font-bold text-green-800 uppercase tracking-wider flex items-center justify-between">
-                                        PODGLĄD WIADOMOŚCI E-MAIL DO RODZICA A:
+                                        {t('admin.success.sendDad')}
                                         <Button
                                             size="sm"
                                             className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
                                             onClick={() => {
-                                                const url = `${window.location.origin}/auth?token=${lastInitiated.token}`;
+                                                const url = `${window.location.origin}/auth?token=${lastInitiated.dadToken}`;
                                                 window.open(url, '_blank');
                                             }}
                                         >
-                                            Otwórz Link
+                                            {t('admin.success.openLink')}
                                         </Button>
                                     </Label>
 
-                                    {lastInitiated.previewHtml ? (
-                                        <div className="border border-green-500/30 rounded-md overflow-hidden bg-white shadow-inner h-[400px]">
+                                    {lastInitiated.dadPreviewHtml ? (
+                                        <div className="border border-green-500/30 rounded-md overflow-hidden bg-white shadow-inner h-[200px]">
                                             <iframe
-                                                srcDoc={lastInitiated.previewHtml}
+                                                srcDoc={lastInitiated.dadPreviewHtml}
                                                 className="w-full h-full border-0"
-                                                title="Email Preview"
+                                                title="Dad Email Preview"
                                                 sandbox="allow-same-origin"
                                             />
                                         </div>
@@ -386,7 +388,7 @@ const AdminPage: React.FC = () => {
                                         <div className="flex gap-2 items-center">
                                             <Input
                                                 readOnly
-                                                value={`${window.location.origin}/auth?token=${lastInitiated.token}`}
+                                                value={`${window.location.origin}/auth?token=${lastInitiated.dadToken}`}
                                                 className="bg-white/50 border-green-500/30 text-xs font-mono"
                                             />
                                             <Button
@@ -394,7 +396,52 @@ const AdminPage: React.FC = () => {
                                                 size="icon"
                                                 className="shrink-0 bg-white hover:bg-green-50"
                                                 onClick={() => {
-                                                    const url = `${window.location.origin}/auth?token=${lastInitiated.token}`;
+                                                    const url = `${window.location.origin}/auth?token=${lastInitiated.dadToken}`;
+                                                    navigator.clipboard.writeText(url);
+                                                }}
+                                            >
+                                                <Mail className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="space-y-2 pt-2 border-t border-green-500/20">
+                                    <Label className="text-xs font-bold text-green-800 uppercase tracking-wider flex items-center justify-between">
+                                        {t('admin.success.sendMom')}
+                                        <Button
+                                            size="sm"
+                                            className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                            onClick={() => {
+                                                const url = `${window.location.origin}/auth?token=${lastInitiated.momToken}`;
+                                                window.open(url, '_blank');
+                                            }}
+                                        >
+                                            {t('admin.success.openLink')}
+                                        </Button>
+                                    </Label>
+
+                                    {lastInitiated.momPreviewHtml ? (
+                                        <div className="border border-green-500/30 rounded-md overflow-hidden bg-white shadow-inner h-[200px]">
+                                            <iframe
+                                                srcDoc={lastInitiated.momPreviewHtml}
+                                                className="w-full h-full border-0"
+                                                title="Mom Email Preview"
+                                                sandbox="allow-same-origin"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2 items-center">
+                                            <Input
+                                                readOnly
+                                                value={`${window.location.origin}/auth?token=${lastInitiated.momToken}`}
+                                                className="bg-white/50 border-green-500/30 text-xs font-mono"
+                                            />
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="shrink-0 bg-white hover:bg-green-50"
+                                                onClick={() => {
+                                                    const url = `${window.location.origin}/auth?token=${lastInitiated.momToken}`;
                                                     navigator.clipboard.writeText(url);
                                                 }}
                                             >

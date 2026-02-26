@@ -19,7 +19,7 @@ import {
     UserPlus,
     HelpCircle
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,15 +37,15 @@ interface TimelineEvent {
 interface RegistrationDetails {
     _id: string;
     familyName: string;
-    parentAName: string;
-    parentAEmail: string;
-    parentBName?: string;
-    parentBEmail?: string;
+    dadName?: string;
+    dadEmail?: string;
+    momName?: string;
+    momEmail?: string;
     status: string;
     adminNotes: string;
     timeline: TimelineEvent[];
-    token?: string; // Parent A token
-    parentBToken?: string; // Parent B token (populated in dev)
+    dadToken?: string;
+    momToken?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -236,21 +236,40 @@ const AdminRegistrationDetails: React.FC = () => {
 
                     {/* Information Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card className="border-border/50 shadow-sm">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
-                                    <User className="w-4 h-4" />
-                                    {t('admin.parentName')}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-xl font-extrabold">{registration.parentAName}</p>
-                                <div className="flex items-center gap-2 mt-2 text-sm text-primary font-medium">
-                                    <Mail className="w-3.5 h-3.5" />
-                                    {registration.parentAEmail}
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {registration.dadEmail && (
+                            <Card className="border-border/50 shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                                        <User className="w-4 h-4" />
+                                        Tata
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-xl font-extrabold">{registration.dadName || t('common.waiting')}</p>
+                                    <div className="flex items-center gap-2 mt-2 text-sm text-primary font-medium">
+                                        <Mail className="w-3.5 h-3.5" />
+                                        {registration.dadEmail}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                        {registration.momEmail && (
+                            <Card className="border-border/50 shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                                        <User className="w-4 h-4" />
+                                        Mama
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-xl font-extrabold">{registration.momName || t('common.waiting')}</p>
+                                    <div className="flex items-center gap-2 mt-2 text-sm text-primary font-medium">
+                                        <Mail className="w-3.5 h-3.5" />
+                                        {registration.momEmail}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                         <Card className="border-border/50 shadow-sm">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
@@ -346,29 +365,8 @@ const AdminRegistrationDetails: React.FC = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Secondary Parent Info (if exists) */}
-                    {registration.parentBEmail && (
-                        <Card className="border-border/50 shadow-sm bg-primary/5">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary/80 uppercase tracking-wider">
-                                    <UserPlus className="w-4 h-4" />
-                                    {t('admin.parentB')}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <div>
-                                    <p className="text-base font-bold">{registration.parentBName || t('common.waiting')}</p>
-                                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                                        <Mail className="w-3 h-3" />
-                                        {registration.parentBEmail}
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
                     {/* Developer Tools (Dev only) */}
-                    {(registration.token || registration.parentBToken) && (
+                    {(registration.dadToken || registration.momToken) && (
                         <Card className="border-purple-200 bg-purple-50/30 overflow-hidden">
                             <CardHeader className="pb-3 bg-purple-100/50">
                                 <CardTitle className="text-sm font-bold flex items-center gap-2 text-purple-700 uppercase tracking-wider">
@@ -377,16 +375,16 @@ const AdminRegistrationDetails: React.FC = () => {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-4 space-y-4">
-                                {registration.token && (
+                                {registration.dadToken && (
                                     <div className="space-y-2">
-                                        <p className="text-[10px] font-bold text-purple-600 uppercase">Rejestracja Rodzica A:</p>
+                                        <p className="text-[10px] font-bold text-purple-600 uppercase">Rejestracja Taty:</p>
                                         <div className="flex gap-2">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 className="flex-1 bg-white"
                                                 onClick={() => {
-                                                    const url = `${window.location.origin}/auth?token=${registration.token}`;
+                                                    const url = `${window.location.origin}/auth?token=${registration.dadToken}`;
                                                     window.open(url, '_blank');
                                                 }}
                                             >
@@ -397,7 +395,7 @@ const AdminRegistrationDetails: React.FC = () => {
                                                 size="sm"
                                                 className="bg-white"
                                                 onClick={() => {
-                                                    const url = `${window.location.origin}/auth?token=${registration.token}`;
+                                                    const url = `${window.location.origin}/auth?token=${registration.dadToken}`;
                                                     navigator.clipboard.writeText(url);
                                                 }}
                                             >
@@ -407,16 +405,16 @@ const AdminRegistrationDetails: React.FC = () => {
                                     </div>
                                 )}
 
-                                {registration.parentBToken && (
+                                {registration.momToken && (
                                     <div className="space-y-2">
-                                        <p className="text-[10px] font-bold text-purple-600 uppercase">Rejestracja Rodzica B:</p>
+                                        <p className="text-[10px] font-bold text-purple-600 uppercase">Rejestracja Mamy:</p>
                                         <div className="flex gap-2">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 className="flex-1 bg-white"
                                                 onClick={() => {
-                                                    const url = `${window.location.origin}/register?token=${registration.parentBToken}`;
+                                                    const url = `${window.location.origin}/auth?token=${registration.momToken}`;
                                                     window.open(url, '_blank');
                                                 }}
                                             >
@@ -427,7 +425,7 @@ const AdminRegistrationDetails: React.FC = () => {
                                                 size="sm"
                                                 className="bg-white"
                                                 onClick={() => {
-                                                    const url = `${window.location.origin}/register?token=${registration.parentBToken}`;
+                                                    const url = `${window.location.origin}/auth?token=${registration.momToken}`;
                                                     navigator.clipboard.writeText(url);
                                                 }}
                                             >
