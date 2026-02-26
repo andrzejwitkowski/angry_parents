@@ -1,16 +1,6 @@
 describe('Schedule Propagation', () => {
     beforeEach(() => {
-        cy.visit('/auth');
-        const uid = Date.now();
-        cy.contains('Register').click();
-        cy.get('input#reg-name').type('Prop User');
-        cy.get('input#reg-username').type('prop' + uid);
-        cy.get('input#reg-email').type(`prop${uid}@ex.com`);
-        cy.get('input#reg-password').type('password123');
-        cy.get('button[type="submit"]').click();
-        cy.location('pathname', { timeout: 10000 }).should('eq', '/setup-passkey');
-        cy.contains('Dev: Simulate Key').click();
-        cy.location('pathname', { timeout: 10000 }).should('eq', '/dashboard');
+        cy.request('POST', 'http://localhost:3000/api/auth/mock-login'); cy.visit('/dashboard');
         // --- INJECTED: CREATE CHILD BEFORE TESTS ---
         cy.contains('Manage Children').click();
         cy.get('input#name').type('Test Child');

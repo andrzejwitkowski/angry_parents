@@ -26,7 +26,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
-import { RegistrationStatus, REGISTRATION_STATUS_ORDER, REGISTRATION_STATUS_CONFIG } from "@/types/registration";
+import {
+    RegistrationStatus,
+    REGISTRATION_STATUS_ORDER,
+    REGISTRATION_STATUS_CONFIG,
+    ParentRegistrationStatus,
+    PARENT_REGISTRATION_STATUS_ORDER,
+    PARENT_REGISTRATION_STATUS_CONFIG
+} from "@/types/registration";
 
 interface TimelineEvent {
     type: string;
@@ -42,6 +49,8 @@ interface RegistrationDetails {
     momName?: string;
     momEmail?: string;
     status: string;
+    dadStatus: ParentRegistrationStatus;
+    momStatus: ParentRegistrationStatus;
     adminNotes: string;
     timeline: TimelineEvent[];
     dadToken?: string;
@@ -147,6 +156,75 @@ const AdminRegistrationDetails: React.FC = () => {
         return <IconComponent className={className} />;
     };
 
+    const ParentFlowTracker = ({ title, status, email, name }: { title: string, status?: ParentRegistrationStatus, email?: string, name?: string }) => {
+        const fallBackStatus = ParentRegistrationStatus.INVITATION_SENT;
+        const currentStatus = status || fallBackStatus;
+        const currentConfig = PARENT_REGISTRATION_STATUS_CONFIG[currentStatus] || { color: "gray", icon: "HelpCircle" };
+        const currentIndex = PARENT_REGISTRATION_STATUS_ORDER.indexOf(currentStatus);
+        const progressPercent = currentIndex === -1 ? 0 : (currentIndex / (PARENT_REGISTRATION_STATUS_ORDER.length - 1)) * 100;
+
+        return (
+            <Card className="border-border/50 shadow-sm relative overflow-hidden flex flex-col">
+                <div className={`absolute top-0 left-0 w-1 h-full bg-${currentConfig.color}-500`} />
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
+                        <div className="flex items-center gap-2">
+                            <User className="w-4 h-4" />
+                            {title}
+                        </div>
+                        <Badge className={`bg-${currentConfig.color}-500/10 text-${currentConfig.color}-500 border-${currentConfig.color}-500/20 px-3 py-1 text-xs`}>
+                            {t(`admin.status.${currentStatus}`)}
+                        </Badge>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col justify-between">
+                    <div>
+                        <p className="text-xl font-extrabold">{name || t('common.waiting')}</p>
+                        <div className="flex items-center gap-2 mt-1 text-sm text-primary font-medium">
+                            <Mail className="w-3.5 h-3.5" />
+                            {email || t('common.waiting')}
+                        </div>
+                    </div>
+
+                    <div className="relative mt-8 mb-6">
+                        {/* The line that connects the steps */}
+                        <div className="absolute top-5 left-0 w-full h-1 bg-secondary rounded-full -translate-y-1/2 mt-0.5" />
+                        <div
+                            className={`absolute top-5 left-0 h-1 bg-${currentConfig.color}-500 rounded-full transition-all duration-1000 -translate-y-1/2 mt-0.5`}
+                            style={{ width: `${progressPercent}%` }}
+                        />
+                        <div className="relative flex justify-between items-center z-10">
+                            {PARENT_REGISTRATION_STATUS_ORDER.map((stepStatus, idx) => {
+                                const isPast = currentIndex >= idx;
+                                const isCurrent = currentStatus === stepStatus;
+                                const config = PARENT_REGISTRATION_STATUS_CONFIG[stepStatus] || { color: "gray", icon: "Circle" };
+
+                                return (
+                                    <div key={stepStatus} className="flex flex-col items-center relative w-10">
+                                        <div className={`
+                                            w-10 h-10 rounded-full flex items-center justify-center 
+                                            transition-all duration-300 border-4 border-background mx-auto
+                                            ${isCurrent ? `bg-${config.color}-500 text-white shadow-md scale-110` :
+                                                isPast ? `bg-${config.color}-500 text-white` : 'bg-secondary text-muted-foreground'}
+                                        `}>
+                                            <StatusIcon status={stepStatus} className="w-5 h-5" />
+                                        </div>
+                                        <span className={`
+                                            absolute top-12 mt-1 text-[9px] font-bold uppercase tracking-wider text-center w-24 left-1/2 -translate-x-1/2
+                                            ${isCurrent || isPast ? 'text-foreground' : 'text-muted-foreground opacity-50'}
+                                        `}>
+                                            {t(`admin.status.${stepStatus}`)}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    };
+
     return (
         <div className="p-8 max-w-6xl mx-auto space-y-6">
             <div className="flex items-center gap-4 mb-2">
@@ -178,114 +256,45 @@ const AdminRegistrationDetails: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Info Column */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Status Tracker */}
+                    {/* Parent Trackers */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <ParentFlowTracker
+                            title="TATA"
+                            status={registration.dadStatus}
+                            email={registration.dadEmail}
+                            name={registration.dadName}
+                        />
+                        <ParentFlowTracker
+                            title="MAMA"
+                            status={registration.momStatus}
+                            email={registration.momEmail}
+                            name={registration.momName}
+                        />
+                    </div>
+
+                    {/* Family Info */}
                     <Card className="border-border/50 shadow-sm relative overflow-hidden">
                         <div className={`absolute top-0 left-0 w-1 h-full bg-${currentStatusConfig.color}-500`} />
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Activity className="w-5 h-5 text-primary" />
-                                    {t('admin.flow_status')}
-                                </div>
-                                <Badge className={`bg-${currentStatusConfig.color}-500/10 text-${currentStatusConfig.color}-500 border-${currentStatusConfig.color}-500/20 px-4 py-1.5 text-sm`}>
-                                    <div className="flex items-center gap-2">
-                                        <StatusIcon status={registration.status} className="w-4 h-4" />
-                                        {t(`admin.status.${registration.status}`)}
-                                    </div>
-                                </Badge>
+                        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                                <Calendar className="w-4 h-4" />
+                                {t('admin.familyName')}
                             </CardTitle>
+                            <Badge className={`bg-${currentStatusConfig.color}-500/10 text-${currentStatusConfig.color}-500 border-${currentStatusConfig.color}-500/20 px-4 py-1.5 text-sm`}>
+                                <div className="flex items-center gap-2">
+                                    <StatusIcon status={registration.status} className="w-4 h-4" />
+                                    {t(`admin.status.${registration.status}`)}
+                                </div>
+                            </Badge>
                         </CardHeader>
                         <CardContent>
-                            <div className="relative pt-8 pb-4">
-                                <div className="absolute top-1/2 left-0 w-full h-1 bg-secondary -translate-y-1/2 rounded-full" />
-                                <div
-                                    className={`absolute top-1/2 left-0 h-1 bg-${currentStatusConfig.color}-500 -translate-y-1/2 rounded-full transition-all duration-1000`}
-                                    style={{
-                                        width: `${((REGISTRATION_STATUS_ORDER.indexOf(registration.status as RegistrationStatus) + 1) / REGISTRATION_STATUS_ORDER.length) * 100}%`
-                                    }}
-                                />
-                                <div className="relative flex justify-between items-center">
-                                    {REGISTRATION_STATUS_ORDER.map((s, idx) => {
-                                        const isPast = REGISTRATION_STATUS_ORDER.indexOf(registration.status as RegistrationStatus) >= idx;
-                                        const isCurrent = registration.status === s;
-                                        const config = REGISTRATION_STATUS_CONFIG[s] || { color: "gray", icon: "Circle" };
-
-                                        return (
-                                            <div key={s} className="flex flex-col items-center group">
-                                                <div className={`
-                                                    w-10 h-10 rounded-full flex items-center justify-center z-10 
-                                                    transition-all duration-300 border-4 border-background
-                                                    ${isCurrent ? `bg-${config.color}-500 text-white scale-125 shadow-lg` :
-                                                        isPast ? `bg-${config.color}-500/80 text-white` : 'bg-secondary text-muted-foreground'}
-                                                `}>
-                                                    <StatusIcon status={s} className="w-5 h-5" />
-                                                </div>
-                                                <span className={`
-                                                    absolute top-12 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap
-                                                    ${isCurrent || isPast ? 'text-foreground' : 'text-muted-foreground opacity-50'}
-                                                `}>
-                                                    {t(`admin.status.${s}`).split(' ')[0]}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                            <p className="text-2xl font-extrabold truncate">{registration.familyName}</p>
+                            <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                                <Clock className="w-3.5 h-3.5" />
+                                {t('common.created')}: {format(new Date(registration.createdAt), "dd.MM.yyyy HH:mm", { locale: pl })}
                             </div>
                         </CardContent>
                     </Card>
-
-                    {/* Information Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {registration.dadEmail && (
-                            <Card className="border-border/50 shadow-sm">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
-                                        <User className="w-4 h-4" />
-                                        Tata
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xl font-extrabold">{registration.dadName || t('common.waiting')}</p>
-                                    <div className="flex items-center gap-2 mt-2 text-sm text-primary font-medium">
-                                        <Mail className="w-3.5 h-3.5" />
-                                        {registration.dadEmail}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-                        {registration.momEmail && (
-                            <Card className="border-border/50 shadow-sm">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
-                                        <User className="w-4 h-4" />
-                                        Mama
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xl font-extrabold">{registration.momName || t('common.waiting')}</p>
-                                    <div className="flex items-center gap-2 mt-2 text-sm text-primary font-medium">
-                                        <Mail className="w-3.5 h-3.5" />
-                                        {registration.momEmail}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-                        <Card className="border-border/50 shadow-sm">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
-                                    <Calendar className="w-4 h-4" />
-                                    {t('admin.familyName')}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-xl font-extrabold truncate">{registration.familyName}</p>
-                                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    {t('common.created')}: {format(new Date(registration.createdAt), "dd.MM.yyyy HH:mm", { locale: pl })}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
 
                     {/* Timeline */}
                     <Card className="border-border/50 shadow-sm">

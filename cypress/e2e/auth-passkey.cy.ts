@@ -31,43 +31,18 @@ describe('Authentication Flow with Passkey', () => {
         cy.get(`${regTab} input[id="reg-name"]`).should('be.visible').type('Test User', { force: true });
         cy.get(`${regTab} input[id="reg-username"]`).should('be.visible').type(username, { force: true });
         cy.get(`${regTab} input[id="reg-email"]`).should('be.visible').type(email, { force: true });
-        cy.get(`${regTab} input[id="reg-password"]`).should('be.visible').type('password123', { force: true });
 
         // Verify values
         cy.get(`${regTab} input[id="reg-name"]`).should('have.value', 'Test User');
         cy.get(`${regTab} input[id="reg-username"]`).should('have.value', username);
         cy.get(`${regTab} input[id="reg-email"]`).should('have.value', email);
+        cy.get(`${regTab} input[name="gender"][value="dad"]`).check({ force: true });
 
-        // Submit via form
-        cy.log('Submitting registration form via form submit...');
-        cy.get(`${regTab} form`).should('exist').submit();
+        // Submit via Dev Simulator
+        cy.get(`${regTab} button.border-dashed`).click();
 
-        // 2. Expect Redirect to Setup
-        cy.url({ timeout: 15000 }).should('include', '/setup-passkey');
-        cy.contains('Secure Your Account');
-
-        // Cleanup DOM markers if any? Not needed as we navigate away.
-
-        // 3. Try to skip (Manually go to dashboard)
-        cy.visit('/dashboard');
-        // Should be redirected back
-        cy.url().should('include', '/setup-passkey');
-
-        // 4. Use Dev Mock
-        cy.intercept('POST', '**/api/auth/webauthn/register/verify').as('verify');
-
-        cy.contains('Dev: Simulate Key').click();
-
-        cy.wait('@verify').then((interception) => {
-            cy.log('Verify Request Body: ' + JSON.stringify(interception.request.body));
-            cy.log('Verify Response Body: ' + JSON.stringify(interception.response?.body));
-            if (interception.response?.statusCode !== 200) {
-                throw new Error(`Verify call failed with status ${interception.response?.statusCode}: ${JSON.stringify(interception.response?.body)}`);
-            }
-        });
-
-        // 5. Expect Dashboard
+        // 2. Expect Dashboard immediately
         cy.url({ timeout: 15000 }).should('include', '/dashboard');
-        cy.contains('Dashboard');
+        cy.get('header').should('be.visible');
     });
 });

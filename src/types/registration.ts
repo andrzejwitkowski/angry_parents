@@ -28,3 +28,23 @@ export const REGISTRATION_STATUS_CONFIG: Record<RegistrationStatus, { color: str
     [RegistrationStatus.PARENT_B_REGISTERED]: { color: "pink", icon: "UserPlus" },
     [RegistrationStatus.COMPLETED]: { color: "green", icon: "CheckCircle2" },
 };
+
+export const ParentRegistrationStatus = {
+    INVITATION_SENT: "INVITATION_SENT",
+    EMAIL_OPENED: "EMAIL_OPENED",
+    REGISTERED: "REGISTERED",
+} as const;
+
+export type ParentRegistrationStatus = typeof ParentRegistrationStatus[keyof typeof ParentRegistrationStatus];
+
+export const PARENT_REGISTRATION_STATUS_ORDER: ParentRegistrationStatus[] = [
+    ParentRegistrationStatus.INVITATION_SENT,
+    ParentRegistrationStatus.EMAIL_OPENED,
+    ParentRegistrationStatus.REGISTERED,
+];
+
+export const PARENT_REGISTRATION_STATUS_CONFIG: Record<ParentRegistrationStatus, { color: string; icon: string }> = {
+    [ParentRegistrationStatus.INVITATION_SENT]: { color: "purple", icon: "Mail" },
+    [ParentRegistrationStatus.EMAIL_OPENED]: { color: "cyan", icon: "MailOpen" },
+    [ParentRegistrationStatus.REGISTERED]: { color: "green", icon: "CheckCircle2" },
+};

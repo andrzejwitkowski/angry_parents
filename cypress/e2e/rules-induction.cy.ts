@@ -12,25 +12,7 @@ describe('Rule Engine - Visual Induction Proof (N+1)', () => {
 
     beforeEach(() => {
         // Register New User (Fresh DB)
-        cy.visit('/auth');
-        cy.contains('Register').click(); // Switch Tab
-        cy.get('input#reg-name').type('Test User');
-        cy.get('input#reg-username').type('testuser' + Date.now());
-        cy.get('input#reg-email').type(`test${Date.now()}@example.com`);
-        cy.get('input#reg-password').type('password123');
-        cy.get('button[type="submit"]').click();
-
-        // Debug: Check for error message
-        cy.get('body').then($body => {
-            if ($body.find('.text-destructive').length > 0) {
-                cy.log('Registration Error:', $body.find('.text-destructive').text());
-            }
-        });
-
-        // Wait for dashboard with longer timeout
-        cy.location('pathname', { timeout: 10000 }).should('eq', '/setup-passkey');
-        cy.contains('Dev: Simulate Key').click();
-        cy.location('pathname', { timeout: 10000 }).should('eq', '/dashboard');
+        cy.request('POST', 'http://localhost:3000/api/auth/mock-login'); cy.visit('/dashboard');
         // --- INJECTED: CREATE CHILD BEFORE TESTS ---
         cy.contains('Manage Children').click();
         cy.get('input#name').type('Test Child');

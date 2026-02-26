@@ -1,16 +1,6 @@
 describe('Dashboard Flow', () => {
     beforeEach(() => {
-        cy.visit('/auth');
-        cy.contains('button', 'Register').click();
-        const id = Date.now();
-        cy.get('#reg-name').type('Dashboard Tester');
-        cy.get('#reg-username').type(`dbtester_${id}`);
-        cy.get('#reg-email').type(`db_${id}@example.com`);
-        cy.get('#reg-password').type('Password123!');
-        cy.get('button[type="submit"]').click();
-        cy.url({ timeout: 15000 }).should('include', '/setup-passkey');
-        cy.contains('Dev: Simulate Key').click();
-        cy.url({ timeout: 15000 }).should('include', '/dashboard');
+        cy.request('POST', 'http://localhost:3000/api/auth/mock-login'); cy.visit('/dashboard');
     });
 
     it('should toggle the sidebar', () => {

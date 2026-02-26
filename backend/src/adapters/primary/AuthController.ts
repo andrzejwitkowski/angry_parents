@@ -272,7 +272,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         regProcess.status = RegistrationStatus.COMPLETED;
                         regProcess.timeline.push({
                             type: RegistrationStatus.COMPLETED,
-                            message: translate("admin.log.force_completed_by_admin") as string,
+                            message: translate("admin.log.registration_completed") as string,
                             timestamp: new Date()
                         });
                     }
@@ -331,6 +331,21 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 const finalUserId = userId || new mongoose.Types.ObjectId().toString();
                 const finalFamilyId = new mongoose.Types.ObjectId().toString();
                 console.log(`[Login] Mock login for userId: ${finalUserId}`);
+
+                // MOCK IN DB
+                try {
+                    const family = new Family({
+                        _id: finalFamilyId,
+                        name: "Mock Family",
+                        parentIds: [finalUserId],
+                        children: [],
+                        custodyPatterns: [],
+                    });
+                    await family.save();
+                } catch (e) {
+                    console.log("[Login] Mock DB Insert error", e);
+                }
+
                 const token = await signJwt({
                     userId: finalUserId,
                     familyId: finalFamilyId,
@@ -398,31 +413,76 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             console.log("[MockReg] hit", body);
             const { email, name, gender, token } = body as { email: string, name: string, gender: Gender, token?: string };
 
-            if (!token) {
-                set.status = 400;
-                return { message: "Registration token is required" };
+            let familyIdToUse: string;
+            let finalGender = gender;
+            let finalEmail = email;
+
+            if (token) {
+                const invitation = await Invitation.findOne({ token, status: "pending" });
+                if (!invitation) {
+                    set.status = 400;
+                    return { message: "Invalid or expired invitation token" };
+                }
+                familyIdToUse = invitation.familyId.toString();
+                finalGender = invitation.targetRole as Gender;
+                finalEmail = invitation.email || email;
+
+                invitation.status = "accepted";
+                await invitation.save();
+            } else {
+                const newFamily = await Family.create({ parentIds: [] });
+                familyIdToUse = newFamily._id.toString();
             }
 
-            const res = await (globalThis as any).app.handle(new Request("http://localhost/api/auth/register/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    tempEmail: email,
-                    tempName: name,
-                    tempGender: gender,
-                    mock: true,
-                    token
-                })
-            }));
-
-            const json = await res.json();
-            if (res.status !== 200) {
-                set.status = res.status;
-                return json;
+            const userId = new mongoose.Types.ObjectId().toString();
+            const family = await Family.findById(familyIdToUse);
+            if (family && !family.parentIds.includes(userId)) {
+                family.parentIds.push(userId);
+                await family.save();
             }
 
-            set.headers["Set-Cookie"] = res.headers.get("Set-Cookie");
-            return json;
+            // Update RegistrationProcess if one exists for this family (token-based flow)
+            if (token) {
+                const regProcess = await registrationRepo.findByFamilyId(familyIdToUse);
+                if (regProcess) {
+                    if (finalGender === "dad") {
+                        regProcess.dadStatus = ParentRegistrationStatus.REGISTERED;
+                        regProcess.dadRegisteredAt = new Date();
+                    } else {
+                        regProcess.momStatus = ParentRegistrationStatus.REGISTERED;
+                        regProcess.momRegisteredAt = new Date();
+                    }
+
+                    if (regProcess.dadStatus === ParentRegistrationStatus.REGISTERED && regProcess.momStatus === ParentRegistrationStatus.REGISTERED) {
+                        regProcess.status = RegistrationStatus.COMPLETED;
+                        regProcess.timeline.push({
+                            type: RegistrationStatus.COMPLETED,
+                            message: translate("admin.log.registration_completed") as string,
+                            timestamp: new Date()
+                        });
+                    }
+
+                    regProcess.timeline.push({
+                        type: "PARENT_REGISTERED",
+                        message: translate("admin.log.parent_a_registered", { email: finalEmail }) as string,
+                        timestamp: new Date()
+                    });
+                    await registrationRepo.save(regProcess);
+                }
+            }
+
+            const jwtToken = await signJwt({
+                userId,
+                email: finalEmail,
+                role: finalGender,
+                gender: finalGender,
+                familyId: familyIdToUse
+            });
+
+            set.headers["Set-Cookie"] = setCookie(jwtToken);
+            set.headers["Content-Type"] = "application/json";
+
+            return { verified: true, role: finalGender };
         })
         .post("/mock-login", async ({ body, set }) => {
             const isDev = process.env.NODE_ENV !== "production";
@@ -431,25 +491,34 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 return { message: "Dev endpoint only" };
             }
 
-            const mockBody = {
-                mockLogin: true,
-                userId: (body as { userId?: string }).userId,
-            };
+            const mockBody = (body || {}) as { userId?: string };
+            const finalUserId = mockBody.userId || new mongoose.Types.ObjectId().toString();
+            const finalFamilyId = new mongoose.Types.ObjectId().toString();
 
-            // Use dynamic port so this works under any test runner (port 3000 locally, 3002 in npm run test)
-            const selfPort = process.env.PORT || "3000";
-            const res = await fetch(`http://127.0.0.1:${selfPort}/api/auth/login/verify`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(mockBody),
+            // MOCK IN DB
+            try {
+                const family = new Family({
+                    _id: finalFamilyId,
+                    name: "Mock Family",
+                    parentIds: [finalUserId],
+                    children: [],
+                    custodyPatterns: [],
+                });
+                await family.save();
+            } catch (e) {
+                console.log("[Login] Mock DB Insert error", e);
+            }
+
+            const token = await signJwt({
+                userId: finalUserId,
+                familyId: finalFamilyId,
+                role: "dad",
+                gender: "dad",
             });
-
-            const json = await res.json();
-            console.log(`[MockLogin] Status: ${res.status}, Body:`, json);
-            const cookie = res.headers.get("Set-Cookie") || "";
-            set.headers["Set-Cookie"] = cookie;
-            set.status = res.status;
-            return json;
+            console.log(`[MockLogin] Mock login for userId: ${finalUserId}`);
+            set.headers["Set-Cookie"] = setCookie(token);
+            set.headers["Content-Type"] = "application/json";
+            return { verified: true };
         })
         .all("/*", async ({ request }) => {
             console.log(`[BetterAuth Fallback] Hit for ${request.url}`);

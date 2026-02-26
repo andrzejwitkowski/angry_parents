@@ -69,7 +69,10 @@ export async function sendInvitationEmail(
     const imageUrl = trackingToken ? `${imageBaseUrl}?t=${trackingToken}` : imageBaseUrl;
 
     // Load locales
-    const localesPath = path.join(process.cwd(), "src/locales", `${lang}.json`);
+    let localesPath = path.join(process.cwd(), "src/locales", `${lang}.json`);
+    if (!require("fs").existsSync(localesPath)) {
+        localesPath = path.join(process.cwd(), "../src/locales", `${lang}.json`);
+    }
     const translations = JSON.parse(fs.readFileSync(localesPath, "utf-8")).translation;
 
     const t = (key: string, data?: any) => {

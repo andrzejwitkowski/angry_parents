@@ -342,6 +342,7 @@
         "admin.status.COMPLETED": "Zakończono",
         "admin.details_title": "Szczegóły Rejestracji Rodziny #{{id}}",
         "admin.log.flow_started_with_family": "Rozpoczęto proces rejestracji dla rodziny {{familyName}} (ID #{{id}})",
+        "admin.log.registration_completed": "Proces rejestracji rodziny został pomyślnie zakończony",
         "admin.log.force_completed_by_admin": "Proces został wymuszony jako zakończony przez administratora",
         "admin.log.email_read_parent_a": "Wiadomość e-mail została otwarta przez Rodzica A.",
         "admin.log.email_read_parent_b": "Wiadomość e-mail została otwarta przez Rodzica B.",

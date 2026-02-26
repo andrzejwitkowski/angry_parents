@@ -10,20 +10,7 @@ describe('Schedule Rule Management', () => {
         });
 
         cy.viewport(1280, 800);
-        cy.visit('/auth');
-        // Quick login/register
-        const suffix = Date.now();
-        cy.contains('Register').click();
-        cy.get('input[placeholder="John Doe"]').type(`Rule User ${suffix}`);
-        cy.get('input[placeholder="johndoe"]').type(`ruleuser${suffix}`);
-        cy.get('input[placeholder="name@example.com"]').type(`ruleuser${suffix}@test.com`);
-        cy.get('input[type="password"]').first().type('password123');
-        cy.get('button[type="submit"]').click();
-
-        // Wait for redirect to dashboard
-        cy.url({ timeout: 15000 }).should('include', '/setup-passkey');
-        cy.contains('Dev: Simulate Key').click();
-        cy.url({ timeout: 15000 }).should('include', '/dashboard');
+        cy.request('POST', 'http://localhost:3000/api/auth/mock-login'); cy.visit('/dashboard');
 
         // Create a child
         cy.contains('Manage Children').click();

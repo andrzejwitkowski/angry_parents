@@ -5,8 +5,7 @@ describe("Calendar Events Visualization", () => {
 
         // Register or login
         cy.get('input[type="email"]').type("test@example.com");
-        cy.get('input[type="password"]').type("password123");
-        cy.contains("button", /sign in|log in/i).click();
+        cy.get('button').contains('Dev: Simulate Login', { matchCase: false }).click();
 
         // Wait for calendar to load
         cy.contains("Calendar", { timeout: 10000 }).should("be.visible");

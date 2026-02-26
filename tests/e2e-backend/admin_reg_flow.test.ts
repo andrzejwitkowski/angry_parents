@@ -102,16 +102,17 @@ describe("Admin-Initiated Registration Flow E2E", () => {
         expect(momMe.user.gender).toBe("mom");
     });
 
-    test("Legacy registration without token should fail", async () => {
+    test("Registration without token succeeds (creates own family)", async () => {
         const res = await apiDad.post("/api/auth/mock-register", {
             email: "orphan@test.com",
             name: "Orphan Parent",
             gender: "dad"
-            // token missing
+            // no token - creates its own family
         });
 
-        expect(res.status).toBe(400);
+        expect(res.status).toBe(200);
         const json = await res.json();
-        expect(json.message).toContain("Registration token is required");
+        expect(json.verified).toBe(true);
+        expect(json.role).toBe("dad");
     });
 });

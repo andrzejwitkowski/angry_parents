@@ -72,7 +72,7 @@ describe("Auth Controller Integration", () => {
     });
 
     describe("POST /mock-register", () => {
-        it("should return 400 without token", async () => {
+        it("should register a user WITHOUT token (creates own family)", async () => {
             const response = await app.handle(
                 new Request("http://localhost/api/auth/mock-register", {
                     method: "POST",
@@ -85,7 +85,10 @@ describe("Auth Controller Integration", () => {
                 })
             );
 
-            expect(response.status).toBe(400);
+            expect(response.status).toBe(200);
+            const json = await response.json() as { verified: boolean; role: string };
+            expect(json.verified).toBe(true);
+            expect(json.role).toBe("dad");
         });
 
         it("should register a user with a valid token", async () => {
