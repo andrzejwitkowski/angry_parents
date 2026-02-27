@@ -11,7 +11,7 @@ import { ViemBlockchainAnchor } from "./adapters/secondary/ViemBlockchainAnchor"
 import { auth } from "./lib/auth";
 import { ForensicService } from "./application/ForensicService";
 import { forensicController as createForensicController } from "./adapters/primary/ForensicController";
-import { InMemoryTimelineRepository } from "./adapters/secondary/InMemoryTimelineRepository";
+import { MongoTimelineRepository } from "./adapters/secondary/MongoTimelineRepository";
 import { TimelineServiceImpl } from "./application/TimelineService";
 import { t as translate } from "./lib/i18n";
 import { createTimelineController } from "./adapters/primary/TimelineController";
@@ -19,15 +19,15 @@ import { RealDateProvider } from "./adapters/secondary/RealDateProvider";
 import { RealUuidProvider } from "./adapters/secondary/RealUuidProvider";
 import { MongoRegistrationProcessRepository } from "./adapters/secondary/MongoRegistrationProcessRepository";
 import { createAdminController } from "./adapters/primary/AdminController";
-import { InMemoryCustodyRepository } from "./adapters/secondary/InMemoryCustodyRepository";
+import { MongoCustodyRepository } from "./adapters/secondary/MongoCustodyRepository";
 import { createCustodyController } from "./adapters/primary/CustodyController";
-import { InMemoryScheduleRepository } from "./adapters/secondary/InMemoryScheduleRepository";
+import { MongoScheduleRepository } from "./adapters/secondary/MongoScheduleRepository";
 import { ScheduleService } from "./application/ScheduleService";
 import { PropagationService } from "./application/PropagationService";
-import { InMemoryChildRepository } from "./adapters/secondary/InMemoryChildRepository";
+import { MongoChildRepository } from "./adapters/secondary/MongoChildRepository";
 import { ChildService } from "./application/ChildService";
 import { createChildController } from "./adapters/primary/ChildController";
-import { InMemoryPasskeyRepository } from "./adapters/secondary/InMemoryPasskeyRepository";
+import { MongoPasskeyRepository } from "./adapters/secondary/MongoPasskeyRepository";
 import { createWebAuthnController } from "./adapters/primary/WebAuthnController";
 import { createAuthController } from "./adapters/primary/AuthController";
 import { cors } from "@elysiajs/cors";
@@ -52,11 +52,11 @@ if (!mongoose.connection.db) {
 // Repositories
 const registrationProcessRepository = new MongoRegistrationProcessRepository(mongoose.connection.db as any);
 const forensicRepository = new MongoForensicRepository(mongoose.connection.db as any);
-const timelineRepository = new InMemoryTimelineRepository();
-const custodyRepository = new InMemoryCustodyRepository();
-const scheduleRepository = new InMemoryScheduleRepository();
-const childRepository = new InMemoryChildRepository();
-const passkeyRepository = new InMemoryPasskeyRepository();
+const timelineRepository = new MongoTimelineRepository();
+const custodyRepository = new MongoCustodyRepository();
+const scheduleRepository = new MongoScheduleRepository();
+const childRepository = new MongoChildRepository();
+const passkeyRepository = new MongoPasskeyRepository();
 
 // Services
 const timelineService = new TimelineServiceImpl(timelineRepository, dateProvider, uuidProvider);
@@ -197,6 +197,14 @@ const finalApp = app
                 await mongoose.connection.db.collection(col.name).deleteMany({});
                 console.log(`[Test] Cleared collection: ${col.name}`);
             }
+        }
+
+        // For Dev testing only: Try to clear all local repository state if method exists
+        if ((timelineRepository as any).clear) {
+            (timelineRepository as any).clear();
+        }
+        if ((custodyRepository as any).deleteAll) {
+            (custodyRepository as any).deleteAll();
         }
 
         if ((passkeyRepository as any).clear) {

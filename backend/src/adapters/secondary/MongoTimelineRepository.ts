@@ -1,79 +1,71 @@
-// import type { TimelineRepository } from "../../core/ports/TimelineRepository";
-// import type { TimelineItem } from "../../core/domain/TimelineItem";
-
-/**
- * MongoDB Timeline Repository (Future Implementation)
- * 
- * This file provides the structure for MongoDB integration.
- * Uncomment and implement when ready to migrate from in-memory storage.
- * 
- * Dependencies needed:
- * - mongodb (already installed)
- * - Connection to MongoDB Atlas
- * 
- * Migration steps:
- * 1. Set up MongoDB connection in index.ts
- * 2. Create TimelineItem collection with indexes on 'date' and 'id'
- * 3. Implement the methods below
- * 4. Replace InMemoryTimelineRepository in dependency injection
- */
-
-/*
-import { MongoClient, Db, Collection } from "mongodb";
+import { TimelineRepository } from "../../core/ports/TimelineRepository";
+import { TimelineItem } from "../../core/domain/TimelineItem";
+import { TimelineItemModel } from "../../models/TimelineItem";
 
 export class MongoTimelineRepository implements TimelineRepository {
-  private collection: Collection<TimelineItem>;
-
-  constructor(db: Db) {
-    this.collection = db.collection<TimelineItem>("timeline_items");
-    this.ensureIndexes();
-  }
-
-  private async ensureIndexes(): Promise<void> {
-    await this.collection.createIndex({ date: 1 });
-    await this.collection.createIndex({ id: 1 }, { unique: true });
-    await this.collection.createIndex({ createdBy: 1 });
-  }
+  constructor() { }
 
   async save(item: TimelineItem): Promise<TimelineItem> {
-    await this.collection.insertOne(item as any);
-    return item;
+    await TimelineItemModel.findOneAndUpdate(
+      { id: item.id },
+      item,
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+    ).lean();
+
+    return item; // TimelineItems are complex, returning the original object passed in if validation succeeds
   }
 
   async findByDate(date: string): Promise<TimelineItem[]> {
-    return this.collection.find({ date }).toArray();
+    const items = await TimelineItemModel.find({ date, isDeleted: false }).lean();
+    return items as unknown as TimelineItem[];
+  }
+
+  async findByDateRange(from: string, to: string): Promise<TimelineItem[]> {
+    const items = await TimelineItemModel.find({
+      date: { $gte: from, $lte: to },
+      isDeleted: false
+    }).lean();
+    return items as unknown as TimelineItem[];
   }
 
   async findById(id: string): Promise<TimelineItem | null> {
-    return this.collection.findOne({ id });
+    const item = await TimelineItemModel.findOne({ id, isDeleted: false }).lean();
+    if (!item) return null;
+    return item as unknown as TimelineItem;
   }
 
   async update(id: string, updates: Partial<TimelineItem>): Promise<TimelineItem> {
-    const result = await this.collection.findOneAndUpdate(
-      { id },
-      { $set: updates },
-      { returnDocument: "after" }
-    );
-
-    if (!result) {
+    // Find existing item to ensure we get a new representation
+    const existing = await TimelineItemModel.findOne({ id, isDeleted: false }).lean();
+    if (!existing) {
       throw new Error(`Item with id ${id} not found`);
     }
 
-    return result;
+    const result = await TimelineItemModel.findOneAndUpdate(
+      { id },
+      { $set: updates },
+      { returnDocument: 'after' } // Returns the updated document
+    ).lean();
+
+    if (!result) {
+      throw new Error(`Item with id ${id} not found on update`);
+    }
+
+    return result as unknown as TimelineItem;
   }
 
   async delete(id: string): Promise<void> {
-    const result = await this.collection.deleteOne({ id });
-    if (result.deletedCount === 0) {
+    const result = await TimelineItemModel.updateOne(
+      { id },
+      { $set: { isDeleted: true } }
+    );
+
+    if (result.matchedCount === 0) {
       throw new Error(`Item with id ${id} not found`);
     }
   }
-}
-*/
 
-// Placeholder export to prevent TypeScript errors
-export class MongoTimelineRepository {
-  constructor() {
-    throw new Error("MongoTimelineRepository not yet implemented. Use InMemoryTimelineRepository for now.");
+  async countByChildId(childId: string): Promise<number> {
+    return await TimelineItemModel.countDocuments({ childIds: childId, isDeleted: false });
   }
 }
