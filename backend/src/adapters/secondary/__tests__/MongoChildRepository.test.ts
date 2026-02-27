@@ -27,7 +27,8 @@ describe("MongoChildRepository", () => {
         id: "child-123",
         name: "Test Child",
         icon: "user",
-        color: "#FF0000"
+        color: "#FF0000",
+        familyId: "family-123"
     };
 
     it("should save and retrieve a child", async () => {
@@ -59,16 +60,24 @@ describe("MongoChildRepository", () => {
         expect(found?.name).toBe("Updated Name");
     });
 
-    it("should find all children", async () => {
+    it("should find all children by familyId", async () => {
         await repository.save(mockChild);
-        await repository.save({ ...mockChild, id: "child-456", name: "Second Child" });
 
-        const all = await repository.findAll();
+        // Add another child for the SAME family
+        const child2: Child = { ...mockChild, id: "child-456", name: "Second Child", familyId: "family-123" };
+        await repository.save(child2);
+
+        // Add a child for a DIFFERENT family
+        const diffFamilyChild: Child = { ...mockChild, id: "child-999", name: "Diff Family Child", familyId: "family-999" };
+        await repository.save(diffFamilyChild);
+
+        const all = await repository.findAllByFamilyId("family-123");
         expect(all.length).toBe(2);
 
         const ids = all.map(c => c.id);
         expect(ids).toContain("child-123");
         expect(ids).toContain("child-456");
+        expect(ids).not.toContain("child-999");
     });
 
     it("should delete a child", async () => {

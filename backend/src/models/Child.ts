@@ -9,7 +9,8 @@ const childSchema = new Schema<ChildDocument>({
     id: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     icon: { type: String, required: true },
-    color: { type: String, required: true }
+    color: { type: String, required: true },
+    familyId: { type: String, required: true, index: true }
 }, {
     timestamps: true,
     toJSON: { virtuals: true },

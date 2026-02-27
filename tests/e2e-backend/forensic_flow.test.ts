@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, jest } from "bun:test";
 import { TestApi } from "./utils/api";
 import { TestCrypto } from "./utils/crypto";
+import { ensureTestBackend, TEST_API_URL } from "./utils/ensure";
 
 // setupGlobals.ts (preloaded by bunfig.toml) replaces global.fetch with a jest mock.
 // These E2E tests hit the real backend server, so we must restore native Bun fetch.
@@ -10,9 +11,9 @@ import { TestCrypto } from "./utils/crypto";
 // We use Bun.fetch which is the unpatched native implementation.
 const nativeFetch = Bun.fetch.bind(Bun);
 
-const BASE_URL = process.env.API_URL || "http://localhost:3000"; // Assuming dev server running
+const BASE_URL = process.env.API_URL || TEST_API_URL; // Assuming dev server running
 
-describe("Forensic Document Pipeline E2E", () => {
+describe.skipIf(!process.env.E2E_TEST)("Forensic Document Pipeline E2E", () => {
     let apiUserA: TestApi;
     let apiUserB: TestApi;
 
@@ -28,6 +29,8 @@ describe("Forensic Document Pipeline E2E", () => {
     const userEmailB = `userB_${Date.now()}@test.com`;
 
     beforeAll(async () => {
+        await ensureTestBackend();
+
         // Restore native fetch — setupGlobals.ts replaces global.fetch with a jest mock
         // that always returns []. E2E tests need real HTTP to hit the dev server.
         (globalThis as any).fetch = nativeFetch;

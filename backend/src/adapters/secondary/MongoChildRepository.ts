@@ -14,17 +14,19 @@ export class MongoChildRepository implements ChildRepository {
             id: result.id,
             name: result.name,
             icon: result.icon,
-            color: result.color
+            color: result.color,
+            familyId: result.familyId
         };
     }
 
-    async findAll(): Promise<Child[]> {
-        const children = await ChildModel.find({}).lean();
+    async findAllByFamilyId(familyId: string): Promise<Child[]> {
+        const children = await ChildModel.find({ familyId }).lean();
         return children.map(c => ({
             id: c.id,
             name: c.name,
             icon: c.icon,
-            color: c.color
+            color: c.color,
+            familyId: c.familyId
         }));
     }
 
@@ -35,7 +37,8 @@ export class MongoChildRepository implements ChildRepository {
             id: child.id,
             name: child.name,
             icon: child.icon,
-            color: child.color
+            color: child.color,
+            familyId: child.familyId
         };
     }
 

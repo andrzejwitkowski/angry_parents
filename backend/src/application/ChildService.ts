@@ -10,14 +10,15 @@ export class ChildService {
         private uuidProvider: UuidProvider
     ) { }
 
-    async getAllChildren(): Promise<Child[]> {
-        return await this.childRepository.findAll();
+    async getAllChildren(familyId: string): Promise<Child[]> {
+        return await this.childRepository.findAllByFamilyId(familyId);
     }
 
-    async addChild(child: Omit<Child, "id">): Promise<Child> {
+    async addChild(familyId: string, child: Omit<Child, "id" | "familyId">): Promise<Child> {
         const newChild: Child = {
             ...child,
-            id: this.uuidProvider.generate()
+            id: this.uuidProvider.generate(),
+            familyId
         };
         return await this.childRepository.save(newChild);
     }

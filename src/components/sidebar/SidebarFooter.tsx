@@ -1,8 +1,7 @@
 import { LogOut } from "lucide-react";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { authClient } from "@/lib/auth-client";
-import { useNavigate } from "react-router-dom";
+import { authApi } from "@/lib/api/auth";
 import { useTranslation } from "react-i18next";
 
 interface SidebarFooterProps {
@@ -10,12 +9,11 @@ interface SidebarFooterProps {
 }
 
 export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
-    const navigate = useNavigate();
     const { t } = useTranslation();
 
     const handleLogout = async () => {
-        await authClient.signOut();
-        navigate("/");
+        await authApi.logout();
+        window.location.href = "/auth";
     };
 
     return (

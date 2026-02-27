@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { startAuthentication } from '@simplewebauthn/browser';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,7 +75,24 @@ export default function AuthPage() {
     const handleLogin = async () => {
         setIsLoading(true);
         setError(null);
+        try {
+            const options = await authApi.loginOptions();
+            const asseResp = await startAuthentication({ optionsJSON: options.challenge as any });
+            const result = await authApi.loginVerify({ authenticationResponse: asseResp });
+            if (result.verified) {
+                navigate('/dashboard');
+            }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : t("auth.loginFailed");
+            setError(msg);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
+    const handleMockLogin = async () => {
+        setIsLoading(true);
+        setError(null);
         try {
             const result = await authApi.devMockLogin();
             if (result.verified) {
@@ -136,7 +154,7 @@ export default function AuthPage() {
                                     <Button
                                         variant="outline"
                                         className="w-full border-dashed border-slate-300"
-                                        onClick={handleLogin}
+                                        onClick={handleMockLogin}
                                         disabled={isLoading}
                                     >
                                         <ShieldCheck className="w-4 h-4 mr-2" />

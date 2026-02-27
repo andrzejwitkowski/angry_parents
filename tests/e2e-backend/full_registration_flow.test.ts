@@ -1,8 +1,9 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import { TestApi } from "./utils/api";
+import { ensureTestBackend, TEST_API_URL } from "./utils/ensure";
 
 const nativeFetch = Bun.fetch.bind(Bun);
-const BASE_URL = process.env.API_URL || "http://localhost:3000";
+const BASE_URL = process.env.API_URL || TEST_API_URL;
 
 /**
  * Full Admin-Initiated Two-Parent Registration Flow with Email Tracking (Symmetrical)
@@ -32,6 +33,7 @@ describe("Admin-Initiated Full Registration Flow", () => {
     let sharedFamilyId: string;
 
     beforeAll(async () => {
+        await ensureTestBackend();
         adminApi = new TestApi(BASE_URL);
         dadApi = new TestApi(BASE_URL);
         momApi = new TestApi(BASE_URL);

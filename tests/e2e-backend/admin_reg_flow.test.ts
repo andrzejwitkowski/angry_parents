@@ -1,16 +1,18 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { TestApi } from "./utils/api";
+import { ensureTestBackend, TEST_API_URL } from "./utils/ensure";
 
 const nativeFetch = Bun.fetch.bind(Bun);
 
-const BASE_URL = process.env.API_URL || "http://localhost:3000";
+const BASE_URL = process.env.API_URL || TEST_API_URL;
 
-describe("Admin-Initiated Registration Flow E2E", () => {
+describe.skipIf(!process.env.E2E_TEST)("Admin-Initiated Registration Flow E2E", () => {
     let apiAdmin: TestApi;
     let apiDad: TestApi;
     let apiMom: TestApi;
 
     beforeAll(async () => {
+        await ensureTestBackend();
         apiAdmin = new TestApi(BASE_URL);
         apiDad = new TestApi(BASE_URL);
         apiMom = new TestApi(BASE_URL);

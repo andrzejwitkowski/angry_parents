@@ -36,6 +36,13 @@ function getJwtFromCookie(request: Request): string | null {
     return match ? match[1] : null;
 }
 
+function clearCookie(): string {
+    const isProd = process.env.NODE_ENV === "production";
+    const secure = isProd ? "; Secure" : "";
+    const sameSite = isProd ? "Strict" : "Lax";
+    return `token=; HttpOnly${secure}; SameSite=${sameSite}; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+}
+
 async function createBetterAuthUser(email: string, name: string, username: string, gender?: Gender, familyId?: string, webauthnCredentialId?: string) {
     const password = "webauthn-" + Date.now();
 
@@ -405,7 +412,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
         })
         .post("/logout", async ({ set }) => {
             console.log("[Logout] hit");
-            set.headers["Set-Cookie"] = "token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0";
+            set.headers["Set-Cookie"] = clearCookie();
             set.headers["Content-Type"] = "application/json";
             return { ok: true };
         })
@@ -493,20 +500,31 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
             const mockBody = (body || {}) as { userId?: string };
             const finalUserId = mockBody.userId || new mongoose.Types.ObjectId().toString();
-            const finalFamilyId = new mongoose.Types.ObjectId().toString();
+            let finalFamilyId = "";
 
             // MOCK IN DB
             try {
-                const family = new Family({
-                    _id: finalFamilyId,
-                    name: "Mock Family",
-                    parentIds: [finalUserId],
-                    children: [],
-                    custodyPatterns: [],
-                });
-                await family.save();
+                let family = await Family.findOne({ name: "Mock Family" });
+                if (family) {
+                    finalFamilyId = family._id.toString();
+                    if (!family.parentIds.includes(finalUserId)) {
+                        family.parentIds.push(finalUserId);
+                        await family.save();
+                    }
+                } else {
+                    finalFamilyId = new mongoose.Types.ObjectId().toString();
+                    family = new Family({
+                        _id: finalFamilyId,
+                        name: "Mock Family",
+                        parentIds: [finalUserId],
+                        children: [],
+                        custodyPatterns: [],
+                    });
+                    await family.save();
+                }
             } catch (e) {
-                console.log("[Login] Mock DB Insert error", e);
+                console.log("[Login] Mock DB error", e);
+                finalFamilyId = new mongoose.Types.ObjectId().toString();
             }
 
             const token = await signJwt({
