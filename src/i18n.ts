@@ -5,7 +5,7 @@ import pl from './locales/pl.json';
 
 // Detect if we are in a test environment
 const isTest = typeof (globalThis as any).describe !== 'undefined' ||
-    (typeof process !== 'undefined' && process.env.NODE_ENV === 'test');
+    (typeof globalThis !== 'undefined' && (globalThis as any).process?.env?.NODE_ENV === 'test');
 
 const resources = {
     en,

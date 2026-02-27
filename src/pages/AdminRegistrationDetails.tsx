@@ -28,7 +28,6 @@ import { pl } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import {
     RegistrationStatus,
-    REGISTRATION_STATUS_ORDER,
     REGISTRATION_STATUS_CONFIG,
     ParentRegistrationStatus,
     PARENT_REGISTRATION_STATUS_ORDER,
