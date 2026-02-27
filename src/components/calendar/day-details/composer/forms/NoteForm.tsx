@@ -56,6 +56,7 @@ export function NoteForm({ initialData, onSubmit, isSubmitting }: NoteFormProps)
                 <Label htmlFor="content">{t("note.contentLabel")}*</Label>
                 <Textarea
                     id="content"
+                    data-testid="content-input"
                     {...register("content")}
                     placeholder={t("note.contentPlaceholder")}
                     className={errors.content ? "border-red-500" : ""}

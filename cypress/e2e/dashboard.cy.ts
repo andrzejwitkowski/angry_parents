@@ -55,7 +55,7 @@ describe('Dashboard Flow', () => {
                     id: 'handover-test-1',
                     type: 'HANDOVER',
                     date: today,
-                    time: '16:00',
+                    time: '23:59',
                     location: 'Central Park South',
                     status: 'PENDING',
                     createdAt: `${today}T00:00:00Z`,

@@ -64,6 +64,7 @@ export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalForm
                     <Label htmlFor="doctor">{t("medical.doctorName")}</Label>
                     <Input
                         id="doctor"
+                        data-testid="doctor-input"
                         {...register("doctor")}
                         placeholder={t("medical.doctorPlaceholder")}
                         className={errors.doctor ? "border-red-500" : ""}
@@ -87,6 +88,7 @@ export function MedicalForm({ initialData, onSubmit, isSubmitting }: MedicalForm
                 <Label htmlFor="diagnosis">{t("medical.diagnosis")}</Label>
                 <Input
                     id="diagnosis"
+                    data-testid="diagnosis-input"
                     {...register("diagnosis")}
                     placeholder={t("medical.diagnosisPlaceholder")}
                     className={errors.diagnosis ? "border-red-500" : ""}

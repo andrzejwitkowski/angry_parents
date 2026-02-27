@@ -28,6 +28,7 @@ export function ChildSelector({ selectedIds, onChange }: ChildSelectorProps) {
                         <Badge
                             key={child.id}
                             variant="outline"
+                            data-testid="child-badge"
                             className={cn(
                                 "cursor-pointer transition-all px-3 py-1 text-sm font-semibold border-2",
                                 isSelected

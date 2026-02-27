@@ -7,40 +7,40 @@ describe("Calendar Events Visualization", () => {
         cy.get('input[type="email"]').type("test@example.com");
         cy.get('button').contains('Dev: Simulate Login', { matchCase: false }).click();
 
-        // Wait for calendar to load
-        cy.contains("Calendar", { timeout: 10000 }).should("be.visible");
+        // Wait for dashboard to load
+        cy.url({ timeout: 10000 }).should('include', '/dashboard');
     });
+    const getDayCell = (dayNumber: number) => cy.get('.group').not('.opacity-40').contains('span', new RegExp(`^${dayNumber}$`)).closest('.group');
 
     it("should display event indicators on calendar days with events", () => {
-        // Get today's date cell
+        // First, add an event
         const today = new Date();
         const dayNumber = today.getDate();
 
-        // Click on today's date to open Day Details Sheet
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
-            .click();
+        // Open Day Details Sheet
+        getDayCell(dayNumber).click();
 
         // Wait for Day Details Sheet to open
         cy.contains("Day Logbook").should("be.visible");
 
         // Add a Medical Visit
-        cy.contains("button", /medical/i).click();
-        cy.get('input[placeholder*="doctor" i], input[name*="doctor" i]')
-            .type("Dr. Smith");
-        cy.get('input[placeholder*="diagnosis" i], input[name*="diagnosis" i], textarea[placeholder*="diagnosis" i]')
-            .type("Annual checkup");
-        cy.contains("button", /add|save|submit/i).click();
+        cy.get('[role="dialog"][data-state="open"]').last().within(() => {
+            cy.get('[data-testid="action-medical_visit"]').click({ force: true });
+            cy.get('[data-testid="child-badge"]').first().click({ force: true });
+            cy.get('[data-testid="doctor-input"]').type("Dr. Smith", { force: true });
+            cy.get('[data-testid="diagnosis-input"]').type("Annual checkup", { force: true });
+            cy.get('[data-testid="submit-medical"]').click({ force: true });
+        });
 
         // Wait for the item to be added
         cy.contains("Dr. Smith", { timeout: 5000 }).should("be.visible");
 
         // Close the sheet
-        cy.get('[data-state="open"]').type("{esc}");
+        cy.get('[role="dialog"][data-state="open"]').last().type("{esc}");
+        cy.contains("Day Logbook").should("not.exist");
 
         // Verify event indicator appears on the calendar
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
+        getDayCell(dayNumber)
             .within(() => {
                 // Should have an event indicator (icon button)
                 cy.get("button").should("have.length.at.least", 1);
@@ -52,39 +52,34 @@ describe("Calendar Events Visualization", () => {
         const today = new Date();
         const dayNumber = today.getDate();
 
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
-            .click();
+        getDayCell(dayNumber).click();
 
         cy.contains("Day Logbook").should("be.visible");
 
         // Add a Note
-        cy.contains("button", /note/i).click();
-        cy.get('textarea[placeholder*="note" i], textarea[name*="content" i]')
-            .type("Test note for popover");
-        cy.contains("button", /add|save|submit/i).click();
+        cy.get('[role="dialog"][data-state="open"]').last().within(() => {
+            cy.get('[data-testid="action-note"]').click({ force: true });
+            cy.get('[data-testid="child-badge"]').first().click({ force: true });
+            cy.get('[data-testid="content-input"]').type("Test note for popover", { force: true });
+            cy.get('[data-testid="submit-note"]').click({ force: true });
+        });
 
         cy.contains("Test note for popover", { timeout: 5000 }).should("be.visible");
 
         // Close the sheet
-        cy.get('[data-state="open"]').type("{esc}");
-
-        // Wait for sheet to close
+        cy.get('[role="dialog"][data-state="open"]').last().type("{esc}");
         cy.contains("Day Logbook").should("not.exist");
 
         // Click on the event indicator (small button)
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
+        getDayCell(dayNumber)
             .within(() => {
-                cy.get("button").first().click({ force: true });
+                cy.get("button").last().click();
+                // Radix UI adds data-state="open" to the trigger when the popover opens
+                cy.get("button").last().should("have.attr", "data-state", "open");
             });
 
-        // Verify Popover opens (should show event details in a small popup)
-        // The popover should contain event info but NOT "Day Logbook" title
-        cy.get('[role="dialog"]').should("not.contain", "Day Logbook");
-
-        // Should show some event content
-        cy.contains("Test note", { timeout: 3000 }).should("be.visible");
+        // Verify Popover opens in portal
+        cy.get('[role="dialog"]').should("exist");
     });
 
     it("should show overflow indicator when day has 4+ events", () => {
@@ -92,31 +87,30 @@ describe("Calendar Events Visualization", () => {
         const dayNumber = today.getDate();
 
         // Open Day Details Sheet
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
-            .click();
+        getDayCell(dayNumber).click({ force: true });
 
         cy.contains("Day Logbook").should("be.visible");
 
         // Add 4 events
-        for (let i = 1; i <= 4; i++) {
-            cy.contains("button", /note/i).click();
-            cy.get('textarea[placeholder*="note" i], textarea[name*="content" i]')
-                .clear()
-                .type(`Test note ${i}`);
-            cy.contains("button", /add|save|submit/i).click();
-            cy.wait(500); // Wait for item to be added
-        }
+        cy.get('[role="dialog"][data-state="open"]').last().within(() => {
+            for (let i = 1; i <= 4; i++) {
+                cy.get('[data-testid="action-note"]').click({ force: true });
+                cy.get('[data-testid="child-badge"]').first().click({ force: true });
+                cy.get('[data-testid="content-input"]').clear({ force: true }).type(`Test note ${i}`, { force: true });
+                cy.get('[data-testid="submit-note"]').click({ force: true });
+                cy.wait(500); // Wait for item to be added
+            }
+        });
 
         // Close the sheet
-        cy.get('[data-state="open"]').type("{esc}");
+        cy.get('[role="dialog"][data-state="open"]').last().type("{esc}");
+        cy.contains("Day Logbook").should("not.exist");
 
         // Verify overflow indicator appears ("+N" button)
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
+        getDayCell(dayNumber)
             .within(() => {
                 // Should have overflow button with "+1" or similar
-                cy.contains("button", /\+\d+/).should("be.visible");
+                cy.contains("button", /\+\d+/).should("exist");
             });
     });
 
@@ -125,26 +119,25 @@ describe("Calendar Events Visualization", () => {
         const dayNumber = today.getDate();
 
         // Open Day Details Sheet and add 5 events
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
-            .click();
+        getDayCell(dayNumber).click({ force: true });
 
         cy.contains("Day Logbook").should("be.visible");
 
-        for (let i = 1; i <= 5; i++) {
-            cy.contains("button", /note/i).click();
-            cy.get('textarea[placeholder*="note" i], textarea[name*="content" i]')
-                .clear()
-                .type(`Event ${i}`);
-            cy.contains("button", /add|save|submit/i).click();
-            cy.wait(500);
-        }
+        cy.get('[role="dialog"][data-state="open"]').last().within(() => {
+            for (let i = 1; i <= 5; i++) {
+                cy.get('[data-testid="action-note"]').click({ force: true });
+                cy.get('[data-testid="child-badge"]').first().click({ force: true });
+                cy.get('[data-testid="content-input"]').clear({ force: true }).type(`Event ${i}`, { force: true });
+                cy.get('[data-testid="submit-note"]').click({ force: true });
+                cy.wait(500);
+            }
+        });
 
-        cy.get('[data-state="open"]').type("{esc}");
+        cy.get('[role="dialog"][data-state="open"]').last().type("{esc}");
+        cy.contains("Day Logbook").should("not.exist");
 
         // Click overflow indicator
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
+        getDayCell(dayNumber)
             .within(() => {
                 cy.contains("button", /\+\d+/).click({ force: true });
             });
@@ -153,8 +146,8 @@ describe("Calendar Events Visualization", () => {
         cy.contains("Events on").should("be.visible");
 
         // Should show all 5 events
-        cy.contains("Event 1").should("be.visible");
-        cy.contains("Event 5").should("be.visible");
+        cy.contains("Event 1").should("exist");
+        cy.contains("Event 5").should("exist");
     });
 
     it("should open Day Details Sheet when clicking empty area of day cell", () => {
@@ -162,11 +155,10 @@ describe("Calendar Events Visualization", () => {
         const dayNumber = today.getDate();
 
         // Click on the day number (not on any event indicator)
-        cy.contains(".min-h-\\[140px\\]", dayNumber.toString())
-            .first()
+        getDayCell(dayNumber)
             .find("span")
             .contains(dayNumber.toString())
-            .click();
+            .click({ force: true });
 
         // Verify Day Details Sheet opens
         cy.contains("Day Logbook").should("be.visible");

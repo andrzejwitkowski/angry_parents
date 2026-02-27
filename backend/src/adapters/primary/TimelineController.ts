@@ -1,7 +1,14 @@
 import { Elysia, t } from "elysia";
 import type { TimelineServiceImpl } from "../../application/TimelineService";
 import { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
-import { auth } from "../../lib/auth";
+import { verifyJwt } from "../../lib/jwt";
+
+function getJwtFromCookie(request: Request): string | null {
+    const cookie = request.headers.get("Cookie");
+    if (!cookie) return null;
+    const match = cookie.match(/token=([^;]+)/);
+    return match ? match[1] : null;
+}
 
 /**
  * Timeline REST API Controller
@@ -10,10 +17,24 @@ import { auth } from "../../lib/auth";
 export function createTimelineController(service: TimelineServiceImpl) {
     return new Elysia({ prefix: "/api" })
         .derive(async ({ request }) => {
-            const session = await auth.api.getSession({
-                headers: request.headers
-            });
-            return { session };
+            const token = getJwtFromCookie(request);
+            let user = null;
+            if (token) {
+                try {
+                    const payload = await verifyJwt(token);
+                    if (payload) {
+                        user = {
+                            id: payload.userId as string,
+                            name: payload.role as string,
+                            email: payload.email as string,
+                            role: payload.role as string
+                        };
+                    }
+                } catch (e) {
+                    console.error("Invalid token in TimelineController", e);
+                }
+            }
+            return { user };
         })
         // GET /api/calendar/:date/timeline
         .get(
@@ -61,12 +82,10 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // POST /api/timeline
         .post(
             "/timeline",
-            async ({ body, session }) => {
+            async ({ body, user }) => {
                 try {
-                    const userId = session?.user?.id || "anonymous";
-                    // Fallback to username if name is not set (Better Auth additional fields)
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const userName = session?.user?.name || (session?.user as any)?.username || "Unknown";
+                    const userId = user?.id || "anonymous";
+                    const userName = user?.name || "Unknown";
 
                     const item = await service.createItem({
                         ...body as CreateTimelineItemDto,
@@ -103,15 +122,14 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // PATCH /api/timeline/:id
         .patch(
             "/timeline/:id",
-            async ({ params, body, session }) => {
+            async ({ params, body, user }) => {
                 try {
-                    if (!session?.user) {
+                    if (!user) {
                         return { error: "Unauthorized", status: 401 };
                     }
+                    const userName = user.name || "Unknown";
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const userName = session.user.name || (session.user as any)?.username || "Unknown";
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const updated = await service.updateItem(params.id, body as any, session.user.id, userName);
+                    const updated = await service.updateItem(params.id, body as any, user.id, userName);
                     return updated;
                 } catch (error) {
                     return {
@@ -130,15 +148,14 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // DELETE /api/timeline/:id
         .delete(
             "/timeline/:id",
-            async ({ params, set, session }) => {
+            async ({ params, set, user }) => {
                 try {
-                    if (!session?.user) {
+                    if (!user) {
                         set.status = 401;
                         return { error: "Unauthorized" };
                     }
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const userName = session.user.name || (session.user as any)?.username || "Unknown";
-                    await service.deleteItem(params.id, session.user.id, userName);
+                    const userName = user.name || "Unknown";
+                    await service.deleteItem(params.id, user.id, userName);
                     set.status = 204;
                     return null;
                 } catch (error) {
