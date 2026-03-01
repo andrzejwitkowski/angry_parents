@@ -85,14 +85,25 @@ async function startMongo() {
 
 async function killPort(port: number) {
     try {
-        const proc = spawn(["lsof", "-t", "-i", `:${port}`]);
-        const text = await new Response(proc.stdout).text();
-        const pids = text.trim().split("\n").filter(Boolean);
+        let pids: string[] = [];
+        if (process.platform === "win32") {
+            const proc = spawn(["powershell", "-NoProfile", "-Command", `Get-NetTCPConnection -LocalPort ${port} -State Listen | Select-Object -ExpandProperty OwningProcess`]);
+            const text = await new Response(proc.stdout).text();
+            pids = text.trim().split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+        } else {
+            const proc = spawn(["lsof", "-t", "-i", `:${port}`]);
+            const text = await new Response(proc.stdout).text();
+            pids = text.trim().split("\n").filter(Boolean);
+        }
 
         if (pids.length > 0) {
             console.log(`⚠️  Port ${port} is in use by PIDs: ${pids.join(", ")}. Killing...`);
             for (const pid of pids) {
-                spawn(["kill", "-9", pid]);
+                if (process.platform === "win32") {
+                    spawn(["taskkill", "/PID", pid, "/F"]);
+                } else {
+                    spawn(["kill", "-9", pid]);
+                }
             }
             // Wait for it to clear
             await new Promise(r => setTimeout(r, 1000));

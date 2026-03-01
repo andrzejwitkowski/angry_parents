@@ -1,22 +1,21 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from "bun:test";
-import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import { MongoChildRepository } from "../MongoChildRepository";
 import { ChildModel } from "../../../models/Child";
 import type { Child } from "../../../core/domain/child/Child";
-
-const TEST_DB_URI = "mongodb://localhost:27017/angry_parents_test_child";
+import { connectMongoMemory, disconnectMongoMemory } from "./mongoMemoryServer";
 
 describe("MongoChildRepository", () => {
     let repository: MongoChildRepository;
+    let mongoServer: MongoMemoryServer;
 
     beforeAll(async () => {
-        await mongoose.connect(TEST_DB_URI);
+        mongoServer = await connectMongoMemory();
         repository = new MongoChildRepository();
     });
 
     afterAll(async () => {
-        await mongoose.connection.dropDatabase();
-        await mongoose.connection.close();
+        await disconnectMongoMemory(mongoServer);
     });
 
     beforeEach(async () => {

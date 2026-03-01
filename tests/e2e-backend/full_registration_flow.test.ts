@@ -16,7 +16,7 @@ const BASE_URL = process.env.API_URL || TEST_API_URL;
  *  5. Mom registers via token from email
  *  6. Verification: Both share same familyId, status is COMPLETED
  */
-describe("Admin-Initiated Full Registration Flow", () => {
+describe.skipIf(!process.env.E2E_TEST)("Admin-Initiated Full Registration Flow", () => {
     let adminApi: TestApi;
     let dadApi: TestApi;
     let momApi: TestApi;

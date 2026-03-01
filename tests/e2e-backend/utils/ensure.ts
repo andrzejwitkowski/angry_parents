@@ -2,6 +2,7 @@ import { spawn } from "bun";
 import fs from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { MongoClient } from "mongodb";
 
 export const TEST_API_URL = "http://127.0.0.1:3002";
 const TEST_PORT = 3002;
@@ -32,6 +33,44 @@ async function waitForPort(port: number, timeoutMs = 20000) {
     return false;
 }
 
+async function canPingMongo(uri: string): Promise<boolean> {
+    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 1000 });
+    try {
+        await client.connect();
+        await client.db().admin().command({ ping: 1 });
+        return true;
+    } catch {
+        return false;
+    } finally {
+        await client.close().catch(() => undefined);
+    }
+}
+
+async function startMongoViaDocker() {
+    const cwd = new URL("../../../", import.meta.url).pathname;
+    const commands: Array<[string, string[]]> = [
+        ["docker", ["compose", "up", "-d", "mongodb"]],
+        ["docker-compose", ["up", "-d", "mongodb"]],
+    ];
+
+    let lastError: unknown;
+    for (const [cmd, args] of commands) {
+        if (!Bun.which(cmd)) {
+            continue;
+        }
+        try {
+            const proc = spawn([cmd, ...args], { cwd, stdout: "ignore", stderr: "ignore" });
+            const exitCode = await proc.exited;
+            if (exitCode === 0) return;
+            lastError = new Error(`${cmd} exited with code ${exitCode}`);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error("Failed to start MongoDB via Docker");
+}
+
 export async function ensureTestBackend() {
     process.env.API_URL = TEST_API_URL;
 
@@ -47,10 +86,18 @@ export async function ensureTestBackend() {
 
     if (haveLock) {
         try {
-            if (!(await isPortOpen(27017))) {
+            const mongoUri = "mongodb://127.0.0.1:27017/admin";
+            if (!(await canPingMongo(mongoUri))) {
                 console.log("\n[E2E] Starting MongoDB via Docker...");
-                spawn(["docker-compose", "up", "-d", "mongodb"], { cwd: new URL("../../../", import.meta.url).pathname }).unref();
-                await waitForPort(27017);
+                await startMongoViaDocker();
+            }
+
+            const mongoReadyStart = Date.now();
+            while (!(await canPingMongo(mongoUri))) {
+                if (Date.now() - mongoReadyStart > 30000) {
+                    throw new Error("MongoDB did not become ready in time");
+                }
+                await new Promise(r => setTimeout(r, 500));
             }
 
             console.log(`\n[E2E] Starting Isolated Test Backend on port ${TEST_PORT}...`);

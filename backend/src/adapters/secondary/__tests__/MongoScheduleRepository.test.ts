@@ -1,22 +1,21 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from "bun:test";
-import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import { MongoScheduleRepository } from "../MongoScheduleRepository";
 import { ScheduleRuleModel } from "../../../models/ScheduleRule";
 import type { ScheduleRule } from "../../../core/domain/child/ScheduleRule";
-
-const TEST_DB_URI = "mongodb://localhost:27017/angry_parents_test_schedule";
+import { connectMongoMemory, disconnectMongoMemory } from "./mongoMemoryServer";
 
 describe("MongoScheduleRepository", () => {
     let repository: MongoScheduleRepository;
+    let mongoServer: MongoMemoryServer;
 
     beforeAll(async () => {
-        await mongoose.connect(TEST_DB_URI);
+        mongoServer = await connectMongoMemory();
         repository = new MongoScheduleRepository();
     });
 
     afterAll(async () => {
-        await mongoose.connection.dropDatabase();
-        await mongoose.connection.close();
+        await disconnectMongoMemory(mongoServer);
     });
 
     beforeEach(async () => {

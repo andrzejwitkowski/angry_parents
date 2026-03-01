@@ -1,5 +1,5 @@
 ---
-name: Hexagonal Architecture for React + Bun
+name: Hexagonal Architecture for React and Bun
 description: Senior-level guide for developing features using Hexagonal (Ports & Adapters) Architecture in a React + Bun + MongoDB stack. Covers domain modeling, port definitions, adapter patterns, dependency injection, and testing strategies.
 ---
 

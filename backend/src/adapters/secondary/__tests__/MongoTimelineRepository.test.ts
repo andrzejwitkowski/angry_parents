@@ -1,22 +1,21 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from "bun:test";
-import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import { MongoTimelineRepository } from "../MongoTimelineRepository";
 import { TimelineItemModel } from "../../../models/TimelineItem";
 import type { TimelineItem } from "../../../core/domain/TimelineItem";
-
-const TEST_DB_URI = "mongodb://localhost:27017/angry_parents_test_timeline";
+import { connectMongoMemory, disconnectMongoMemory } from "./mongoMemoryServer";
 
 describe("MongoTimelineRepository", () => {
     let repository: MongoTimelineRepository;
+    let mongoServer: MongoMemoryServer;
 
     beforeAll(async () => {
-        await mongoose.connect(TEST_DB_URI);
+        mongoServer = await connectMongoMemory();
         repository = new MongoTimelineRepository();
     });
 
     afterAll(async () => {
-        await mongoose.connection.dropDatabase();
-        await mongoose.connection.close();
+        await disconnectMongoMemory(mongoServer);
     });
 
     beforeEach(async () => {
@@ -136,5 +135,13 @@ describe("MongoTimelineRepository", () => {
 
         const count2 = await repository.countByChildId("child-2");
         expect(count2).toBe(1);
+    });
+
+    it("should throw when updating non-existent item", async () => {
+        await expect(repository.update("missing-id", { createdByName: "x" } as any)).rejects.toThrow("not found");
+    });
+
+    it("should throw when deleting non-existent item", async () => {
+        await expect(repository.delete("missing-id")).rejects.toThrow("not found");
     });
 });

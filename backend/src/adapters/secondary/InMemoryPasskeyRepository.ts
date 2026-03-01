@@ -13,6 +13,11 @@ export class InMemoryPasskeyRepository implements PasskeyRepository {
     private passkeys: Passkey[] = [];
 
     async save(passkey: Passkey): Promise<void> {
+        const index = this.passkeys.findIndex((p) => areEqual(p.credentialID, passkey.credentialID));
+        if (index >= 0) {
+            this.passkeys[index] = passkey;
+            return;
+        }
         this.passkeys.push(passkey);
     }
 

@@ -1,22 +1,21 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from "bun:test";
-import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import { MongoPasskeyRepository } from "../MongoPasskeyRepository";
 import { PasskeyModel } from "../../../models/Passkey";
 import type { Passkey } from "../../../core/domain/Passkey";
-
-const TEST_DB_URI = "mongodb://localhost:27017/angry_parents_test_passkey";
+import { connectMongoMemory, disconnectMongoMemory } from "./mongoMemoryServer";
 
 describe("MongoPasskeyRepository", () => {
     let repository: MongoPasskeyRepository;
+    let mongoServer: MongoMemoryServer;
 
     beforeAll(async () => {
-        await mongoose.connect(TEST_DB_URI);
+        mongoServer = await connectMongoMemory();
         repository = new MongoPasskeyRepository();
     });
 
     afterAll(async () => {
-        await mongoose.connection.dropDatabase();
-        await mongoose.connection.close();
+        await disconnectMongoMemory(mongoServer);
     });
 
     beforeEach(async () => {

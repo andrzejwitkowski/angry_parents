@@ -1,22 +1,21 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from "bun:test";
-import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import { MongoCustodyRepository } from "../MongoCustodyRepository";
 import { CustodyEntryModel } from "../../../models/CustodyEntry";
 import type { CustodyEntry } from "../../../core/domain/child/CustodyEntry";
-
-const TEST_DB_URI = "mongodb://localhost:27017/angry_parents_test_custody";
+import { connectMongoMemory, disconnectMongoMemory } from "./mongoMemoryServer";
 
 describe("MongoCustodyRepository", () => {
     let repository: MongoCustodyRepository;
+    let mongoServer: MongoMemoryServer;
 
     beforeAll(async () => {
-        await mongoose.connect(TEST_DB_URI);
+        mongoServer = await connectMongoMemory();
         repository = new MongoCustodyRepository();
     });
 
     afterAll(async () => {
-        await mongoose.connection.dropDatabase();
-        await mongoose.connection.close();
+        await disconnectMongoMemory(mongoServer);
     });
 
     beforeEach(async () => {
@@ -114,6 +113,12 @@ describe("MongoCustodyRepository", () => {
 
         await repository.deleteAll();
 
+        const remaining = await repository.findByDateRange(undefined, "2026-01-01", "2026-12-31");
+        expect(remaining.length).toBe(0);
+    });
+
+    it("should ignore empty save input", async () => {
+        await repository.save([]);
         const remaining = await repository.findByDateRange(undefined, "2026-01-01", "2026-12-31");
         expect(remaining.length).toBe(0);
     });

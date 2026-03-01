@@ -4,8 +4,8 @@ import { Family } from "../src/models/Family";
 import { Invitation } from "../src/models/Invitation";
 import { MongoRegistrationProcessRepository } from "../src/adapters/secondary/MongoRegistrationProcessRepository";
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import { Elysia } from "elysia";
+import { ensureMongo } from "./utils/ensureMongo";
 
 // Mock BetterAuth
 mock.module("../src/lib/auth", () => ({
@@ -17,20 +17,18 @@ mock.module("../src/lib/auth", () => ({
     }
 }));
 
-describe("Auth Controller Integration", () => {
-    let mongoServer: MongoMemoryServer;
+describe.skipIf(!process.env.INTEGRATION_TEST)("Auth Controller Integration", () => {
     let app: Elysia;
     let repo: MongoRegistrationProcessRepository;
+    const TEST_DB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/angry_parents_test_auth_integration";
 
     beforeAll(async () => {
-        mongoServer = await MongoMemoryServer.create();
-        const mongoUri = mongoServer.getUri();
-        await mongoose.connect(mongoUri);
+        await ensureMongo(TEST_DB_URI);
+        await mongoose.connect(TEST_DB_URI);
     });
 
     afterAll(async () => {
         await mongoose.disconnect();
-        await mongoServer.stop();
     });
 
     beforeEach(async () => {
@@ -123,6 +121,25 @@ describe("Auth Controller Integration", () => {
             const json = await response.json() as { verified: boolean; role: string };
             expect(json.verified).toBe(true);
             expect(json.role).toBe("dad");
+        });
+
+        it("should reject invalid invitation token", async () => {
+            const response = await app.handle(
+                new Request("http://localhost/api/auth/mock-register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: "test@example.com",
+                        name: "Test User",
+                        gender: "dad",
+                        token: "invalid-token"
+                    }),
+                })
+            );
+
+            expect(response.status).toBe(400);
+            const json = await response.json() as { message: string };
+            expect(json.message).toBe("Invalid or expired invitation token");
         });
     });
 });
