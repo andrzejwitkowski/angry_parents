@@ -7,7 +7,12 @@ export type MutationSignature = {
 };
 
 export async function getMutationSignature(): Promise<MutationSignature> {
-    if (import.meta.env.DEV) {
+    const isTestRuntime =
+        import.meta.env.MODE === "test" ||
+        (typeof process !== "undefined" && (process.env.NODE_ENV === "test" || Boolean(process.versions?.bun))) ||
+        (typeof Bun !== "undefined");
+
+    if (import.meta.env.DEV || isTestRuntime) {
         return createMockSignature();
     }
 
