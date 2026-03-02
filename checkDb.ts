@@ -11,4 +11,9 @@ async function run() {
     console.log(JSON.stringify(family, null, 2));
     await mongoose.connection.close();
 }
-run().catch(console.error);
+if (process.env.NODE_ENV === "development" && process.env.CI !== "true") {
+    run().catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });
+}

@@ -36,6 +36,7 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
     const { t } = useTranslation();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const isOwner = user?.id === item.createdBy;
+    const medicalItem = item as Partial<MedicalVisitItem>;
 
     const handleDelete = async () => {
         try {
@@ -58,12 +59,12 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                         </div>
                         <div>
                             <h3 className="font-bold text-emerald-900">
-                                {(item as any).doctor ?? (
-                                    <span className="text-xs text-slate-400 italic">🔒 Encrypted</span>
+                                {medicalItem.doctor ?? (
+                                    <span className="text-xs text-slate-400 italic">{t("common.encryptedContent")}</span>
                                 )}
                             </h3>
-                            {(item as any).specialization && (
-                                <p className="text-sm text-emerald-700">{(item as any).specialization}</p>
+                            {medicalItem.specialization && (
+                                <p className="text-sm text-emerald-700">{medicalItem.specialization}</p>
                             )}
                         </div>
                     </div>
@@ -124,8 +125,8 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                         {t("medical.diagnosis").replace("*", "")}
                     </p>
                     <p className="text-lg font-bold text-emerald-900">
-                        {(item as any).diagnosis ?? (
-                            <span className="text-xs text-slate-400 italic">🔒 Encrypted</span>
+                        {medicalItem.diagnosis ?? (
+                            <span className="text-xs text-slate-400 italic">{t("common.encryptedContent")}</span>
                         )}
                     </p>
                 </div>

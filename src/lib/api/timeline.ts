@@ -34,10 +34,13 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 let cachedPrivateKey: CryptoKey | null = null;
+const PROTECTED_FIELDS = new Set([
+    "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload"
+]);
 
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
     const privateKeyBase64 = import.meta.env.VITE_DEV_RSA_PRIVATE_KEY;
-    if (!privateKeyBase64) return items;
+    if (!import.meta.env.DEV || !privateKeyBase64) return items;
 
     if (!cachedPrivateKey) {
         cachedPrivateKey = await importPrivateKey(privateKeyBase64);
@@ -57,18 +60,22 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
                 const decryptedFields = JSON.parse(decrypted) as Record<string, unknown>;
                 const base = { ...item } as Partial<TimelineItem>;
                 delete base.encryptedPayload;
+                const safeDecryptedFields = Object.fromEntries(
+                    Object.entries(decryptedFields).filter(([key]) => !PROTECTED_FIELDS.has(key))
+                );
                 return {
                     ...base,
-                    ...decryptedFields
+                    ...safeDecryptedFields
                 } as TimelineItem;
             } catch (error) {
                 lastError = error;
             }
         }
 
-        throw new TimelineApiError(
+        console.warn(
             lastError instanceof Error ? `Failed to decrypt timeline item: ${lastError.message}` : "Failed to decrypt timeline item"
         );
+        return item;
     }));
 }
 

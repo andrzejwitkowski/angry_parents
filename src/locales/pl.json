@@ -26,6 +26,7 @@
         "common.search": "Szukaj...",
         "common.noResults": "Nie znaleziono wyników",
         "common.error": "Błąd",
+        "common.encryptedContent": "Treść zaszyfrowana",
         "common.waiting": "Oczekiwanie...",
         "common.loading": "Ładowanie...",
         "admin.success.title": "Inicjacja zakończona sukcesem!",

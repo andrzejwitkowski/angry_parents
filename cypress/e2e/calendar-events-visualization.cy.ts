@@ -5,9 +5,9 @@ describe("Calendar Events Visualization", () => {
 
     beforeEach(() => {
         // Set up intercepts before login/visit to capture all requests
-        cy.intercept('POST', '/api/timeline').as('createTimeline');
-        cy.intercept('GET', '/api/timeline/range*').as('fetchMonthEvents');
-        cy.intercept('GET', '/api/children').as('fetchChildren');
+        cy.intercept('POST', '**/api/timeline').as('createTimeline');
+        cy.intercept('GET', '**/api/timeline/range*').as('fetchMonthEvents');
+        cy.intercept('GET', '**/api/children*').as('fetchChildren');
 
         // Login directly via API
         cy.request({
@@ -90,12 +90,13 @@ describe("Calendar Events Visualization", () => {
         cy.get('[role="dialog"], [role="tooltip"]', { timeout: 5000 }).should("exist");
     });
 
-    // Helper to add a note via the DayLogbook Sheet.
+    // Helper to add a note via the DayLogbook Sheet and wait for timeline + refetch.
     const addNote = (content: string) => {
         getSheet().find('[data-testid="action-note"]').click({ force: true });
         getSheet().find('[data-testid="content-input"]').clear({ force: true }).type(content, { force: true });
         getSheet().find('[data-testid="submit-note"]').click({ force: true });
         cy.wait('@createTimeline');
+        cy.wait('@fetchMonthEvents', { timeout: 10000 });
     };
 
     it("should show overflow indicator when day has 4+ events", () => {
@@ -111,9 +112,6 @@ describe("Calendar Events Visualization", () => {
         addNote("Test note 2");
         addNote("Test note 3");
         addNote("Test note 4");
-
-        // Wait for calendar refetch (fired by onSuccess inside the sheet)
-        cy.wait('@fetchMonthEvents', { timeout: 10000 });
 
         // Close sheet
         cy.get('body').type('{esc}');
@@ -138,9 +136,6 @@ describe("Calendar Events Visualization", () => {
         addNote("Event dialog test 2");
         addNote("Event dialog test 3");
         addNote("Event dialog test 4");
-
-        // Wait for calendar refetch (fired by onSuccess inside the sheet)
-        cy.wait('@fetchMonthEvents', { timeout: 10000 });
 
         // Close sheet
         cy.get('body').type('{esc}');

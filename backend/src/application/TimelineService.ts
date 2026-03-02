@@ -99,8 +99,8 @@ export class TimelineServiceImpl {
         const plaintextStr = this.extractContentForEncryption(item);
 
         const sortedEntries = [...family.parentPublicKeys].sort((a, b) => a.parentId.localeCompare(b.parentId));
-        const momKeyEntry = sortedEntries.find((entry) => /mom/i.test(entry.parentId)) ?? sortedEntries[0];
-        const dadKeyEntry = sortedEntries.find((entry) => /dad/i.test(entry.parentId)) ?? sortedEntries[1];
+        const momKeyEntry = sortedEntries[0];
+        const dadKeyEntry = sortedEntries[1];
         if (!momKeyEntry?.rsaPublicKeyBase64 || !dadKeyEntry?.rsaPublicKeyBase64) {
             throw new Error("Cannot encrypt: Both parents must have registered RSA public keys.");
         }

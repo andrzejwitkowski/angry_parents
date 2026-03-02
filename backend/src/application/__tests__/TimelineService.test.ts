@@ -181,6 +181,9 @@ describe("TimelineService", () => {
                 content: "First note",
                 childIds: ["child-1"],
                 childId: "child-1",
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1",
             } as unknown as CreateTimelineItemDto & { childId: string };
 
             const dto2 = {
@@ -190,6 +193,9 @@ describe("TimelineService", () => {
                 content: "Second note",
                 childIds: ["child-1"],
                 childId: "child-1",
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1",
             } as unknown as CreateTimelineItemDto & { childId: string };
 
             await service.createItem(dto1);

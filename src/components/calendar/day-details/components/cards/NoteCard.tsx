@@ -35,6 +35,7 @@ export function NoteCard({ item, user, onUpdate, onDelete }: NoteCardProps) {
     const { t } = useTranslation();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const isOwner = user?.id === item.createdBy;
+    const noteContent = (item as Partial<NoteItem>).content;
 
     const handleDelete = async () => {
         try {
@@ -106,9 +107,9 @@ export function NoteCard({ item, user, onUpdate, onDelete }: NoteCardProps) {
             <CardContent className="space-y-3">
                 <div className="bg-white/80 rounded-lg p-3">
                     <p className="text-base text-gray-900 leading-relaxed">
-                        {(item as any).content ?? (
-                            <span className="text-xs text-slate-400 italic flex items-center gap-1">
-                                🔒 {"Content encrypted"}
+                        {noteContent ?? (
+                            <span className="text-xs text-slate-400 italic">
+                                {t("common.encryptedContent")}
                             </span>
                         )}
                     </p>

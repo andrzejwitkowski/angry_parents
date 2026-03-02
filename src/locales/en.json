@@ -27,6 +27,7 @@
         "common.search": "Search...",
         "common.noResults": "No results found",
         "common.error": "Error",
+        "common.encryptedContent": "Encrypted content",
         "admin.success.title": "Initiation completed successfully!",
         "admin.success.body": "Process for family {{familyName}} has been created.",
         "admin.success.sendDad": "SEND EMAIL PREVIEW TO DAD:",
