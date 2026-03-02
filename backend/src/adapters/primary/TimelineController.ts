@@ -10,6 +10,21 @@ function getJwtFromCookie(request: Request): string | null {
     return match ? match[1] : null;
 }
 
+function selectCiphertextForRole(items: unknown[], role?: string) {
+    if (role !== "mom" && role !== "dad") return items;
+
+    return items.map((item) => {
+        const typedItem = item as Record<string, unknown>;
+        const payload = typedItem.encryptedPayload as { encryptedForMom?: string; encryptedForDad?: string } | undefined;
+        if (!payload) return item;
+        const selectedCiphertext = role === "mom" ? payload.encryptedForMom : payload.encryptedForDad;
+        return {
+            ...typedItem,
+            encryptedPayload: selectedCiphertext ?? ""
+        };
+    });
+}
+
 /**
  * Timeline REST API Controller
  * Primary Adapter - handles HTTP requests and delegates to service layer
@@ -39,10 +54,10 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // GET /api/calendar/:date/timeline
         .get(
             "/calendar/:date/timeline",
-            async ({ params }) => {
+            async ({ params, user }) => {
                 try {
                     const items = await service.getItemsByDate(params.date);
-                    return { items };
+                    return { items: selectCiphertextForRole(items, user?.role) };
                 } catch (error) {
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
@@ -60,10 +75,10 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // GET /api/timeline/range?from=YYYY-MM-DD&to=YYYY-MM-DD
         .get(
             "/timeline/range",
-            async ({ query, set }) => {
+            async ({ query, set, user }) => {
                 try {
                     const items = await service.getItemsByDateRange(query.from, query.to);
-                    return { items };
+                    return { items: selectCiphertextForRole(items, user?.role) };
                 } catch (error) {
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",

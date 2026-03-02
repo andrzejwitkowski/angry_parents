@@ -76,8 +76,9 @@ export class TimelineServiceImpl {
 
         const plaintextStr = this.extractContentForEncryption(item);
 
-        const momKey = family.parentPublicKeys[0].rsaPublicKeyBase64;
-        const dadKey = family.parentPublicKeys[1].rsaPublicKeyBase64; // Assuming 2 parents
+        const sortedKeys = [...family.parentPublicKeys].sort((a, b) => a.parentId.localeCompare(b.parentId));
+        const momKey = sortedKeys[0].rsaPublicKeyBase64;
+        const dadKey = sortedKeys[1].rsaPublicKeyBase64;
 
         const encryptedForMom = await this.cryptoService.encryptRSA(plaintextStr, momKey);
         const encryptedForDad = await this.cryptoService.encryptRSA(plaintextStr, dadKey);

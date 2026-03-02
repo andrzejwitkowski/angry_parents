@@ -8,41 +8,14 @@ import { ICryptoService } from "../../core/ports/ICryptoService";
  *
  * Generated once with: crypto.subtle.generateKey({ name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" }, true, ["encrypt","decrypt"])
  */
-export const DEV_RSA_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAr6a8L3kPJtl8mFEyRG8qU/mN8VxU0B3B2vV14EqAFOqXJzC8HwXPY3Q8sMkSMEvz1Y3M5F/ZmSJk4dC4m+OMQ6XFp3QvkPBcrrZZ0pEEdXfFJW5VN0T3tBk+KCvWm8N9qY0AGt2vz7KN1dNWXy4mOXn5MKz4D8T6t0R9RH2ZB4L4q9V5D9HL8W+rL8nHF8Kp9U3r2GZR+P1NJ7RYDq2Eq3oX8eNn7AK7c0K5e0rB3kZh4MN8d3P1q+Yq/Q4d3AXKN+0VzS3e5Y+K8h0W2NB7F0Q4q3R2M8K9d2V1P+Lc4e3Y0N5r8X7d6Z1W2q3A4t5B6c7R8y9Z0p1Q2w3E4r5QIDAQAB";
-export const DEV_RSA_PRIVATE_KEY = "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCvprwveQ8m2XyYUTJEbypT+Y3xXFTQHcHa9XXgSoAU6pcnMLwfBc9jdDywyRIwS/PVjczkX9mZImTh0Lib44xDpcWndC+Q8FyutlnSkQR1d8UlblU3RPe0GT4oK9abw32pjQAa3a/Pso3V01ZfLiY5efkwrPgPxPq3RH1EfZkHgvir1XkP0cvxb6svyccXwqn1TevYZlH4/U0ntFgOrYSrehfx42fsArtzQrl7SsHeRmHgw3x3c/Wr5ir9Dh3cBco37RXNLd7lj4ryHRbY0HsXRDirdHYzwr13ZXU/4tzh7djQ3mvxft3pnVbarcDq3kHpztPxftnpnVbarcDq30EBgKAgEAAoIBAH+CnQk3kR2nt";
-
-let _devKeyPairGenerated = false;
-let _devPublicKey: string = DEV_RSA_PUBLIC_KEY;
-let _devPrivateKey: string = DEV_RSA_PRIVATE_KEY;
+export const DEV_RSA_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkHUMBn9bLKWOe8lJ8Bss5KVElYK13JzKgK4d/A4fUiyAQlBbp6RIiFOtxmZej6sNrk9XgxLL3HiVyESIMets5yFODa45eClhVIvPCdc53xMS/kbztPdBvQPSIwts9hpcjWU5oOLVB8kGxkR3+yI1O0QbM8iYAUqEEOxbGBwXAMj4/FdQ7jshfmj6PhfrlnNsi9YdqbT1TCjKUQTeP37JFVWDm8ID3PWpVGKn+pxT/9TyuNZmYjAoZqtd3x0qdn7eQjlJo9AsZ/F45szqDU8X2MBZHQ4U/8BbmF41X2i7ejVUvmCd9AmSvba+g6lJSNBXomc+cn/TCyaxeUruNhqIMwIDAQAB";
+export const DEV_RSA_PRIVATE_KEY = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCQdQwGf1sspY57yUnwGyzkpUSVgrXcnMqArh38Dh9SLIBCUFunpEiIU63GZl6Pqw2uT1eDEsvceJXIRIgx62znIU4Nrjl4KWFUi88J1znfExL+RvO090G9A9IjC2z2GlyNZTmg4tUHyQbGRHf7IjU7RBszyJgBSoQQ7FsYHBcAyPj8V1DuOyF+aPo+F+uWc2yL1h2ptPVMKMpRBN4/fskVVYObwgPc9alUYqf6nFP/1PK41mZiMChmq13fHSp2ft5COUmj0Cxn8XjmzOoNTxfYwFkdDhT/wFuYXjVfaLt6NVS+YJ30CZK9tr6DqUlI0FeiZz5yf9MLJrF5Su42GogzAgMBAAECggEALXNmUTUI7sc4SWJPzSf/vADzz0bNCZibbllaPdADsssln7fA3sIlwB7z8hSLdBCRwWJdWnQziC64kcZeQ7abES29bTiABHqgkQVcIvCA2Nsbgr24OBwDpwDowPX7VoN801AiDajQ9h4d74vjZDSjIv6OwIBAs0dKvjhfgPp1kl0wVh25TuxdtGr0Y3qe+MBCANQUHfpdt71AF4dr1chPtep9YXYIpKklR2S8Xy8ZZCHaI9QYqc+Pss27KAL+HCbWNDJvsL52or8v9eX5DfL/QMkZK/MXQyt1/HJk552llmMFqYc1Wxxl8hW169GVzW/g7Hez9jK2+9QRK8ZCg6JKIQKBgQDBjlPoCknePGqPRhYsrLbER8eWfw8NY+W19QDefsTrZRbpmleUMxNjng4+G014mT+bfUe/CzO7ZksanGU5Lm4GYRaJtiA1x7tsdbvq2uBLpB3FZ9n8jubvqkZsNNNGidnOSAcIwOOFW87l6o7cQgIu+x+E8JrfsvgcH0ONJWBpRQKBgQC/D66yLmmVFq6BCZlUM0syziMGq1Zaf2RN9LpPitexgzmLgVk6Pr5xaCOZpY81viTuR3KwTf6kSz8Qrz/vs/djSdyhZb1hIfORt49yEBEsM7yf3JS+oGPpE2IcX1ddvzxWe8CK/ZfDAoMVtg+6jw2LxYQB1tSMRG3J8bL6Ppp3FwKBgA3EyCc7hCGw/ouOmsk2yBGSYZpNE48KSi71bMhnEC8Gk+iuOAis0XZGqhC09H/dtu6irNXkQBvWnQUZlwHIUb9WbLoDIKtyt9xxS5rbUxVOaWe/iXwz1i26WSQdZeIgsEPCT+3JeuXjsAYe92ans2wQJR/Z1cqP+qJVfwKtY/xZAoGBAL6jdzxy8wa/yv8WBNfvFmlrJafR7if+VKc0OXKEpxOITDLWraFgWcXukxcMCwkk4NSgld8085AbRKHxO2qBt6ZqXKruSThSGCadcZPuVDQ2q08XWZOblhVKMer9dr8jwaDJeiU1Q+hg6UsQjkEn2+xK+JydLxeGb8XAVUU8kgOhAoGASoGFnuSfb0SkcsUE0pDTqoZA7GMfnqleqSsKtv4vLQM5FKUGG4Nti+L6+ytKJoi2BGUIgacVbf4jL9C++evyMjRX9tNsKn/+Tph6EJZk7u0CzJwQxOs9y2/l4WNzMiV7BNbPJESM692XTO9TbI+omKyI8SQTdg9+wtL+y8g7QdE=";
 
 /**
- * Generate a fresh dev RSA key pair at runtime (used by tests).
- * This ensures the keys are valid and work correctly with Web Crypto API.
+ * Returns deterministic dev RSA key pair for development/testing.
  */
 export async function generateDevRSAKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
-    if (_devKeyPairGenerated) {
-        return { publicKey: _devPublicKey, privateKey: _devPrivateKey };
-    }
-
-    const keyPair = await crypto.subtle.generateKey(
-        {
-            name: "RSA-OAEP",
-            modulusLength: 2048,
-            publicExponent: new Uint8Array([1, 0, 1]),
-            hash: "SHA-256",
-        },
-        true,
-        ["encrypt", "decrypt"]
-    );
-
-    const publicKeyBuffer = await crypto.subtle.exportKey("spki", keyPair.publicKey);
-    const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-
-    _devPublicKey = Buffer.from(publicKeyBuffer).toString("base64");
-    _devPrivateKey = Buffer.from(privateKeyBuffer).toString("base64");
-    _devKeyPairGenerated = true;
-
-    return { publicKey: _devPublicKey, privateKey: _devPrivateKey };
+    return { publicKey: DEV_RSA_PUBLIC_KEY, privateKey: DEV_RSA_PRIVATE_KEY };
 }
 
 export class BunCryptoService implements ICryptoService {
@@ -147,4 +120,3 @@ export class BunCryptoService implements ICryptoService {
         return Buffer.from(JSON.stringify(envelope)).toString("base64");
     }
 }
-

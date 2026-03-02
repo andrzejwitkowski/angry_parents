@@ -69,7 +69,9 @@ export class InMemoryTimelineRepository implements TimelineRepository {
 
     async delete(id: string): Promise<void> {
         const item = this.itemsById.get(id);
-        if (!item) return;
+        if (!item) {
+            throw new Error(`Item with id ${id} not found`);
+        }
 
         this.itemsById.delete(id);
 

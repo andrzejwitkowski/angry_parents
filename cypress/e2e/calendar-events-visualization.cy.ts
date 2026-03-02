@@ -38,12 +38,6 @@ describe("Calendar Events Visualization", () => {
         // Trigger medical visit form
         getSheet().find('[data-testid="action-medical_visit"]').click({ force: true });
 
-        // Wait for child-badge inside the sheet form
-        cy.intercept('GET', '/api/children').as('fetchChildrenInSheet');
-        cy.wait('@fetchChildrenInSheet', { timeout: 8000 });
-        getSheet().find('[data-testid="child-badge"]', { timeout: 5000 }).should('be.visible');
-        getSheet().find('[data-testid="child-badge"]').first().click({ force: true });
-
         // Fill medical form
         getSheet().find('[data-testid="doctor-input"]').type("Dr. Smith", { force: true });
         getSheet().find('[data-testid="diagnosis-input"]').type("Annual checkup", { force: true });
@@ -76,10 +70,6 @@ describe("Calendar Events Visualization", () => {
 
         // Add a note event
         getSheet().find('[data-testid="action-note"]').click({ force: true });
-        cy.intercept('GET', '/api/children').as('fetchChildrenForNote');
-        cy.wait('@fetchChildrenForNote', { timeout: 8000 });
-        getSheet().find('[data-testid="child-badge"]', { timeout: 5000 }).should('be.visible');
-        getSheet().find('[data-testid="child-badge"]').first().click({ force: true });
         getSheet().find('[data-testid="content-input"]').type("Popover test", { force: true });
         getSheet().find('[data-testid="submit-note"]').click({ force: true });
 
@@ -105,13 +95,7 @@ describe("Calendar Events Visualization", () => {
      * Each call re-registers the fetchChildren intercept alias since it may fire on each note click.
      */
     const addNote = (content: string) => {
-        // Re-register alias for each note (children API may be called per ChildSelector mount)
-        cy.intercept('GET', '/api/children').as('fetchChildrenForAddNote');
         getSheet().find('[data-testid="action-note"]').click({ force: true });
-        // Give the ChildSelector time to load - either from cache or fresh API call
-        // Use longer timeout since ChildSelector may render immediately if children are already cached
-        getSheet().find('[data-testid="child-badge"]', { timeout: 10000 }).should('be.visible');
-        getSheet().find('[data-testid="child-badge"]').first().click({ force: true });
         getSheet().find('[data-testid="content-input"]').clear({ force: true }).type(content, { force: true });
         getSheet().find('[data-testid="submit-note"]').click({ force: true });
         cy.wait('@createTimeline');

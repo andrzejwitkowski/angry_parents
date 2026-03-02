@@ -1,4 +1,6 @@
 import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types";
+import { decryptRSA, importPrivateKey } from "@/lib/crypto-utils";
+import { DEV_RSA_PRIVATE_KEY } from "@/lib/mocks/cryptoMock";
 
 const API_BASE_URL = "http://localhost:3000/api";
 
@@ -32,6 +34,41 @@ async function handleResponse<T>(response: Response): Promise<T> {
     return response.json();
 }
 
+let cachedPrivateKey: CryptoKey | null = null;
+
+async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
+    const privateKeyBase64 = import.meta.env.VITE_DEV_RSA_PRIVATE_KEY || DEV_RSA_PRIVATE_KEY;
+    if (!privateKeyBase64) return items;
+
+    if (!cachedPrivateKey) {
+        cachedPrivateKey = await importPrivateKey(privateKeyBase64);
+    }
+
+    return Promise.all(items.map(async (item) => {
+        if (!item.encryptedPayload) return item;
+
+        const ciphertext = typeof item.encryptedPayload === "string"
+            ? item.encryptedPayload
+            : item.encryptedPayload.encryptedForMom || item.encryptedPayload.encryptedForDad;
+
+        if (!ciphertext) return item;
+
+        try {
+            const decrypted = await decryptRSA(ciphertext, cachedPrivateKey as CryptoKey);
+            const decryptedFields = JSON.parse(decrypted) as Record<string, unknown>;
+            const { encryptedPayload, ...base } = item;
+            return {
+                ...base,
+                ...decryptedFields
+            } as TimelineItem;
+        } catch (error) {
+            throw new TimelineApiError(
+                error instanceof Error ? `Failed to decrypt timeline item: ${error.message}` : "Failed to decrypt timeline item"
+            );
+        }
+    }));
+}
+
 export const timelineApi = {
     async getByDate(date: string): Promise<TimelineItem[]> {
         const response = await fetch(`${API_BASE_URL}/calendar/${date}/timeline`, {
@@ -43,7 +80,7 @@ export const timelineApi = {
         });
 
         const data = await handleResponse<{ items: TimelineItem[] }>(response);
-        return data.items;
+        return decryptTimelineItems(data.items);
     },
 
     /**
@@ -59,7 +96,7 @@ export const timelineApi = {
         });
 
         const data = await handleResponse<{ items: TimelineItem[] }>(response);
-        return data.items;
+        return decryptTimelineItems(data.items);
     },
 
     /**
@@ -83,7 +120,9 @@ export const timelineApi = {
             body: JSON.stringify(payload),
         });
 
-        return handleResponse<TimelineItem>(response);
+        const item = await handleResponse<TimelineItem>(response);
+        const [decrypted] = await decryptTimelineItems([item]);
+        return decrypted;
     },
 
     /**
@@ -109,7 +148,9 @@ export const timelineApi = {
             body: JSON.stringify(payload),
         });
 
-        return handleResponse<TimelineItem>(response);
+        const item = await handleResponse<TimelineItem>(response);
+        const [decrypted] = await decryptTimelineItems([item]);
+        return decrypted;
     },
 
     /**
