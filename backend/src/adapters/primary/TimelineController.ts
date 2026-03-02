@@ -10,19 +10,26 @@ function getJwtFromCookie(request: Request): string | null {
     return match ? match[1] : null;
 }
 
-function selectCiphertextForRole(items: unknown[], role?: string) {
-    if (role !== "mom" && role !== "dad") return items;
+function isParentRole(role?: string): role is "mom" | "dad" {
+    return role === "mom" || role === "dad";
+}
 
+function selectCiphertextForRole(items: unknown[], role: "mom" | "dad") {
     return items.map((item) => {
         const typedItem = item as Record<string, unknown>;
         const payload = typedItem.encryptedPayload as { encryptedForMom?: string; encryptedForDad?: string } | undefined;
         if (!payload) return item;
-        const selectedCiphertext = role === "mom" ? payload.encryptedForMom : payload.encryptedForDad;
         return {
             ...typedItem,
-            encryptedPayload: selectedCiphertext ?? ""
+            encryptedPayload: role === "mom"
+                ? { encryptedForMom: payload.encryptedForMom ?? "" }
+                : { encryptedForDad: payload.encryptedForDad ?? "" }
         };
     });
+}
+
+function selectSingleCiphertextForRole(item: unknown, role: "mom" | "dad") {
+    return selectCiphertextForRole([item], role)[0];
 }
 
 /**
@@ -54,10 +61,14 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // GET /api/calendar/:date/timeline
         .get(
             "/calendar/:date/timeline",
-            async ({ params, user }) => {
+            async ({ params, user, set }) => {
                 try {
+                    if (!isParentRole(user?.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
+                    }
                     const items = await service.getItemsByDate(params.date);
-                    return { items: selectCiphertextForRole(items, user?.role) };
+                    return { items: selectCiphertextForRole(items, user.role) };
                 } catch (error) {
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
@@ -77,8 +88,12 @@ export function createTimelineController(service: TimelineServiceImpl) {
             "/timeline/range",
             async ({ query, set, user }) => {
                 try {
+                    if (!isParentRole(user?.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
+                    }
                     const items = await service.getItemsByDateRange(query.from, query.to);
-                    return { items: selectCiphertextForRole(items, user?.role) };
+                    return { items: selectCiphertextForRole(items, user.role) };
                 } catch (error) {
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
@@ -99,6 +114,10 @@ export function createTimelineController(service: TimelineServiceImpl) {
             "/timeline",
             async ({ body, user, set }) => {
                 try {
+                    if (!isParentRole(user?.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
+                    }
                     const userId = user?.id || "anonymous";
                     const userName = user?.name || "Unknown";
                     if (!body.signatureBase64 || !body.timestamp || !body.keyId) {
@@ -111,7 +130,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         createdBy: userId,
                         createdByName: userName
                     });
-                    return item;
+                    return selectSingleCiphertextForRole(item, user.role);
                 } catch (error) {
                     set.status = 400;
                     return {
@@ -131,8 +150,6 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         t.Literal("ATTACHMENT"),
                     ]),
                     date: t.String(),
-                    createdBy: t.String(),
-                    createdByName: t.Optional(t.String()),
                     childId: t.String(), // Require childId for encryption Context (Family lookup)
                     signatureBase64: t.String(),
                     timestamp: t.String(),
@@ -149,6 +166,10 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     if (!user) {
                         set.status = 401;
                         return { error: "Unauthorized" };
+                    }
+                    if (!isParentRole(user.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
                     }
                     const userName = user.name || "Unknown";
 
@@ -168,7 +189,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         payload.keyId,
                         userName
                     );
-                    return updated;
+                    return selectSingleCiphertextForRole(updated, user.role);
                 } catch (error) {
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
@@ -180,6 +201,12 @@ export function createTimelineController(service: TimelineServiceImpl) {
                 params: t.Object({
                     id: t.String(),
                 }),
+                body: t.Object({
+                    childId: t.String(),
+                    signatureBase64: t.String(),
+                    timestamp: t.String(),
+                    keyId: t.String()
+                }, { additionalProperties: true }),
             }
         )
 

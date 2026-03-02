@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createMockSignature } from "@/lib/mocks/cryptoMock";
+import { getMutationSignature } from "@/lib/signature-provider";
 import { useTranslation } from "react-i18next";
 import { ActionToolbar, type ActionMode } from "./ActionToolbar";
 import { MedicalForm } from "./forms/MedicalForm";
@@ -40,7 +40,7 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
                 ...(formData as Omit<CreateTimelineItemDto, "type" | "date" | "createdBy">),
             };
 
-            await timelineApi.create(dto, createMockSignature());
+            await timelineApi.create(dto, await getMutationSignature());
             setSelectedMode(null);
             onSuccess();
         } catch (error) {

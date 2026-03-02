@@ -147,6 +147,7 @@
         "daylog.editEntry": "Edit Entry",
         "daylog.failedToUpdate": "Failed to update entry",
         "daylog.failedToAdd": "Failed to add entry",
+        "daylog.selectChildToAdd": "Select a child to add events",
         "daylog.attachmentComingSoon": "Attachment form coming soon...",
         "daylog.add": "Add:",
         "daylog.medicalVisit": "Medical Visit",

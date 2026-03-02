@@ -1,4 +1,4 @@
-import { createMockSignature } from "@/lib/mocks/cryptoMock";
+import { getMutationSignature } from "@/lib/signature-provider";
 
 import { StickyNote, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -38,7 +38,7 @@ export function NoteCard({ item, user, onUpdate, onDelete }: NoteCardProps) {
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id, createMockSignature());
+            await timelineApi.delete(item.id, await getMutationSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete note:", error);

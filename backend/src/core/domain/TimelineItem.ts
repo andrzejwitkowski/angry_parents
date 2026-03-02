@@ -108,13 +108,10 @@ export type EncryptedPayload = {
 
 /**
  * A TimelineItem as it exists in storage (with encrypted content).
- * All fields EXCEPT id, date, type, childIds, createdBy, createdAt, updatedAt, isDeleted, auditTrail
- * are replaced by `encryptedPayload`.
+ * Plaintext content fields are removed and replaced by `encryptedPayload`.
  */
-export type EncryptedTimelineItem = Omit<
-    TimelineItem,
-    "notes" | "doctor" | "treatment" | "diagnosis" | "medicineName" | "dosage" | "unit" | "frequency" | "durationDays" | "description" | "severity" | "category" | "handoverNotes" | "destination" | "url" | "fileType" | "metadata" | "content"
-> & {
+export type EncryptedTimelineItem = BaseTimelineItem & {
+    type: TimelineItem["type"];
     encryptedPayload: EncryptedPayload;
 };
 

@@ -1,4 +1,4 @@
-import { createMockSignature } from "@/lib/mocks/cryptoMock";
+import { getMutationSignature } from "@/lib/signature-provider";
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -44,7 +44,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
     const handleCheckboxChange = async (checked: boolean) => {
         setIsUpdating(true);
         try {
-            const updated = await timelineApi.update(item.id, { ...item, administered: checked }, createMockSignature());
+            const updated = await timelineApi.update(item.id, { ...item, administered: checked }, await getMutationSignature());
             setAdministered(checked);
             onUpdate?.(updated as MedsItem);
         } catch (error) {
@@ -58,7 +58,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id, createMockSignature());
+            await timelineApi.delete(item.id, await getMutationSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete medication:", error);

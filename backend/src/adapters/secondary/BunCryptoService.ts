@@ -15,6 +15,9 @@ export const DEV_RSA_PRIVATE_KEY = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEA
  * Returns deterministic dev RSA key pair for development/testing.
  */
 export async function generateDevRSAKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
+    if (process.env.NODE_ENV === "production") {
+        throw new Error("Dev RSA key pair generation is disabled in production.");
+    }
     return { publicKey: DEV_RSA_PUBLIC_KEY, privateKey: DEV_RSA_PRIVATE_KEY };
 }
 

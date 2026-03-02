@@ -55,13 +55,21 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         // Update in both maps
         this.itemsById.set(id, updatedItem);
 
-        // Update in date-based storage
-        const dateKey = existingItem.date;
-        const items = this.itemsByDate.get(dateKey) || [];
-        const index = items.findIndex((item) => item.id === id);
+        // Update in date-based storage, including date re-indexing if date changed
+        const oldDateKey = existingItem.date;
+        const newDateKey = updatedItem.date;
+        const oldItems = this.itemsByDate.get(oldDateKey) || [];
+        const index = oldItems.findIndex((item) => item.id === id);
         if (index !== -1) {
-            items[index] = updatedItem;
-            this.itemsByDate.set(dateKey, items);
+            oldItems.splice(index, 1);
+            this.itemsByDate.set(oldDateKey, oldItems);
+        }
+
+        const newItems = this.itemsByDate.get(newDateKey) || [];
+        newItems.push(updatedItem);
+        this.itemsByDate.set(newDateKey, newItems);
+        if (oldDateKey !== newDateKey && oldItems.length === 0) {
+            this.itemsByDate.delete(oldDateKey);
         }
 
         return updatedItem;

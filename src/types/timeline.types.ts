@@ -18,7 +18,7 @@ export type BaseTimelineItem = {
     auditTrail: AuditEntry[];
     isDeleted: boolean;
     childIds: string[];
-    encryptedPayload?: { encryptedForMom: string; encryptedForDad: string } | string;
+    encryptedPayload?: { encryptedForMom?: string; encryptedForDad?: string };
 };
 
 export type NoteItem = BaseTimelineItem & {

@@ -7,6 +7,7 @@ describe("Calendar Events Visualization", () => {
         // Set up intercepts before login/visit to capture all requests
         cy.intercept('POST', '/api/timeline').as('createTimeline');
         cy.intercept('GET', '/api/timeline/range*').as('fetchMonthEvents');
+        cy.intercept('GET', '/api/children').as('fetchChildren');
 
         // Login directly via API
         cy.request({
@@ -22,7 +23,6 @@ describe("Calendar Events Visualization", () => {
         cy.visit("http://localhost:5173/dashboard");
 
         // Wait for children to load via API and appear in header
-        cy.intercept('GET', '/api/children').as('fetchChildren');
         cy.wait('@fetchChildren', { timeout: 10000 });
         cy.contains('Mock Child', { timeout: 10000 }).should('be.visible');
     });
@@ -90,10 +90,7 @@ describe("Calendar Events Visualization", () => {
         cy.get('[role="dialog"], [role="tooltip"]', { timeout: 5000 }).should("exist");
     });
 
-    /**
-     * Helper to add a note via the DayLogbook Sheet.
-     * Each call re-registers the fetchChildren intercept alias since it may fire on each note click.
-     */
+    // Helper to add a note via the DayLogbook Sheet.
     const addNote = (content: string) => {
         getSheet().find('[data-testid="action-note"]').click({ force: true });
         getSheet().find('[data-testid="content-input"]').clear({ force: true }).type(content, { force: true });

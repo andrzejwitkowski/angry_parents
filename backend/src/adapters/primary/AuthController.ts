@@ -347,6 +347,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
                 // MOCK IN DB - use upsert to avoid duplicate key errors across test runs
                 try {
+                    const { publicKey: devRsaPublicKey } = await generateDevRSAKeyPair();
                     await Family.findByIdAndUpdate(
                         finalFamilyId,
                         {
@@ -356,8 +357,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                             children: [{ id: MOCK_CHILD_ID, name: "Mock Child" }],
                             custodyPatterns: [],
                             parentPublicKeys: [
-                                { parentId: "dummy-dad-id", rsaPublicKeyBase64: (await generateDevRSAKeyPair()).publicKey },
-                                { parentId: "dummy-mom-id", rsaPublicKeyBase64: (await generateDevRSAKeyPair()).publicKey }
+                                { parentId: "dummy-dad-id", rsaPublicKeyBase64: devRsaPublicKey },
+                                { parentId: "dummy-mom-id", rsaPublicKeyBase64: devRsaPublicKey }
                             ]
                         },
                         { upsert: true, new: true }
@@ -462,11 +463,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 invitation.status = "accepted";
                 await invitation.save();
             } else {
+                const { publicKey: devRsaPublicKey } = await generateDevRSAKeyPair();
                 const newFamily = await Family.create({
                     parentIds: [],
                     parentPublicKeys: [
-                        { parentId: "dummy-dad-id", rsaPublicKeyBase64: (await generateDevRSAKeyPair()).publicKey },
-                        { parentId: "dummy-mom-id", rsaPublicKeyBase64: (await generateDevRSAKeyPair()).publicKey }
+                        { parentId: "dummy-dad-id", rsaPublicKeyBase64: devRsaPublicKey },
+                        { parentId: "dummy-mom-id", rsaPublicKeyBase64: devRsaPublicKey }
                     ]
                 });
                 familyIdToUse = newFamily._id.toString();

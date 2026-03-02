@@ -38,7 +38,7 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, activeChildId: ex
         } else if (children.length > 0 && !internalChildId) {
             setInternalChildId(children[0].id);
         }
-    }, [externalChildId, children]);
+    }, [externalChildId, children, internalChildId]);
 
     const activeChildId = externalChildId ?? internalChildId;
 
@@ -113,7 +113,7 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, activeChildId: ex
                         />
                     ) : (
                         <div className="text-center text-slate-500 italic p-4">
-                            Select a child to add events
+                            {t("daylog.selectChildToAdd")}
                         </div>
                     )}
                 </div>

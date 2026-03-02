@@ -1,6 +1,5 @@
 import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types";
 import { decryptRSA, importPrivateKey } from "@/lib/crypto-utils";
-import { DEV_RSA_PRIVATE_KEY } from "@/lib/mocks/cryptoMock";
 
 const API_BASE_URL = "http://localhost:3000/api";
 
@@ -37,7 +36,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 let cachedPrivateKey: CryptoKey | null = null;
 
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
-    const privateKeyBase64 = import.meta.env.VITE_DEV_RSA_PRIVATE_KEY || DEV_RSA_PRIVATE_KEY;
+    const privateKeyBase64 = import.meta.env.VITE_DEV_RSA_PRIVATE_KEY;
     if (!privateKeyBase64) return items;
 
     if (!cachedPrivateKey) {
@@ -47,25 +46,28 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
     return Promise.all(items.map(async (item) => {
         if (!item.encryptedPayload) return item;
 
-        const ciphertext = typeof item.encryptedPayload === "string"
-            ? item.encryptedPayload
-            : item.encryptedPayload.encryptedForMom || item.encryptedPayload.encryptedForDad;
+        const payload = item.encryptedPayload;
+        const ciphertexts = [payload.encryptedForMom, payload.encryptedForDad].filter((v): v is string => Boolean(v));
+        if (ciphertexts.length === 0) return item;
 
-        if (!ciphertext) return item;
-
-        try {
-            const decrypted = await decryptRSA(ciphertext, cachedPrivateKey as CryptoKey);
-            const decryptedFields = JSON.parse(decrypted) as Record<string, unknown>;
-            const { encryptedPayload, ...base } = item;
-            return {
-                ...base,
-                ...decryptedFields
-            } as TimelineItem;
-        } catch (error) {
-            throw new TimelineApiError(
-                error instanceof Error ? `Failed to decrypt timeline item: ${error.message}` : "Failed to decrypt timeline item"
-            );
+        let lastError: unknown = null;
+        for (const ciphertext of ciphertexts) {
+            try {
+                const decrypted = await decryptRSA(ciphertext, cachedPrivateKey as CryptoKey);
+                const decryptedFields = JSON.parse(decrypted) as Record<string, unknown>;
+                const { encryptedPayload, ...base } = item;
+                return {
+                    ...base,
+                    ...decryptedFields
+                } as TimelineItem;
+            } catch (error) {
+                lastError = error;
+            }
         }
+
+        throw new TimelineApiError(
+            lastError instanceof Error ? `Failed to decrypt timeline item: ${lastError.message}` : "Failed to decrypt timeline item"
+        );
     }));
 }
 

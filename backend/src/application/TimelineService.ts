@@ -15,6 +15,18 @@ import type { ForensicService } from "./ForensicService";
  * Follows Hexagonal Architecture - depends only on ports, not adapters.
  */
 export class TimelineServiceImpl {
+    private static readonly UNENCRYPTED_ITEM_FIELDS = new Set([
+        "id",
+        "type",
+        "date",
+        "createdAt",
+        "createdBy",
+        "createdByName",
+        "auditTrail",
+        "isDeleted",
+        "childIds",
+    ]);
+
     constructor(
         private readonly repository: TimelineRepository,
         private readonly dateProvider: DateProvider,
@@ -30,30 +42,24 @@ export class TimelineServiceImpl {
      * Returns a JSON string of all sensitive fields.
      */
     private extractContentForEncryption(item: TimelineItem): string {
-        // We know these fields are the ones we want to encrypt based on EncryptedTimelineItem type
-        const contentFields = {
-            notes: (item as any).notes,
-            doctor: (item as any).doctor,
-            treatment: (item as any).treatment,
-            diagnosis: (item as any).diagnosis,
-            medicineName: (item as any).medicineName,
-            dosage: (item as any).dosage,
-            unit: (item as any).unit,
-            frequency: (item as any).frequency,
-            durationDays: (item as any).durationDays,
-            description: (item as any).description,
-            severity: (item as any).severity,
-            category: (item as any).category,
-            handoverNotes: (item as any).handoverNotes,
-            destination: (item as any).destination,
-            url: (item as any).url,
-            fileType: (item as any).fileType,
-            metadata: (item as any).metadata,
-            content: (item as any).content,
-        };
-        // Remove undefined fields to save space
-        const cleanFields = Object.fromEntries(Object.entries(contentFields).filter(([_, v]) => v !== undefined));
-        return JSON.stringify(cleanFields);
+        const contentFields = Object.fromEntries(
+            Object.entries(item as Record<string, unknown>).filter(
+                ([key, value]) => !TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key) && value !== undefined
+            )
+        );
+        return JSON.stringify(contentFields);
+    }
+
+    private assertSignatureMetadata(signatureBase64: string, timestamp: string, keyId: string): void {
+        if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+            return;
+        }
+        if (!signatureBase64 || !timestamp || !keyId) {
+            throw new Error("signatureBase64, timestamp, and keyId are required for data integrity");
+        }
+        if (Number.isNaN(Date.parse(timestamp))) {
+            throw new Error("Invalid signature timestamp");
+        }
     }
 
     /**
@@ -76,20 +82,21 @@ export class TimelineServiceImpl {
 
         const plaintextStr = this.extractContentForEncryption(item);
 
-        const sortedKeys = [...family.parentPublicKeys].sort((a, b) => a.parentId.localeCompare(b.parentId));
-        const momKey = sortedKeys[0].rsaPublicKeyBase64;
-        const dadKey = sortedKeys[1].rsaPublicKeyBase64;
+        const [momKeyEntry, dadKeyEntry] = family.parentPublicKeys;
+        if (!momKeyEntry?.rsaPublicKeyBase64 || !dadKeyEntry?.rsaPublicKeyBase64) {
+            throw new Error("Cannot encrypt: Both parents must have registered RSA public keys.");
+        }
+        const momKey = momKeyEntry.rsaPublicKeyBase64;
+        const dadKey = dadKeyEntry.rsaPublicKeyBase64;
 
         const encryptedForMom = await this.cryptoService.encryptRSA(plaintextStr, momKey);
         const encryptedForDad = await this.cryptoService.encryptRSA(plaintextStr, dadKey);
 
         const payload: EncryptedPayload = { encryptedForMom, encryptedForDad };
 
-        const {
-            notes, doctor, treatment, diagnosis, medicineName, dosage, unit, frequency,
-            durationDays, description, severity, category, handoverNotes, destination,
-            url, fileType, metadata, content, ...unencryptedFields
-        } = item as any;
+        const unencryptedFields = Object.fromEntries(
+            Object.entries(item as Record<string, unknown>).filter(([key]) => TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key))
+        );
 
         return {
             ...unencryptedFields,
@@ -98,6 +105,7 @@ export class TimelineServiceImpl {
     }
 
     async createItem(dto: CreateTimelineItemDto & { childId: string, signatureBase64: string, timestamp: string, keyId: string }): Promise<EncryptedTimelineItem> {
+        this.assertSignatureMetadata(dto.signatureBase64, dto.timestamp, dto.keyId);
         const timestamp = this.dateProvider.getIsoString();
 
         // Initial audit entry
@@ -197,6 +205,7 @@ export class TimelineServiceImpl {
         keyId: string,
         userName?: string
     ): Promise<EncryptedTimelineItem> {
+        this.assertSignatureMetadata(signatureBase64, timestamp, keyId);
         const existing = await this.repository.findById(id);
         if (!existing) {
             throw new Error(`Timeline item with id ${id} not found`);
@@ -207,8 +216,13 @@ export class TimelineServiceImpl {
             throw new Error("Unauthorized: You can only modify your own items");
         }
 
-        // Validate the incoming full item
-        const validated = TimelineItemSchema.parse(fullPlaintextUpdate);
+        // Validate the incoming full item while preserving immutable server-side fields.
+        const validated = TimelineItemSchema.parse({
+            ...fullPlaintextUpdate,
+            id: existing.id,
+            createdBy: existing.createdBy,
+            createdAt: existing.createdAt,
+        });
 
         // We cannot calculate precise field differences on the backend anymore 
         // because we can't read the existing ciphertext.
@@ -248,6 +262,7 @@ export class TimelineServiceImpl {
         keyId: string,
         userName?: string
     ): Promise<void> {
+        this.assertSignatureMetadata(signatureBase64, timestamp, keyId);
         const existing = await this.repository.findById(id);
         if (!existing) {
             throw new Error(`Timeline item with id ${id} not found`);

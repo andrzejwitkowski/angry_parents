@@ -146,6 +146,7 @@
         "daylog.editEntry": "Edytuj Wpis",
         "daylog.failedToUpdate": "Nie udało się zaktualizować wpisu",
         "daylog.failedToAdd": "Nie udało się dodać wpisu",
+        "daylog.selectChildToAdd": "Wybierz dziecko, aby dodać wydarzenia",
         "daylog.attachmentComingSoon": "Formularz załączników wkrótce...",
         "daylog.add": "Dodaj:",
         "daylog.medicalVisit": "Wizyta Lekarska",

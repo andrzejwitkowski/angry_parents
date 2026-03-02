@@ -1,4 +1,4 @@
-import { createMockSignature } from "@/lib/mocks/cryptoMock";
+import { getMutationSignature } from "@/lib/signature-provider";
 
 import { Stethoscope, FileText, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -39,7 +39,7 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id, createMockSignature());
+            await timelineApi.delete(item.id, await getMutationSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete medical visit:", error);

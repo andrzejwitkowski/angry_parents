@@ -1,4 +1,4 @@
-import { createMockSignature } from "@/lib/mocks/cryptoMock";
+import { getMutationSignature } from "@/lib/signature-provider";
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,7 +31,7 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
         setIsSubmitting(true);
         try {
-            const updated = await timelineApi.update(item.id, { ...item, ...formData }, createMockSignature());
+            const updated = await timelineApi.update(item.id, { ...item, ...formData }, await getMutationSignature());
             onSuccess(updated);
             onOpenChange(false);
         } catch (error) {
