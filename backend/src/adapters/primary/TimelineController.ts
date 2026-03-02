@@ -173,7 +173,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     }
                     const userName = user.name || "Unknown";
 
-                    const payload = body as any;
+                    const payload = body as CreateTimelineItemDto & { childId: string; signatureBase64: string; timestamp: string; keyId: string };
                     if (!payload.childId || !payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
                         set.status = 400;
                         return { error: "childId, signatureBase64, timestamp, and keyId are required" };
@@ -219,14 +219,18 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         set.status = 401;
                         return { error: "Unauthorized" };
                     }
+                    if (!isParentRole(user.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
+                    }
 
-                    const payload = body as any;
+                    const payload = body as { signatureBase64: string; timestamp: string; keyId: string };
                     if (!payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
                         set.status = 400;
                         return { error: "signatureBase64, timestamp, and keyId are required" };
                     }
                     const userName = user.name || "Unknown";
-                    await service.deleteItem(params.id, user.id, body.signatureBase64, body.timestamp, body.keyId, userName);
+                    await service.deleteItem(params.id, user.id, payload.signatureBase64, payload.timestamp, payload.keyId, userName);
                     set.status = 204;
                     return null;
                 } catch (error) {

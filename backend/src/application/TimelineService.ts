@@ -8,6 +8,7 @@ import type { ICryptoService } from "../core/ports/ICryptoService";
 import type { Model } from "mongoose";
 import type { IFamily } from "../models/Family";
 import type { ForensicService } from "./ForensicService";
+import { PasskeyModel } from "../models/Passkey";
 
 /**
  * TimelineService Implementation
@@ -62,6 +63,21 @@ export class TimelineServiceImpl {
         }
     }
 
+    private async resolveSignerPublicKey(signerId: string, keyId: string): Promise<string> {
+        if (process.env.NODE_ENV !== "production") {
+            return "dev-signature-unverified";
+        }
+        const credentialId = Buffer.from(keyId, "base64url");
+        if (credentialId.length === 0) {
+            throw new Error("Invalid keyId");
+        }
+        const passkey = await PasskeyModel.findOne({ userId: signerId, credentialID: credentialId }).lean();
+        if (!passkey) {
+            throw new Error("Passkey not found for signer");
+        }
+        return Buffer.from(passkey.credentialPublicKey).toString("base64url");
+    }
+
     /**
      * Helper to build the EncryptedTimelineItem from a validated plaintext TimelineItem
      */
@@ -82,7 +98,9 @@ export class TimelineServiceImpl {
 
         const plaintextStr = this.extractContentForEncryption(item);
 
-        const [momKeyEntry, dadKeyEntry] = family.parentPublicKeys;
+        const sortedEntries = [...family.parentPublicKeys].sort((a, b) => a.parentId.localeCompare(b.parentId));
+        const momKeyEntry = sortedEntries.find((entry) => /mom/i.test(entry.parentId)) ?? sortedEntries[0];
+        const dadKeyEntry = sortedEntries.find((entry) => /dad/i.test(entry.parentId)) ?? sortedEntries[1];
         if (!momKeyEntry?.rsaPublicKeyBase64 || !dadKeyEntry?.rsaPublicKeyBase64) {
             throw new Error("Cannot encrypt: Both parents must have registered RSA public keys.");
         }
@@ -120,7 +138,7 @@ export class TimelineServiceImpl {
         // Map childId (singular from controller) to childIds (plural array expected by domain)
         const item: TimelineItem = {
             ...dto,
-            childIds: dto.childId ? [dto.childId] : (dto as unknown as Record<string, unknown>).childIds as string[] || [],
+            childIds: [dto.childId],
             id: this.uuidProvider.generate(),
             createdAt: timestamp,
             auditTrail: [initialAudit],
@@ -146,12 +164,13 @@ export class TimelineServiceImpl {
         }
 
         const encryptedItem = await this.encryptItem(validated, dto.childId);
+        const signerPublicKey = await this.resolveSignerPublicKey(dto.createdBy, dto.keyId);
 
         // --- Forensic Integration ---
         // Create a pending forensic document wrapping the encrypted item
         await this.forensicService.createPendingDocument<EncryptedTimelineItem>(
             encryptedItem,
-            "user-public-key-placeholder", // We don't need actual user pub key for createPending (we only verify later)
+            signerPublicKey,
             dto.signatureBase64,
             dto.keyId,
             dto.timestamp,
@@ -215,6 +234,9 @@ export class TimelineServiceImpl {
         if (existing.createdBy !== userId) {
             throw new Error("Unauthorized: You can only modify your own items");
         }
+        if (!existing.childIds.includes(childId)) {
+            throw new Error("Child does not belong to this timeline item");
+        }
 
         // Validate the incoming full item while preserving immutable server-side fields.
         const validated = TimelineItemSchema.parse({
@@ -222,6 +244,9 @@ export class TimelineServiceImpl {
             id: existing.id,
             createdBy: existing.createdBy,
             createdAt: existing.createdAt,
+            createdByName: existing.createdByName,
+            childIds: existing.childIds,
+            isDeleted: existing.isDeleted,
         });
 
         // We cannot calculate precise field differences on the backend anymore 
@@ -239,12 +264,13 @@ export class TimelineServiceImpl {
 
         // Re-encrypt the full item
         const encryptedUpdatedItem = await this.encryptItem(validated, childId);
+        const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
         // --- Forensic Integration ---
         // Create a pending forensic document wrapping the updated encrypted item
         await this.forensicService.createPendingDocument<EncryptedTimelineItem>(
             encryptedUpdatedItem,
-            "user-public-key-placeholder",
+            signerPublicKey,
             signatureBase64,
             keyId,
             timestamp,
@@ -285,12 +311,13 @@ export class TimelineServiceImpl {
             isDeleted: true,
             auditTrail: [...existing.auditTrail, auditEntry]
         };
+        const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
         // --- Forensic Integration ---
         // Create a pending forensic document wrapping the deleted status
         await this.forensicService.createPendingDocument<EncryptedTimelineItem>(
             updated as EncryptedTimelineItem,
-            "user-public-key-placeholder",
+            signerPublicKey,
             signatureBase64,
             keyId,
             timestamp,

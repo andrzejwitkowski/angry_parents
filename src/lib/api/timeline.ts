@@ -55,7 +55,8 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
             try {
                 const decrypted = await decryptRSA(ciphertext, cachedPrivateKey as CryptoKey);
                 const decryptedFields = JSON.parse(decrypted) as Record<string, unknown>;
-                const { encryptedPayload, ...base } = item;
+                const base = { ...item } as Partial<TimelineItem>;
+                delete base.encryptedPayload;
                 return {
                     ...base,
                     ...decryptedFields

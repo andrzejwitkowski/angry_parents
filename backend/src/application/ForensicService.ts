@@ -52,6 +52,13 @@ export class ForensicService {
         const hash = await ForensicChain.calculateHash(payload);
         tempDoc.hash = hash;
 
+        if (process.env.NODE_ENV === "production") {
+            const isValid = await this.crypto.verifySignature(userPublicKey, hash, signatureBase64);
+            if (!isValid) {
+                throw new Error("Invalid signature for forensic document");
+            }
+        }
+
         // IDEMPOTENCY CHECK: Check if this exact document already exists
         const existingAtIndex = await this.repository.getDocumentByIndex<T>(index);
         if (existingAtIndex) {

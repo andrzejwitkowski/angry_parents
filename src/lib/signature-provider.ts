@@ -7,7 +7,7 @@ export type MutationSignature = {
 };
 
 export async function getMutationSignature(): Promise<MutationSignature> {
-    if (process.env.NODE_ENV !== "production") {
+    if (import.meta.env.DEV) {
         return createMockSignature();
     }
 

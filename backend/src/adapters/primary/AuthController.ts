@@ -443,6 +443,11 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             return { ok: true };
         })
         .post("/mock-register", async ({ body, set }) => {
+            const isDev = process.env.NODE_ENV !== "production";
+            if (!isDev) {
+                set.status = 403;
+                return { message: "Dev endpoint only" };
+            }
             console.log("[MockReg] hit", body);
             const { email, name, gender, token } = body as { email: string, name: string, gender: Gender, token?: string };
 
