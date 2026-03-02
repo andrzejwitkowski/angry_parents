@@ -357,8 +357,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                             children: [{ id: MOCK_CHILD_ID, name: "Mock Child" }],
                             custodyPatterns: [],
                             parentPublicKeys: [
-                                { parentId: "dummy-dad-id", rsaPublicKeyBase64: devRsaPublicKey },
-                                { parentId: "dummy-mom-id", rsaPublicKeyBase64: devRsaPublicKey }
+                                { parentId: "dummy-dad-id", role: "dad", rsaPublicKeyBase64: devRsaPublicKey },
+                                { parentId: "dummy-mom-id", role: "mom", rsaPublicKeyBase64: devRsaPublicKey }
                             ]
                         },
                         { upsert: true, new: true }
@@ -472,8 +472,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 const newFamily = await Family.create({
                     parentIds: [],
                     parentPublicKeys: [
-                        { parentId: "dummy-dad-id", rsaPublicKeyBase64: devRsaPublicKey },
-                        { parentId: "dummy-mom-id", rsaPublicKeyBase64: devRsaPublicKey }
+                        { parentId: "dummy-dad-id", role: "dad", rsaPublicKeyBase64: devRsaPublicKey },
+                        { parentId: "dummy-mom-id", role: "mom", rsaPublicKeyBase64: devRsaPublicKey }
                     ]
                 });
                 familyIdToUse = newFamily._id.toString();

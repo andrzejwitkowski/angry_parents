@@ -10,6 +10,12 @@ import type { IFamily } from "../models/Family";
 import type { ForensicService } from "./ForensicService";
 import { PasskeyModel } from "../models/Passkey";
 
+export type SignatureData = {
+    signatureBase64: string;
+    timestamp: string;
+    keyId: string;
+};
+
 /**
  * TimelineService Implementation
  * Contains business logic for timeline operations.
@@ -98,12 +104,13 @@ export class TimelineServiceImpl {
 
         const plaintextStr = this.extractContentForEncryption(item);
 
-        const sortedEntries = [...family.parentPublicKeys].sort((a, b) => a.parentId.localeCompare(b.parentId));
-        const momKeyEntry = sortedEntries[0];
-        const dadKeyEntry = sortedEntries[1];
+        const momKeyEntry = family.parentPublicKeys.find(p => p.role === "mom");
+        const dadKeyEntry = family.parentPublicKeys.find(p => p.role === "dad");
+
         if (!momKeyEntry?.rsaPublicKeyBase64 || !dadKeyEntry?.rsaPublicKeyBase64) {
-            throw new Error("Cannot encrypt: Both parents must have registered RSA public keys.");
+            throw new Error("Cannot encrypt: Both mom and dad must have registered RSA public keys.");
         }
+
         const momKey = momKeyEntry.rsaPublicKeyBase64;
         const dadKey = dadKeyEntry.rsaPublicKeyBase64;
 
@@ -122,7 +129,7 @@ export class TimelineServiceImpl {
         } as EncryptedTimelineItem;
     }
 
-    async createItem(dto: CreateTimelineItemDto & { childId: string, signatureBase64: string, timestamp: string, keyId: string }): Promise<EncryptedTimelineItem> {
+    async createItem(dto: CreateTimelineItemDto & { childId: string } & SignatureData): Promise<EncryptedTimelineItem> {
         this.assertSignatureMetadata(dto.signatureBase64, dto.timestamp, dto.keyId);
         const timestamp = this.dateProvider.getIsoString();
 
@@ -219,11 +226,10 @@ export class TimelineServiceImpl {
         fullPlaintextUpdate: TimelineItem,
         userId: string,
         childId: string,
-        signatureBase64: string,
-        timestamp: string,
-        keyId: string,
+        signatureData: SignatureData,
         userName?: string
     ): Promise<EncryptedTimelineItem> {
+        const { signatureBase64, timestamp, keyId } = signatureData;
         this.assertSignatureMetadata(signatureBase64, timestamp, keyId);
         const existing = await this.repository.findById(id);
         if (!existing) {
@@ -283,11 +289,10 @@ export class TimelineServiceImpl {
     async deleteItem(
         id: string,
         userId: string,
-        signatureBase64: string,
-        timestamp: string,
-        keyId: string,
+        signatureData: SignatureData,
         userName?: string
     ): Promise<void> {
+        const { signatureBase64, timestamp, keyId } = signatureData;
         this.assertSignatureMetadata(signatureBase64, timestamp, keyId);
         const existing = await this.repository.findById(id);
         if (!existing) {

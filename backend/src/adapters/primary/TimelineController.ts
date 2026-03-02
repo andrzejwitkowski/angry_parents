@@ -181,12 +181,14 @@ export function createTimelineController(service: TimelineServiceImpl) {
 
                     const updated = await service.updateItem(
                         params.id,
-                        payload,
+                        payload as any,
                         user.id,
                         payload.childId,
-                        payload.signatureBase64,
-                        payload.timestamp,
-                        payload.keyId,
+                        {
+                            signatureBase64: payload.signatureBase64,
+                            timestamp: payload.timestamp,
+                            keyId: payload.keyId
+                        },
                         userName
                     );
                     return selectSingleCiphertextForRole(updated, user.role);
@@ -230,7 +232,11 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         return { error: "signatureBase64, timestamp, and keyId are required" };
                     }
                     const userName = user.name || "Unknown";
-                    await service.deleteItem(params.id, user.id, payload.signatureBase64, payload.timestamp, payload.keyId, userName);
+                    await service.deleteItem(params.id, user.id, {
+                        signatureBase64: payload.signatureBase64,
+                        timestamp: payload.timestamp,
+                        keyId: payload.keyId
+                    }, userName);
                     set.status = 204;
                     return null;
                 } catch (error) {

@@ -8,6 +8,7 @@ export interface IFamily extends Document {
     parentIds: string[];
     parentPublicKeys: {
         parentId: string; // Refers to user ID
+        role: "mom" | "dad"; // Explicit role for encryption
         rsaPublicKeyBase64: string; // The parent's RSA-OAEP public key
     }[];
     children: {
@@ -32,6 +33,7 @@ const FamilySchema = new Schema<IFamily>({
     parentPublicKeys: [
         {
             parentId: { type: String, required: true },
+            role: { type: String, enum: ["mom", "dad"], required: true },
             rsaPublicKeyBase64: { type: String, required: true },
         }
     ],

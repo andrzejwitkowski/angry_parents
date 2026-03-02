@@ -38,6 +38,12 @@ const PROTECTED_FIELDS = new Set([
     "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload"
 ]);
 
+export type SignatureData = {
+    signatureBase64: string;
+    timestamp: string;
+    keyId: string;
+};
+
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
     const privateKeyBase64 = import.meta.env.VITE_DEV_RSA_PRIVATE_KEY;
     if (!import.meta.env.DEV || !privateKeyBase64) return items;
@@ -57,7 +63,14 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
         for (const ciphertext of ciphertexts) {
             try {
                 const decrypted = await decryptRSA(ciphertext, cachedPrivateKey as CryptoKey);
-                const decryptedFields = JSON.parse(decrypted) as Record<string, unknown>;
+                const decryptedFields = JSON.parse(decrypted);
+
+                // BUGFIX: Ensure decryptedFields is a non-null object before merging
+                if (typeof decryptedFields !== 'object' || decryptedFields === null || Array.isArray(decryptedFields)) {
+                    console.warn("Decrypted fields are not a plain object:", decryptedFields);
+                    return item;
+                }
+
                 const base = { ...item } as Partial<TimelineItem>;
                 delete base.encryptedPayload;
                 const safeDecryptedFields = Object.fromEntries(
@@ -114,7 +127,7 @@ export const timelineApi = {
      */
     async create(
         dto: CreateTimelineItemDto & { childId: string },
-        signatureData: { signatureBase64: string; timestamp: string; keyId: string }
+        signatureData: SignatureData
     ): Promise<TimelineItem> {
         const payload = {
             ...dto,
@@ -142,10 +155,12 @@ export const timelineApi = {
     async update(
         id: string,
         fullItem: TimelineItem,
-        signatureData: { signatureBase64: string; timestamp: string; keyId: string }
+        signatureData: SignatureData
     ): Promise<TimelineItem> {
+        // BUGFIX: Enforce that payload.id matches the URL id to prevent mismatches
         const payload = {
             ...fullItem,
+            id: id,
             ...signatureData
         };
 
@@ -168,7 +183,7 @@ export const timelineApi = {
      */
     async delete(
         id: string,
-        signatureData: { signatureBase64: string; timestamp: string; keyId: string }
+        signatureData: SignatureData
     ): Promise<void> {
         const response = await fetch(`${API_BASE_URL}/timeline/${id}`, {
             method: "DELETE",

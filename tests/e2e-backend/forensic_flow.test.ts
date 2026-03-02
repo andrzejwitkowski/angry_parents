@@ -200,7 +200,9 @@ describe.skipIf(!process.env.E2E_TEST)("Forensic Document Pipeline E2E", () => {
             signature: signatureB,
             keyId: keyIdB_Base64,
             timestamp: timestamp, // MUST match original timestamp
-            signerId: userEmailB
+            signerId: userEmailB,
+            index: docIndex,
+            prevHash: pendingDoc.prevHash
         });
 
         const text = await res.text();

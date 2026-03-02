@@ -11,6 +11,7 @@ import { ITaskManager } from "../src/core/ports/TaskScheduler";
 // --- MOCKS ---
 const mockRepo = {
     getLastFinalizedDocument: mock(),
+    getLastDocument: mock(),
     getDocumentByIndex: mock(),
     saveDocument: mock(),
     getSystemState: mock(),
@@ -39,6 +40,7 @@ describe("ForensicService Failure & Retry Proof (Idempotency)", () => {
     beforeEach(() => {
         // Reset call history and implementations
         (mockRepo.getLastFinalizedDocument as any).mockReset();
+        (mockRepo.getLastDocument as any).mockReset();
         (mockRepo.getDocumentByIndex as any).mockReset();
         (mockRepo.saveDocument as any).mockReset();
         (mockRepo.getSystemState as any).mockReset();
@@ -60,6 +62,7 @@ describe("ForensicService Failure & Retry Proof (Idempotency)", () => {
         (mockRepo.saveDocument as any).mockResolvedValue(undefined);
         (mockRepo.saveSystemState as any).mockResolvedValue(undefined);
         (mockRepo.getSystemState as any).mockResolvedValue({ totalDocs: 0 });
+        (mockRepo.getLastDocument as any).mockResolvedValue(null);
         (mockTaskManager.schedule as any).mockResolvedValue({ id: "task_1" });
     });
 

@@ -9,10 +9,11 @@ describe("Calendar Events Visualization", () => {
         cy.intercept('GET', '**/api/timeline/range*').as('fetchMonthEvents');
         cy.intercept('GET', '**/api/children*').as('fetchChildren');
 
-        // Login directly via API
+        // Login directly via API - Use relative URI if supported or env
+        const apiUrl = Cypress.env('apiUrl') || 'http://localhost:3000/api';
         cy.request({
             method: 'POST',
-            url: 'http://localhost:3000/api/auth/login/verify',
+            url: `${apiUrl}/auth/login/verify`,
             body: { mockLogin: true },
             headers: { 'Content-Type': 'application/json' },
         }).then((response) => {
@@ -20,11 +21,30 @@ describe("Calendar Events Visualization", () => {
         });
 
         // Visit dashboard (mock cookie set by cy.request above)
-        cy.visit("http://localhost:5173/dashboard");
+        // Relative path uses baseUrl from cypress.config.ts
+        cy.visit("/dashboard");
+
+        // BUGFIX: Explicitly wait for the initial calendar data load to prevent race conditions
+        cy.wait('@fetchMonthEvents', { timeout: 10000 });
 
         // Wait for children to load via API and appear in header
         cy.wait('@fetchChildren', { timeout: 10000 });
         cy.contains('Mock Child', { timeout: 10000 }).should('be.visible');
+
+        // IF THE CUSTODY SCHEDULER MODAL APPEARS, CLOSE IT
+        // Use a small wait to allow for any client-side transitions
+        cy.wait(500);
+        cy.get('body').then(($body) => {
+            // Check for dialog or the specific header
+            if ($body.find('[role="dialog"]').length > 0 || $body.find('h2:contains("Custody Scheduler")').length > 0) {
+                cy.log('Closing intrusive modal/dialog');
+                cy.get('body').type('{esc}', { force: true });
+                // Also try to find a close button just in case
+                if ($body.find('button[aria-label="Close"]').length > 0) {
+                    cy.get('button[aria-label="Close"]').click({ force: true });
+                }
+            }
+        });
     });
 
     it("should display event indicators on calendar days with events", () => {
@@ -151,8 +171,16 @@ describe("Calendar Events Visualization", () => {
     });
 
     it("should open Day Details Sheet when clicking empty area of day cell", () => {
-        // Day 15 should be empty
-        getDayCell(15).click();
+        // BUGFIX: Instead of hardcoding day 15, dynamically find an empty day cell
+        // BUGFIX 2: Use specific calendar grid selector to avoid clicking unrelated "group" buttons (like Dashboard CTAs)
+        cy.get('[data-testid="calendar-grid"] .group').not('.opacity-40').each(($el) => {
+            // Check if there are NO event indicator buttons in this day cell
+            if ($el.find('button').length === 0) {
+                cy.wrap($el).click();
+                return false; // Break the .each loop
+            }
+        });
+
         cy.contains("Day Logbook", { timeout: 5000 }).should("be.visible");
         cy.contains("No events yet").should("be.visible");
     });

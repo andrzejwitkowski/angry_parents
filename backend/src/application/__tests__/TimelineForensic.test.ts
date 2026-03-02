@@ -26,8 +26,8 @@ describe("Timeline Forensic Integration", () => {
         const mockFamilyModel = {
             findById: vi.fn().mockResolvedValue({
                 parentPublicKeys: [
-                    { parentId: "mom-1", rsaPublicKeyBase64: "mom-pub-key" },
-                    { parentId: "dad-1", rsaPublicKeyBase64: "dad-pub-key" }
+                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" },
+                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-pub-key" }
                 ]
             })
         };
@@ -78,7 +78,11 @@ describe("Timeline Forensic Integration", () => {
         } as unknown as CreateTimelineItemDto & { childId: string };
 
         const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
-        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: false, content: "Updated note" } as any, "user-123", "child-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "User");
+        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: false, content: "Updated note" } as any, "user-123", "child-1", {
+            signatureBase64: "mock-sig",
+            timestamp: "2024-01-01T12:00:00.000Z",
+            keyId: "key1"
+        }, "User");
 
         expect(forensicCreatePendingDocument).toHaveBeenCalledTimes(2);
     });
@@ -94,7 +98,11 @@ describe("Timeline Forensic Integration", () => {
         } as unknown as CreateTimelineItemDto & { childId: string };
 
         const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
-        await service.deleteItem(created.id, "user-123", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "User");
+        await service.deleteItem(created.id, "user-123", {
+            signatureBase64: "mock-sig",
+            timestamp: "2024-01-01T12:00:00.000Z",
+            keyId: "key1"
+        }, "User");
 
         expect(forensicCreatePendingDocument).toHaveBeenCalledTimes(2);
     });

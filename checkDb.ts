@@ -1,15 +1,23 @@
-import mongoose from 'mongoose';
+import { withMongoose } from './backend/src/lib/mongoose-util';
 import { Family } from './backend/src/models/Family';
 
 async function run() {
-    const mongoUri = process.env.MONGODB_URI;
-    if (!mongoUri) {
-        throw new Error("MONGODB_URI is required to run checkDb.ts");
-    }
-    await mongoose.connect(mongoUri);
-    const family = await Family.findOne({ name: "Mock Family" }).lean();
-    console.log(JSON.stringify(family, null, 2));
-    await mongoose.connection.close();
+    await withMongoose(async () => {
+        const family = await Family.findOne({ name: "Mock Family" }).lean();
+        if (family) {
+            // Redact PII: log only non-sensitive fields
+            const safeFamily = {
+                _id: family._id,
+                name: family.name,
+                parentIds: family.parentIds,
+                childrenCount: family.children?.length || 0,
+                createdAt: family.createdAt,
+            };
+            console.log("Found Family (Redacted):", JSON.stringify(safeFamily, null, 2));
+        } else {
+            console.log("Mock Family not found.");
+        }
+    });
 }
 if (process.env.NODE_ENV === "development" && process.env.CI !== "true") {
     run().catch((error) => {

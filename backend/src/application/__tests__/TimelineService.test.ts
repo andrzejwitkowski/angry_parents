@@ -31,8 +31,8 @@ describe("TimelineService", () => {
         mockFamilyModel = {
             findById: vi.fn().mockResolvedValue({
                 parentPublicKeys: [
-                    { parentId: "mom-1", rsaPublicKeyBase64: "mom-pub-key" },
-                    { parentId: "dad-1", rsaPublicKeyBase64: "dad-pub-key" }
+                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" },
+                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-pub-key" }
                 ]
             })
         };
@@ -80,6 +80,8 @@ describe("TimelineService", () => {
             expect((item as any).doctor).toBeUndefined();
             expect(item.encryptedPayload).toBeDefined();
             expect(item.encryptedPayload.encryptedForMom).toContain("encrypted-{\"doctor\":");
+            expect(item.encryptedPayload.encryptedForDad).toContain("encrypted-{\"doctor\":");
+            expect(item.encryptedPayload.encryptedForMom).not.toEqual(item.encryptedPayload.encryptedForDad);
         });
 
         it("should create a medication item", async () => {
@@ -117,7 +119,7 @@ describe("TimelineService", () => {
                 childId: "child-1",
             } as CreateTimelineItemDto & { childId: string };
 
-            await expect(service.createItem(dto)).rejects.toThrow(
+            await expect(service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any)).rejects.toThrow(
                 "Handover date cannot be in the past"
             );
         });
@@ -198,9 +200,9 @@ describe("TimelineService", () => {
                 keyId: "key1",
             } as unknown as CreateTimelineItemDto & { childId: string };
 
-            await service.createItem(dto1);
+            await service.createItem({ ...dto1, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
             await new Promise((resolve) => setTimeout(resolve, 10)); // Small delay
-            const item2 = await service.createItem(dto2);
+            const item2 = await service.createItem({ ...dto2, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
             const items = await service.getItemsByDate("2026-01-27");
 
@@ -245,7 +247,11 @@ describe("TimelineService", () => {
                 isDeleted: false,
             } as any;
 
-            const updated = await service.updateItem(created.id, updatedPlaintext, "user-123", "child-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "user123-name");
+            const updated = await service.updateItem(created.id, updatedPlaintext, "user-123", "child-1", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user123-name");
 
             expect(updated.encryptedPayload).toBeDefined();
             expect(updated.auditTrail.length).toBe(2);
@@ -254,7 +260,11 @@ describe("TimelineService", () => {
 
         it("should throw error when updating non-existent item", async () => {
             await expect(
-                service.updateItem("non-existent-id", {} as any, "user-123", "child-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "user123-name")
+                service.updateItem("non-existent-id", {} as any, "user-123", "child-1", {
+                    signatureBase64: "mock-sig",
+                    timestamp: "2024-01-01T12:00:00.000Z",
+                    keyId: "key1"
+                }, "user123-name")
             ).rejects.toThrow("Timeline item with id non-existent-id not found");
         });
 
@@ -270,7 +280,11 @@ describe("TimelineService", () => {
 
             const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
             await expect(
-                service.updateItem(created.id, { content: "Hacked" } as any, "other-id", "child-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "other-name")
+                service.updateItem(created.id, { content: "Hacked" } as any, "other-id", "child-1", {
+                    signatureBase64: "mock-sig",
+                    timestamp: "2024-01-01T12:00:00.000Z",
+                    keyId: "key1"
+                }, "other-name")
             ).rejects.toThrow("Unauthorized: You can only modify your own items");
         });
     });
@@ -287,14 +301,22 @@ describe("TimelineService", () => {
             } as unknown as CreateTimelineItemDto & { childId: string };
 
             const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
-            await service.deleteItem(created.id, "user-123", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "user-123-name");
+            await service.deleteItem(created.id, "user-123", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user-123-name");
 
             const items = await service.getItemsByDate("2026-01-27");
             expect(items).toHaveLength(0);
         });
 
         it("should throw error when deleting non-existent item", async () => {
-            await expect(service.deleteItem("non-existent-id", "user-123", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "user-123-name")).rejects.toThrow(
+            await expect(service.deleteItem("non-existent-id", "user-123", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user-123-name")).rejects.toThrow(
                 "Timeline item with id non-existent-id not found"
             );
         });
@@ -311,7 +333,11 @@ describe("TimelineService", () => {
 
             const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
             await expect(
-                service.deleteItem(created.id, "other-id", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "other-name")
+                service.deleteItem(created.id, "other-id", {
+                    signatureBase64: "mock-sig",
+                    timestamp: "2024-01-01T12:00:00.000Z",
+                    keyId: "key1"
+                }, "other-name")
             ).rejects.toThrow("Unauthorized: You can only delete your own items");
         });
     });
