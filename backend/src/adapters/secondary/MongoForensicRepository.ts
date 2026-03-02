@@ -15,9 +15,15 @@ export class MongoForensicRepository implements IForensicRepository {
         this.ensureIndexes();
     }
 
-    private async ensureIndexes() {
-        await this.docCollection.createIndex({ index: 1 }, { unique: true });
-        await this.docCollection.createIndex({ hash: 1 }, { unique: true });
+    private ensureIndexes() {
+        Promise.all([
+            this.docCollection.createIndex({ index: 1 }, { unique: true }),
+            this.docCollection.createIndex({ hash: 1 }, { unique: true })
+        ]).catch(err => {
+            if (err.name !== 'MongoNotConnectedError' && !err.message.includes('client was closed') && !err.message.includes('topology was destroyed')) {
+                console.error("Forensic index creation failed:", err);
+            }
+        });
     }
 
     async saveDocument<T>(doc: ForensicDocument<T>): Promise<void> {
