@@ -1,24 +1,24 @@
 import type { TimelineRepository } from "../../core/ports/TimelineRepository";
-import type { TimelineItem } from "../../core/domain/TimelineItem";
+import type { EncryptedTimelineItem, TimelineItem } from "../../core/domain/TimelineItem";
 
 /**
- * In-Memory Timeline Repository
+ * In-Memory Database for Timeline Items
  * Uses a Map to simulate database storage.
  * Key: ISO date string (YYYY-MM-DD)
  * Value: Array of timeline items for that date
- * 
+ *
  * This implementation is ready for migration to MongoDB/PostgreSQL.
  */
 export class InMemoryTimelineRepository implements TimelineRepository {
-    private storage: Map<string, TimelineItem[]> = new Map();
-    private itemsById: Map<string, TimelineItem> = new Map();
+    private itemsByDate: Map<string, EncryptedTimelineItem[]> = new Map();
+    private itemsById: Map<string, EncryptedTimelineItem> = new Map();
 
-    async save(item: TimelineItem): Promise<TimelineItem> {
+    async save(item: EncryptedTimelineItem): Promise<EncryptedTimelineItem> {
         // Store by date
         const dateKey = item.date;
-        const existingItems = this.storage.get(dateKey) || [];
+        const existingItems = this.itemsByDate.get(dateKey) || [];
         existingItems.push(item);
-        this.storage.set(dateKey, existingItems);
+        this.itemsByDate.set(dateKey, existingItems);
 
         // Store by ID for quick lookup
         this.itemsById.set(item.id, item);
@@ -26,13 +26,13 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return item;
     }
 
-    async findByDate(date: string): Promise<TimelineItem[]> {
-        return this.storage.get(date) || [];
+    async findByDate(date: string): Promise<EncryptedTimelineItem[]> {
+        return this.itemsByDate.get(date) || [];
     }
 
-    async findByDateRange(from: string, to: string): Promise<TimelineItem[]> {
-        const results: TimelineItem[] = [];
-        for (const [date, items] of this.storage.entries()) {
+    async findByDateRange(from: string, to: string): Promise<EncryptedTimelineItem[]> {
+        const results: EncryptedTimelineItem[] = [];
+        for (const [date, items] of this.itemsByDate.entries()) {
             if (date >= from && date <= to) {
                 results.push(...items);
             }
@@ -40,52 +40,43 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return results;
     }
 
-    async findById(id: string): Promise<TimelineItem | null> {
+    async findById(id: string): Promise<EncryptedTimelineItem | null> {
         return this.itemsById.get(id) || null;
     }
 
-    async update(id: string, updates: Partial<TimelineItem>): Promise<TimelineItem> {
-        const existing = this.itemsById.get(id);
-        if (!existing) {
+    async update(id: string, updates: Partial<EncryptedTimelineItem>): Promise<EncryptedTimelineItem> {
+        const existingItem = this.itemsById.get(id);
+        if (!existingItem) {
             throw new Error(`Item with id ${id} not found`);
         }
 
-        const updated = { ...existing, ...updates } as TimelineItem;
+        const updatedItem = { ...existingItem, ...updates } as EncryptedTimelineItem;
 
         // Update in both maps
-        this.itemsById.set(id, updated);
+        this.itemsById.set(id, updatedItem);
 
         // Update in date-based storage
-        const dateKey = existing.date;
-        const items = this.storage.get(dateKey) || [];
+        const dateKey = existingItem.date;
+        const items = this.itemsByDate.get(dateKey) || [];
         const index = items.findIndex((item) => item.id === id);
         if (index !== -1) {
-            items[index] = updated;
-            this.storage.set(dateKey, items);
+            items[index] = updatedItem;
+            this.itemsByDate.set(dateKey, items);
         }
 
-        return updated;
+        return updatedItem;
     }
 
     async delete(id: string): Promise<void> {
-        const existing = this.itemsById.get(id);
-        if (!existing) {
-            throw new Error(`Item with id ${id} not found`);
-        }
+        const item = this.itemsById.get(id);
+        if (!item) return;
 
-        // Remove from ID map
         this.itemsById.delete(id);
 
-        // Remove from date-based storage
-        const dateKey = existing.date;
-        const items = this.storage.get(dateKey) || [];
-        const filtered = items.filter((item) => item.id !== id);
-
-        if (filtered.length === 0) {
-            this.storage.delete(dateKey);
-        } else {
-            this.storage.set(dateKey, filtered);
-        }
+        const dateKey = item.date;
+        const items = this.itemsByDate.get(dateKey) || [];
+        const filtered = items.filter((i) => i.id !== id);
+        this.itemsByDate.set(dateKey, filtered);
     }
 
     async countByChildId(childId: string): Promise<number> {
@@ -98,18 +89,20 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return count;
     }
 
+    // --- Helper methods for testing ---
+
     /**
-     * Utility method for testing - clears all data
+     * Clear all data
      */
     clear(): void {
-        this.storage.clear();
+        this.itemsByDate.clear();
         this.itemsById.clear();
     }
 
     /**
-     * Utility method for testing - get all items
+     * Get all raw data (for assertions)
      */
-    getAllItems(): TimelineItem[] {
+    getAllData(): EncryptedTimelineItem[] {
         return Array.from(this.itemsById.values());
     }
 }

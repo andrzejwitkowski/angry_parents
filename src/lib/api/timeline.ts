@@ -65,14 +65,22 @@ export const timelineApi = {
     /**
      * Create a new timeline item
      */
-    async create(dto: CreateTimelineItemDto): Promise<TimelineItem> {
+    async create(
+        dto: CreateTimelineItemDto & { childId: string },
+        signatureData: { signatureBase64: string; timestamp: string; keyId: string }
+    ): Promise<TimelineItem> {
+        const payload = {
+            ...dto,
+            ...signatureData
+        };
+
         const response = await fetch(`${API_BASE_URL}/timeline`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             credentials: "include",
-            body: JSON.stringify(dto),
+            body: JSON.stringify(payload),
         });
 
         return handleResponse<TimelineItem>(response);
@@ -80,15 +88,25 @@ export const timelineApi = {
 
     /**
      * Update an existing timeline item
+     * Note: We now send the full item back to the server for re-encryption + signatures
      */
-    async update(id: string, updates: Partial<TimelineItem>): Promise<TimelineItem> {
+    async update(
+        id: string,
+        fullItem: TimelineItem,
+        signatureData: { signatureBase64: string; timestamp: string; keyId: string }
+    ): Promise<TimelineItem> {
+        const payload = {
+            ...fullItem,
+            ...signatureData
+        };
+
         const response = await fetch(`${API_BASE_URL}/timeline/${id}`, {
             method: "PATCH",
             headers: {
                 "Content-Type": "application/json",
             },
             credentials: "include",
-            body: JSON.stringify(updates),
+            body: JSON.stringify(payload),
         });
 
         return handleResponse<TimelineItem>(response);
@@ -97,15 +115,19 @@ export const timelineApi = {
     /**
      * Delete a timeline item
      */
-    async delete(id: string): Promise<void> {
+    async delete(
+        id: string,
+        signatureData: { signatureBase64: string; timestamp: string; keyId: string }
+    ): Promise<void> {
         const response = await fetch(`${API_BASE_URL}/timeline/${id}`, {
             method: "DELETE",
             headers: {
                 "Content-Type": "application/json",
             },
             credentials: "include",
+            body: JSON.stringify(signatureData),
         });
 
         return handleResponse<void>(response);
-    },
+    }
 };

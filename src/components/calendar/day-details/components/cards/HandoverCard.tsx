@@ -1,3 +1,5 @@
+import { createMockSignature } from "@/lib/mocks/cryptoMock";
+
 import { ArrowRightLeft, MapPin, Clock, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -39,7 +41,7 @@ export function HandoverCard({ item, user, onUpdate, onDelete }: HandoverCardPro
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id);
+            await timelineApi.delete(item.id, createMockSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete handover:", error);

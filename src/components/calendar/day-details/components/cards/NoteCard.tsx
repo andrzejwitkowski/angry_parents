@@ -1,3 +1,5 @@
+import { createMockSignature } from "@/lib/mocks/cryptoMock";
+
 import { StickyNote, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -36,7 +38,7 @@ export function NoteCard({ item, user, onUpdate, onDelete }: NoteCardProps) {
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id);
+            await timelineApi.delete(item.id, createMockSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete note:", error);
@@ -104,7 +106,11 @@ export function NoteCard({ item, user, onUpdate, onDelete }: NoteCardProps) {
             <CardContent className="space-y-3">
                 <div className="bg-white/80 rounded-lg p-3">
                     <p className="text-base text-gray-900 leading-relaxed">
-                        {item.content}
+                        {(item as any).content ?? (
+                            <span className="text-xs text-slate-400 italic flex items-center gap-1">
+                                🔒 {"Content encrypted"}
+                            </span>
+                        )}
                     </p>
                 </div>
 

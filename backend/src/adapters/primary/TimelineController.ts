@@ -60,7 +60,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // GET /api/timeline/range?from=YYYY-MM-DD&to=YYYY-MM-DD
         .get(
             "/timeline/range",
-            async ({ query }) => {
+            async ({ query, set }) => {
                 try {
                     const items = await service.getItemsByDateRange(query.from, query.to);
                     return { items };
@@ -82,22 +82,25 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // POST /api/timeline
         .post(
             "/timeline",
-            async ({ body, user }) => {
+            async ({ body, user, set }) => {
                 try {
                     const userId = user?.id || "anonymous";
                     const userName = user?.name || "Unknown";
+                    if (!body.signatureBase64 || !body.timestamp || !body.keyId) {
+                        set.status = 400;
+                        return { error: "signatureBase64, timestamp, and keyId are required for data integrity" };
+                    }
 
                     const item = await service.createItem({
-                        ...body as CreateTimelineItemDto,
+                        ...body as CreateTimelineItemDto & { childId: string, signatureBase64: string, timestamp: string, keyId: string },
                         createdBy: userId,
-
                         createdByName: userName
                     });
                     return item;
                 } catch (error) {
+                    set.status = 400;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 400,
                     };
                 }
             },
@@ -115,6 +118,10 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     date: t.String(),
                     createdBy: t.String(),
                     createdByName: t.Optional(t.String()),
+                    childId: t.String(), // Require childId for encryption Context (Family lookup)
+                    signatureBase64: t.String(),
+                    timestamp: t.String(),
+                    keyId: t.String()
                 }, { additionalProperties: true }),
             }
         )
@@ -122,14 +129,30 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // PATCH /api/timeline/:id
         .patch(
             "/timeline/:id",
-            async ({ params, body, user }) => {
+            async ({ params, body, user, set }) => {
                 try {
                     if (!user) {
-                        return { error: "Unauthorized", status: 401 };
+                        set.status = 401;
+                        return { error: "Unauthorized" };
                     }
                     const userName = user.name || "Unknown";
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const updated = await service.updateItem(params.id, body as any, user.id, userName);
+
+                    const payload = body as any;
+                    if (!payload.childId || !payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
+                        set.status = 400;
+                        return { error: "childId, signatureBase64, timestamp, and keyId are required" };
+                    }
+
+                    const updated = await service.updateItem(
+                        params.id,
+                        payload,
+                        user.id,
+                        payload.childId,
+                        payload.signatureBase64,
+                        payload.timestamp,
+                        payload.keyId,
+                        userName
+                    );
                     return updated;
                 } catch (error) {
                     return {
@@ -148,17 +171,24 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // DELETE /api/timeline/:id
         .delete(
             "/timeline/:id",
-            async ({ params, set, user }) => {
+            async ({ params, body, user, set }) => {
                 try {
                     if (!user) {
                         set.status = 401;
                         return { error: "Unauthorized" };
                     }
+
+                    const payload = body as any;
+                    if (!payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
+                        set.status = 400;
+                        return { error: "signatureBase64, timestamp, and keyId are required" };
+                    }
                     const userName = user.name || "Unknown";
-                    await service.deleteItem(params.id, user.id, userName);
+                    await service.deleteItem(params.id, user.id, body.signatureBase64, body.timestamp, body.keyId, userName);
                     set.status = 204;
                     return null;
                 } catch (error) {
+                    // This error returns 404, not 400, so it's not changed by the instruction.
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
                         status: 404,
@@ -169,6 +199,11 @@ export function createTimelineController(service: TimelineServiceImpl) {
                 params: t.Object({
                     id: t.String(),
                 }),
+                body: t.Object({
+                    signatureBase64: t.String(),
+                    timestamp: t.String(),
+                    keyId: t.String()
+                })
             }
         );
 }

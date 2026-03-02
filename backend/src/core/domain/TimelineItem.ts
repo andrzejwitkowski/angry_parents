@@ -97,6 +97,27 @@ export type VacationItem = z.infer<typeof VacationItemSchema>;
 export type AttachmentItem = z.infer<typeof AttachmentItemSchema>;
 export type TimelineItem = z.infer<typeof TimelineItemSchema>;
 
+/**
+ * Encrypted payload containing the dual ciphertext for content fields.
+ * This replaces the plaintext content fields when saving to MongoDB.
+ */
+export type EncryptedPayload = {
+    encryptedForMom: string; // Base64 ciphertext
+    encryptedForDad: string; // Base64 ciphertext
+};
+
+/**
+ * A TimelineItem as it exists in storage (with encrypted content).
+ * All fields EXCEPT id, date, type, childIds, createdBy, createdAt, updatedAt, isDeleted, auditTrail
+ * are replaced by `encryptedPayload`.
+ */
+export type EncryptedTimelineItem = Omit<
+    TimelineItem,
+    "notes" | "doctor" | "treatment" | "diagnosis" | "medicineName" | "dosage" | "unit" | "frequency" | "durationDays" | "description" | "severity" | "category" | "handoverNotes" | "destination" | "url" | "fileType" | "metadata" | "content"
+> & {
+    encryptedPayload: EncryptedPayload;
+};
+
 // Helper type for creating new items (without id, createdAt, auditTrail, isDeleted)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CreateTimelineItemDto = TimelineItem extends any

@@ -1,3 +1,5 @@
+import { createMockSignature } from "@/lib/mocks/cryptoMock";
+
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pill, Trash2, Pencil } from "lucide-react";
@@ -42,7 +44,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
     const handleCheckboxChange = async (checked: boolean) => {
         setIsUpdating(true);
         try {
-            const updated = await timelineApi.update(item.id, { administered: checked });
+            const updated = await timelineApi.update(item.id, { ...item, administered: checked }, createMockSignature());
             setAdministered(checked);
             onUpdate?.(updated as MedsItem);
         } catch (error) {
@@ -56,7 +58,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id);
+            await timelineApi.delete(item.id, createMockSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete medication:", error);

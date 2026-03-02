@@ -1,3 +1,5 @@
+import { createMockSignature } from "@/lib/mocks/cryptoMock";
+
 import { AlertTriangle, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -61,7 +63,7 @@ export function IncidentCard({ item, user, onUpdate, onDelete }: IncidentCardPro
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id);
+            await timelineApi.delete(item.id, createMockSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete incident report:", error);

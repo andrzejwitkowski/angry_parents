@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createMockSignature } from "@/lib/mocks/cryptoMock";
 import { useTranslation } from "react-i18next";
 import { ActionToolbar, type ActionMode } from "./ActionToolbar";
 import { MedicalForm } from "./forms/MedicalForm";
@@ -14,9 +15,10 @@ interface LogComposerProps {
     date: string; // YYYY-MM-DD
     onSuccess: () => void;
     createdBy: string;
+    childId: string;
 }
 
-export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
+export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposerProps) {
     const { t } = useTranslation();
     const [selectedMode, setSelectedMode] = useState<ActionMode | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,14 +32,15 @@ export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
 
         setIsSubmitting(true);
         try {
-            const dto: CreateTimelineItemDto = {
+            const dto: CreateTimelineItemDto & { childId: string } = {
                 type: selectedMode,
                 date,
                 createdBy,
+                childId,
                 ...(formData as Omit<CreateTimelineItemDto, "type" | "date" | "createdBy">),
             };
 
-            await timelineApi.create(dto);
+            await timelineApi.create(dto, createMockSignature());
             setSelectedMode(null);
             onSuccess();
         } catch (error) {

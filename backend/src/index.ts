@@ -13,6 +13,7 @@ import { ForensicService } from "./application/ForensicService";
 import { forensicController as createForensicController } from "./adapters/primary/ForensicController";
 import { MongoTimelineRepository } from "./adapters/secondary/MongoTimelineRepository";
 import { TimelineServiceImpl } from "./application/TimelineService";
+import { Family } from "./models/Family";
 import { t as translate } from "./lib/i18n";
 import { createTimelineController } from "./adapters/primary/TimelineController";
 import { RealDateProvider } from "./adapters/secondary/RealDateProvider";
@@ -59,13 +60,23 @@ const childRepository = new MongoChildRepository();
 const passkeyRepository = new MongoPasskeyRepository();
 
 // Services
-const timelineService = new TimelineServiceImpl(timelineRepository, dateProvider, uuidProvider);
-const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
-const propagationService = new PropagationService(scheduleRepository);
-const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
+// Services
 const cryptoService = new BunCryptoService();
 const blockchainAnchor = new MockBlockchainAnchor();
 const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService, taskManager);
+
+const timelineService = new TimelineServiceImpl(
+    timelineRepository,
+    dateProvider,
+    uuidProvider,
+    cryptoService,
+    Family,
+    forensicService,
+    childRepository
+);
+const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
+const propagationService = new PropagationService(scheduleRepository);
+const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
 
 // Controllers
 const timelineController = createTimelineController(timelineService);

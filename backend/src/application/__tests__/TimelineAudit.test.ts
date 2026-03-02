@@ -3,6 +3,8 @@ import { TimelineServiceImpl } from "../TimelineService";
 import { InMemoryTimelineRepository } from "../../adapters/secondary/InMemoryTimelineRepository";
 import { RealDateProvider } from "../../adapters/secondary/RealDateProvider";
 import { RealUuidProvider } from "../../adapters/secondary/RealUuidProvider";
+import { InMemoryChildRepository } from "../../adapters/secondary/InMemoryChildRepository";
+import { ForensicService } from "../ForensicService";
 import type { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
 
 describe("Timeline Audit System", () => {
@@ -11,7 +13,49 @@ describe("Timeline Audit System", () => {
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
-        service = new TimelineServiceImpl(repository, new RealDateProvider(), new RealUuidProvider());
+
+        const childRepo = new InMemoryChildRepository();
+        childRepo.save({
+            id: "child-1",
+            familyId: "family-1",
+            name: "Child",
+            color: "#FFF",
+            icon: "child"
+        });
+
+        const mockCryptoService = {
+            encrypt: async (text: string) => `encrypted_${text}`,
+            decrypt: async (text: string) => text.replace("encrypted_", ""),
+            encryptRSA: async (text: string, key: string) => `rsa_encrypted_${text}_with_${key}`
+        } as any;
+
+        const mockFamilyModel = {
+            findById: async () => ({
+                id: "family-1",
+                parents: [
+                    { id: "dad-1", role: "ADMIN", publicKeyParams: { x: "x1", y: "y1" } },
+                    { id: "user-1", role: "USER", publicKeyParams: { x: "x2", y: "y2" } }
+                ],
+                parentPublicKeys: [
+                    { parentId: "dad-1", rsaPublicKeyBase64: "mom-key" },
+                    { parentId: "user-1", rsaPublicKeyBase64: "dad-key" }
+                ]
+            })
+        } as any;
+
+        const forensicService = {
+            createPendingDocument: async () => { },
+        } as unknown as ForensicService;
+
+        service = new TimelineServiceImpl(
+            repository,
+            new RealDateProvider(),
+            new RealUuidProvider(),
+            mockCryptoService,
+            mockFamilyModel,
+            forensicService,
+            childRepo
+        );
     });
 
     it("should create an item with initial audit trail", async () => {
@@ -24,7 +68,7 @@ describe("Timeline Audit System", () => {
             childIds: [],
         } as CreateTimelineItemDto;
 
-        const item = await service.createItem(dto);
+        const item = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         expect(item.auditTrail).toHaveLength(1);
         expect(item.auditTrail[0].action).toBe("CREATED");
@@ -43,18 +87,18 @@ describe("Timeline Audit System", () => {
             childIds: [],
         } as CreateTimelineItemDto;
 
-        const created = await service.createItem(dto);
+        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // First update
-        await service.updateItem(created.id, { content: "Updated once" }, "user-1", "Alice");
+        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated once" } as any, "user-1", "child-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "Alice");
 
         // Second update
-        const updated2 = await service.updateItem(created.id, { content: "Updated twice" }, "user-1", "Alice");
+        const updated2 = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated twice" } as any, "user-1", "child-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "Alice");
 
         expect(updated2.auditTrail).toHaveLength(3);
         expect(updated2.auditTrail[1].action).toBe("UPDATED");
-        expect(updated2.auditTrail[1].changes).toEqual({ content: "Updated once" });
-        expect(updated2.auditTrail[2].changes).toEqual({ content: "Updated twice" });
+        expect(updated2.auditTrail[1].changes).toEqual({ note: "Field-level changes hidden due to encryption" });
+        expect(updated2.auditTrail[2].changes).toEqual({ note: "Field-level changes hidden due to encryption" });
     });
 
     it("should track who made the update", async () => {
@@ -67,10 +111,10 @@ describe("Timeline Audit System", () => {
             childIds: [],
         } as CreateTimelineItemDto;
 
-        const created = await service.createItem(dto);
+        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // Update by the same user (owner)
-        const updated = await service.updateItem(created.id, { content: "Changed" }, "user-1", "Alice");
+        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Changed" } as any, "user-1", "child-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "Alice");
 
         expect(updated.auditTrail[1].userId).toBe("user-1");
         expect(updated.auditTrail[1].userName).toBe("Alice");
@@ -86,8 +130,8 @@ describe("Timeline Audit System", () => {
             childIds: [],
         } as CreateTimelineItemDto;
 
-        const created = await service.createItem(dto);
-        await service.deleteItem(created.id, "user-1", "Alice");
+        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        await service.deleteItem(created.id, "user-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "Alice");
 
         // Verify it's gone from normal queries
         const items = await service.getItemsByDate("2026-02-03");
@@ -113,12 +157,13 @@ describe("Timeline Audit System", () => {
             childIds: [],
         } as CreateTimelineItemDto;
 
-        const created = await service.createItem(dto);
+        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // Update with SAME values
-        const updated = await service.updateItem(created.id, { administered: false }, "user-1", "Alice");
+        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, administered: false } as any, "user-1", "child-1", "mock-sig", "2024-01-01T12:00:00.000Z", "key1", "Alice");
 
-        // Audit trail should NOT increase
-        expect(updated.auditTrail).toHaveLength(1);
+        // Audit trail SHOULD increase now because we can't diff ciphertexts
+        expect(updated.auditTrail).toHaveLength(2);
+        expect(updated.auditTrail[1].action).toBe("UPDATED");
     });
 });

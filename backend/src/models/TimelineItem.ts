@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import type { TimelineItem } from '../core/domain/TimelineItem';
+import type { EncryptedTimelineItem } from '../core/domain/TimelineItem';
 
-export interface TimelineItemDocument extends Omit<TimelineItem, 'id'>, Document {
+export interface TimelineItemDocument extends Omit<EncryptedTimelineItem, 'id'>, Document {
     id: string;
 }
 

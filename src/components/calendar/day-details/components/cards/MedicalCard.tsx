@@ -1,3 +1,5 @@
+import { createMockSignature } from "@/lib/mocks/cryptoMock";
+
 import { Stethoscope, FileText, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -37,7 +39,7 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id);
+            await timelineApi.delete(item.id, createMockSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete medical visit:", error);
@@ -55,9 +57,13 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                             <Stethoscope className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-emerald-900">{item.doctor}</h3>
-                            {item.specialization && (
-                                <p className="text-sm text-emerald-700">{item.specialization}</p>
+                            <h3 className="font-bold text-emerald-900">
+                                {(item as any).doctor ?? (
+                                    <span className="text-xs text-slate-400 italic">🔒 Encrypted</span>
+                                )}
+                            </h3>
+                            {(item as any).specialization && (
+                                <p className="text-sm text-emerald-700">{(item as any).specialization}</p>
                             )}
                         </div>
                     </div>
@@ -118,7 +124,9 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                         {t("medical.diagnosis").replace("*", "")}
                     </p>
                     <p className="text-lg font-bold text-emerald-900">
-                        {item.diagnosis}
+                        {(item as any).diagnosis ?? (
+                            <span className="text-xs text-slate-400 italic">🔒 Encrypted</span>
+                        )}
                     </p>
                 </div>
 
