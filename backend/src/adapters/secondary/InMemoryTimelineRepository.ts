@@ -13,7 +13,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
     private itemsByDate: Map<string, EncryptedTimelineItem[]> = new Map();
     private itemsById: Map<string, EncryptedTimelineItem> = new Map();
 
-    async save(item: EncryptedTimelineItem): Promise<EncryptedTimelineItem> {
+    async save(item: EncryptedTimelineItem, _session?: unknown): Promise<EncryptedTimelineItem> {
         // Store by date
         const dateKey = item.date;
         const existingItems = this.itemsByDate.get(dateKey) || [];
@@ -44,7 +44,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return this.itemsById.get(id) || null;
     }
 
-    async update(id: string, updates: Partial<EncryptedTimelineItem>): Promise<EncryptedTimelineItem> {
+    async update(id: string, updates: Partial<EncryptedTimelineItem>, _session?: unknown): Promise<EncryptedTimelineItem> {
         const existingItem = this.itemsById.get(id);
         if (!existingItem) {
             throw new Error(`Item with id ${id} not found`);
@@ -75,7 +75,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return updatedItem;
     }
 
-    async delete(id: string): Promise<void> {
+    async delete(id: string, _session?: unknown): Promise<void> {
         const item = this.itemsById.get(id);
         if (!item) {
             throw new Error(`Item with id ${id} not found`);
@@ -97,6 +97,10 @@ export class InMemoryTimelineRepository implements TimelineRepository {
             }
         }
         return count;
+    }
+
+    async withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T> {
+        return operation(undefined);
     }
 
     // --- Helper methods for testing ---

@@ -1,15 +1,17 @@
 import { TimelineRepository } from "../../core/ports/TimelineRepository";
 import { EncryptedTimelineItem } from "../../core/domain/TimelineItem";
 import { TimelineItemModel } from "../../models/TimelineItem";
+import mongoose, { ClientSession } from "mongoose";
 
 export class MongoTimelineRepository implements TimelineRepository {
   constructor() { }
 
-  async save(item: EncryptedTimelineItem): Promise<EncryptedTimelineItem> {
+  async save(item: EncryptedTimelineItem, session?: unknown): Promise<EncryptedTimelineItem> {
+    const mongooseSession = session as ClientSession | undefined;
     await TimelineItemModel.findOneAndUpdate(
       { id: item.id },
       item,
-      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, session: mongooseSession }
     ).lean();
 
     return item; // TimelineItems are complex, returning the original object passed in if validation succeeds
@@ -34,9 +36,10 @@ export class MongoTimelineRepository implements TimelineRepository {
     return item as unknown as EncryptedTimelineItem;
   }
 
-  async update(id: string, updates: Partial<EncryptedTimelineItem>): Promise<EncryptedTimelineItem> {
+  async update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
+    const mongooseSession = session as ClientSession | undefined;
     // Find existing item to ensure we get a new representation
-    const existing = await TimelineItemModel.findOne({ id, isDeleted: false }).lean();
+    const existing = await TimelineItemModel.findOne({ id, isDeleted: false }, null, { session: mongooseSession }).lean();
     if (!existing) {
       throw new Error(`Item with id ${id} not found`);
     }
@@ -44,7 +47,7 @@ export class MongoTimelineRepository implements TimelineRepository {
     const result = await TimelineItemModel.findOneAndUpdate(
       { id },
       { $set: updates },
-      { returnDocument: 'after' } // Returns the updated document
+      { returnDocument: 'after', session: mongooseSession } // Returns the updated document
     ).lean();
 
     if (!result) {
@@ -54,10 +57,12 @@ export class MongoTimelineRepository implements TimelineRepository {
     return result as unknown as EncryptedTimelineItem;
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, session?: unknown): Promise<void> {
+    const mongooseSession = session as ClientSession | undefined;
     const result = await TimelineItemModel.updateOne(
       { id },
-      { $set: { isDeleted: true } }
+      { $set: { isDeleted: true } },
+      { session: mongooseSession }
     );
 
     if (result.matchedCount === 0) {
@@ -67,5 +72,18 @@ export class MongoTimelineRepository implements TimelineRepository {
 
   async countByChildId(childId: string): Promise<number> {
     return await TimelineItemModel.countDocuments({ childIds: childId, isDeleted: false });
+  }
+
+  async withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T> {
+    const session = await mongoose.startSession();
+    try {
+      let result!: T;
+      await session.withTransaction(async () => {
+        result = await operation(session);
+      });
+      return result;
+    } finally {
+      await session.endSession();
+    }
   }
 }

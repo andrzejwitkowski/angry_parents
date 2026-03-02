@@ -9,7 +9,7 @@ export interface TimelineRepository {
     /**
      * Save a new timeline item (with encrypted content)
      */
-    save(item: EncryptedTimelineItem): Promise<EncryptedTimelineItem>;
+    save(item: EncryptedTimelineItem, session?: unknown): Promise<EncryptedTimelineItem>;
 
     /**
      * Find all timeline items for a specific date
@@ -32,12 +32,14 @@ export interface TimelineRepository {
     /**
      * Update an existing timeline item (with encrypted content)
      */
-    update(id: string, updates: Partial<EncryptedTimelineItem>): Promise<EncryptedTimelineItem>;
+    update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem>;
 
     /**
      * Delete a timeline item
      */
-    delete(id: string): Promise<void>;
+    delete(id: string, session?: unknown): Promise<void>;
+
+    withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T>;
 
     /**
      * Count items associated with a specific child

@@ -5,6 +5,7 @@ import { TaskType } from "./scheduler/types";
 import { createSyncUserPendingDocsHandler } from "./scheduler/handlers/SyncUserPendingDocs";
 import { createProcessDocumentIntegrityHandler } from "./scheduler/handlers/ProcessDocumentIntegrity";
 import { createBlockchainPublishHandler } from "./scheduler/handlers/BlockchainPublish";
+import { createProcessForensicIntentHandler } from "./scheduler/handlers/ProcessForensicIntent";
 import { MongoForensicRepository } from "./adapters/secondary/MongoForensicRepository";
 import { BunCryptoService } from "./adapters/secondary/BunCryptoService";
 import { ViemBlockchainAnchor } from "./adapters/secondary/ViemBlockchainAnchor";
@@ -29,6 +30,7 @@ import { MongoChildRepository } from "./adapters/secondary/MongoChildRepository"
 import { ChildService } from "./application/ChildService";
 import { createChildController } from "./adapters/primary/ChildController";
 import { MongoPasskeyRepository } from "./adapters/secondary/MongoPasskeyRepository";
+import { MongoForensicIntentRepository } from "./adapters/secondary/MongoForensicIntentRepository";
 import { createWebAuthnController } from "./adapters/primary/WebAuthnController";
 import { createAuthController } from "./adapters/primary/AuthController";
 import { cors } from "@elysiajs/cors";
@@ -54,6 +56,7 @@ if (!mongoose.connection.db) {
 const registrationProcessRepository = new MongoRegistrationProcessRepository(mongoose.connection.db as any);
 const forensicRepository = new MongoForensicRepository(mongoose.connection.db as any);
 const timelineRepository = new MongoTimelineRepository();
+const forensicIntentRepository = new MongoForensicIntentRepository();
 const custodyRepository = new MongoCustodyRepository();
 const scheduleRepository = new MongoScheduleRepository();
 const childRepository = new MongoChildRepository();
@@ -71,8 +74,9 @@ const timelineService = new TimelineServiceImpl(
     uuidProvider,
     cryptoService,
     Family,
-    forensicService,
-    childRepository
+    childRepository,
+    forensicIntentRepository,
+    taskManager
 );
 const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
 const propagationService = new PropagationService(scheduleRepository);
@@ -101,6 +105,11 @@ taskManager.registerHandler(
 taskManager.registerHandler(
     TaskType.BLOCKCHAIN_PUBLISH,
     createBlockchainPublishHandler(forensicRepository, blockchainAnchor)
+);
+
+taskManager.registerHandler(
+    TaskType.PROCESS_FORENSIC_INTENT,
+    createProcessForensicIntentHandler(forensicIntentRepository, forensicService)
 );
 
 // Start Scheduler

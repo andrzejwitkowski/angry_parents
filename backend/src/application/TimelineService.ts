@@ -7,8 +7,11 @@ import { UuidProvider } from "../core/ports/UuidProvider";
 import type { ICryptoService } from "../core/ports/ICryptoService";
 import type { Model } from "mongoose";
 import type { IFamily } from "../models/Family";
-import type { ForensicService } from "./ForensicService";
 import { PasskeyModel } from "../models/Passkey";
+import type { ForensicIntentRecord, ForensicIntentRepository } from "../core/ports/ForensicIntentRepository";
+import type { ITaskManager } from "../core/ports/TaskScheduler";
+import { TaskType } from "../core/ports/TaskScheduler";
+import type { ProcessForensicIntentPayload } from "../scheduler/types";
 
 export type SignatureData = {
     signatureBase64: string;
@@ -40,9 +43,29 @@ export class TimelineServiceImpl {
         private readonly uuidProvider: UuidProvider,
         private readonly cryptoService: ICryptoService,
         private readonly familyModel: Model<IFamily>,
-        private readonly forensicService: ForensicService,
-        private readonly childRepository: ChildRepository
+        private readonly childRepository: ChildRepository,
+        private readonly forensicIntentRepository: ForensicIntentRepository,
+        private readonly taskManager: ITaskManager
     ) { }
+
+    private async saveWithForensicIntent(
+        persist: (session?: unknown) => Promise<EncryptedTimelineItem | void>,
+        intent: ForensicIntentRecord
+    ): Promise<EncryptedTimelineItem | void> {
+        const persisted = await this.repository.withTransaction(async (session?: unknown) => {
+            const result = await persist(session);
+            await this.forensicIntentRepository.save(intent, session);
+            return result;
+        });
+
+        await this.taskManager.schedule<ProcessForensicIntentPayload>(
+            TaskType.PROCESS_FORENSIC_INTENT,
+            { intentId: intent.id },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+
+        return persisted;
+    }
 
     /**
      * Helper to extract content fields from a TimelineItem for encryption.
@@ -173,18 +196,22 @@ export class TimelineServiceImpl {
         const encryptedItem = await this.encryptItem(validated, dto.childId);
         const signerPublicKey = await this.resolveSignerPublicKey(dto.createdBy, dto.keyId);
 
-        // --- Forensic Integration ---
-        // Create a pending forensic document wrapping the encrypted item
-        await this.forensicService.createPendingDocument<EncryptedTimelineItem>(
-            encryptedItem,
+        const intent: ForensicIntentRecord = {
+            id: this.uuidProvider.generate(),
+            timelineItem: encryptedItem,
             signerPublicKey,
-            dto.signatureBase64,
-            dto.keyId,
-            dto.timestamp,
-            dto.createdBy
-        );
+            signatureBase64: dto.signatureBase64,
+            keyId: dto.keyId,
+            timestamp: dto.timestamp,
+            signerId: dto.createdBy,
+            status: "PENDING",
+            retryCount: 0
+        };
 
-        return this.repository.save(encryptedItem);
+        return this.saveWithForensicIntent(
+            (session?: unknown) => this.repository.save(encryptedItem, session),
+            intent
+        ) as Promise<EncryptedTimelineItem>;
     }
 
     async getItemsByDate(date: string): Promise<EncryptedTimelineItem[]> {
@@ -272,18 +299,22 @@ export class TimelineServiceImpl {
         const encryptedUpdatedItem = await this.encryptItem(validated, childId);
         const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
-        // --- Forensic Integration ---
-        // Create a pending forensic document wrapping the updated encrypted item
-        await this.forensicService.createPendingDocument<EncryptedTimelineItem>(
-            encryptedUpdatedItem,
+        const intent: ForensicIntentRecord = {
+            id: this.uuidProvider.generate(),
+            timelineItem: encryptedUpdatedItem,
             signerPublicKey,
             signatureBase64,
             keyId,
             timestamp,
-            userId
-        );
+            signerId: userId,
+            status: "PENDING",
+            retryCount: 0
+        };
 
-        return this.repository.update(id, encryptedUpdatedItem);
+        return this.saveWithForensicIntent(
+            (session?: unknown) => this.repository.update(id, encryptedUpdatedItem, session),
+            intent
+        ) as Promise<EncryptedTimelineItem>;
     }
 
     async deleteItem(
@@ -318,17 +349,21 @@ export class TimelineServiceImpl {
         };
         const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
-        // --- Forensic Integration ---
-        // Create a pending forensic document wrapping the deleted status
-        await this.forensicService.createPendingDocument<EncryptedTimelineItem>(
-            updated as EncryptedTimelineItem,
+        const intent: ForensicIntentRecord = {
+            id: this.uuidProvider.generate(),
+            timelineItem: updated as EncryptedTimelineItem,
             signerPublicKey,
             signatureBase64,
             keyId,
             timestamp,
-            userId
-        );
+            signerId: userId,
+            status: "PENDING",
+            retryCount: 0
+        };
 
-        await this.repository.update(id, updated as EncryptedTimelineItem);
+        await this.saveWithForensicIntent(
+            (session?: unknown) => this.repository.update(id, updated as EncryptedTimelineItem, session),
+            intent
+        );
     }
 }

@@ -18,7 +18,8 @@ class MockCryptoService implements ICryptoService {
 
 describe("Timeline Forensic Integration", () => {
     let service: TimelineServiceImpl;
-    let forensicCreatePendingDocument: ReturnType<typeof vi.fn>;
+    let forensicIntentSave: ReturnType<typeof vi.fn>;
+    let scheduleTask: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         const repository = new InMemoryTimelineRepository();
@@ -32,9 +33,13 @@ describe("Timeline Forensic Integration", () => {
             })
         };
 
-        forensicCreatePendingDocument = vi.fn().mockResolvedValue(true);
-        const mockForensicService = {
-            createPendingDocument: forensicCreatePendingDocument
+        forensicIntentSave = vi.fn().mockResolvedValue(undefined);
+        const mockForensicIntentRepository = {
+            save: forensicIntentSave
+        };
+        scheduleTask = vi.fn().mockResolvedValue({ id: "task-1" });
+        const mockTaskManager = {
+            schedule: scheduleTask
         };
 
         const mockChildRepository = {
@@ -47,8 +52,9 @@ describe("Timeline Forensic Integration", () => {
             new RealUuidProvider(),
             new MockCryptoService(),
             mockFamilyModel as Model<IFamily>,
-            mockForensicService as any,
-            mockChildRepository
+            mockChildRepository,
+            mockForensicIntentRepository as any,
+            mockTaskManager as any
         );
     });
 
@@ -64,7 +70,8 @@ describe("Timeline Forensic Integration", () => {
 
         await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
-        expect(forensicCreatePendingDocument).toHaveBeenCalledTimes(1);
+        expect(forensicIntentSave).toHaveBeenCalledTimes(1);
+        expect(scheduleTask).toHaveBeenCalledTimes(1);
     });
 
     it("update triggers forensic document creation", async () => {
@@ -84,7 +91,8 @@ describe("Timeline Forensic Integration", () => {
             keyId: "key1"
         }, "User");
 
-        expect(forensicCreatePendingDocument).toHaveBeenCalledTimes(2);
+        expect(forensicIntentSave).toHaveBeenCalledTimes(2);
+        expect(scheduleTask).toHaveBeenCalledTimes(2);
     });
 
     it("delete triggers forensic document creation", async () => {
@@ -104,6 +112,7 @@ describe("Timeline Forensic Integration", () => {
             keyId: "key1"
         }, "User");
 
-        expect(forensicCreatePendingDocument).toHaveBeenCalledTimes(2);
+        expect(forensicIntentSave).toHaveBeenCalledTimes(2);
+        expect(scheduleTask).toHaveBeenCalledTimes(2);
     });
 });

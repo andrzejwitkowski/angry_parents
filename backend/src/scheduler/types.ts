@@ -16,3 +16,7 @@ export interface BlockchainPublishPayload {
     documentHash: string;
     existingTxHash?: string;
 }
+
+export interface ProcessForensicIntentPayload {
+    intentId: string;
+}

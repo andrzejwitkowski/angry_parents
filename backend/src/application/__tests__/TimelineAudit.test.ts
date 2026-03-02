@@ -4,7 +4,6 @@ import { InMemoryTimelineRepository } from "../../adapters/secondary/InMemoryTim
 import { RealDateProvider } from "../../adapters/secondary/RealDateProvider";
 import { RealUuidProvider } from "../../adapters/secondary/RealUuidProvider";
 import { InMemoryChildRepository } from "../../adapters/secondary/InMemoryChildRepository";
-import { ForensicService } from "../ForensicService";
 import type { CreateTimelineItemDto } from "../../core/domain/TimelineItem";
 
 describe("Timeline Audit System", () => {
@@ -43,9 +42,12 @@ describe("Timeline Audit System", () => {
             })
         } as any;
 
-        const forensicService = {
-            createPendingDocument: async () => { },
-        } as unknown as ForensicService;
+        const forensicIntentRepository = {
+            save: async () => { },
+        } as any;
+        const taskManager = {
+            schedule: async () => ({ id: "task-1" })
+        } as any;
 
         service = new TimelineServiceImpl(
             repository,
@@ -53,8 +55,9 @@ describe("Timeline Audit System", () => {
             new RealUuidProvider(),
             mockCryptoService,
             mockFamilyModel,
-            forensicService,
-            childRepo
+            childRepo,
+            forensicIntentRepository,
+            taskManager
         );
     });
 

@@ -21,8 +21,9 @@ describe("TimelineService", () => {
     let service: TimelineServiceImpl;
     let repository: InMemoryTimelineRepository;
     let mockFamilyModel: Partial<Model<IFamily>>;
-    let mockForensicService: any;
     let mockChildRepository: any;
+    let mockForensicIntentRepository: any;
+    let mockTaskManager: any;
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
@@ -37,12 +38,15 @@ describe("TimelineService", () => {
             })
         };
 
-        mockForensicService = {
-            createPendingDocument: vi.fn().mockResolvedValue(true)
-        };
-
         mockChildRepository = {
             findById: vi.fn().mockImplementation((id: string) => Promise.resolve({ id, familyId: 'family1' }))
+        };
+
+        mockForensicIntentRepository = {
+            save: vi.fn().mockResolvedValue(undefined)
+        };
+        mockTaskManager = {
+            schedule: vi.fn().mockResolvedValue({ id: "task-1" })
         };
 
         service = new TimelineServiceImpl(
@@ -51,8 +55,9 @@ describe("TimelineService", () => {
             new RealUuidProvider(),
             new MockCryptoService(),
             mockFamilyModel as Model<IFamily>,
-            mockForensicService,
-            mockChildRepository
+            mockChildRepository,
+            mockForensicIntentRepository,
+            mockTaskManager
         );
     });
 
