@@ -18,7 +18,7 @@ export type BaseTimelineItem = {
     auditTrail: AuditEntry[];
     isDeleted: boolean;
     childIds: string[];
-    ciphertext?: string; // Decrypted ciphertext from API
+    ciphertext?: string; // encrypted ciphertext from API
     encryptedPayload?: Record<string, string>; // userId -> Base64 ciphertext
 };
 
