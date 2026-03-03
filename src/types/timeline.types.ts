@@ -18,55 +18,60 @@ export type BaseTimelineItem = {
     auditTrail: AuditEntry[];
     isDeleted: boolean;
     childIds: string[];
-    ciphertext?: string; // encrypted ciphertext from API
-    encryptedPayload?: Record<string, string>; // userId -> Base64 ciphertext
 };
 
 export type NoteItem = BaseTimelineItem & {
     type: "NOTE";
-    content?: string;
+    encryption: "PLAINTEXT";
+    content: string;
 };
 
 export type HandoverItem = BaseTimelineItem & {
     type: "HANDOVER";
-    location?: string;
-    time?: string; // HH:MM
-    status?: "PENDING" | "COMPLETED";
+    encryption: "PLAINTEXT";
+    location: string;
+    time: string; // HH:MM
+    status: "PENDING" | "COMPLETED";
 };
 
 export type MedsItem = BaseTimelineItem & {
     type: "MEDS";
-    medicineName?: string;
-    dosage?: string;
-    administered?: boolean;
+    encryption: "PLAINTEXT";
+    medicineName: string;
+    dosage: string;
+    administered: boolean;
 };
 
 export type MedicalVisitItem = BaseTimelineItem & {
     type: "MEDICAL_VISIT";
-    doctor?: string;
+    encryption: "PLAINTEXT";
+    doctor: string;
     specialization?: string;
-    diagnosis?: string;
+    diagnosis: string;
     recommendations?: string;
-    attachments?: string[]; // File URLs
+    attachments: string[]; // File URLs
 };
 
 export type IncidentItem = BaseTimelineItem & {
     type: "INCIDENT";
-    severity?: "LOW" | "MEDIUM" | "HIGH";
-    description?: string;
+    encryption: "PLAINTEXT";
+    severity: "LOW" | "MEDIUM" | "HIGH";
+    description: string;
 };
 
 export type VacationItem = BaseTimelineItem & {
     type: "VACATION";
-    status?: string;
+    encryption: "PLAINTEXT";
+    status: string;
 };
 
 export type AttachmentItem = BaseTimelineItem & {
     type: "ATTACHMENT";
-    fileName?: string;
-    fileUrl?: string;
-    fileSize?: number;
-    mimeType?: string;
+    encryption: "PLAINTEXT";
+    fileName: string;
+    fileUrl: string;
+    fileSize: number;
+    mimeType: string;
 };
 
 export type TimelineItemType =
@@ -78,24 +83,29 @@ export type TimelineItemType =
     | "VACATION"
     | "ATTACHMENT";
 
-/**
- * Represents an item that is explicitly encrypted.
- */
-export type EncryptedTimelineItem = BaseTimelineItem & {
-    type: TimelineItemType;
-    encryptedPayload: Record<string, string>;
-};
-
-// Discriminated union
-export type TimelineItem =
+export type PlainTimelineItem =
     | NoteItem
     | HandoverItem
     | MedsItem
     | MedicalVisitItem
     | IncidentItem
     | VacationItem
-    | AttachmentItem
-    | EncryptedTimelineItem;
+    | AttachmentItem;
 
-// DTO for creating new items (without id, createdAt, auditTrail, isDeleted)
-export type CreateTimelineItemDto = Omit<TimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted">;
+/**
+ * Represents an item that is explicitly encrypted.
+ */
+export type EncryptedTimelineItem = BaseTimelineItem & {
+    type: TimelineItemType;
+    encryption: "ENCRYPTED";
+    encryptedPayload: Record<string, string>;
+    ciphertext?: string; // For API responses: the ciphertext for the requesting user
+};
+
+// Discriminated union
+export type TimelineItem = PlainTimelineItem | EncryptedTimelineItem;
+
+// DTO for creating new items (without id, createdAt, auditTrail, isDeleted, and encryption)
+export type CreateTimelineItemDto = Omit<PlainTimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted" | "encryption">;
+
+export type UpdateTimelineItemDto = Partial<CreateTimelineItemDto>;

@@ -1,6 +1,6 @@
 import type { TimelineRepository } from "../core/ports/TimelineRepository";
 import type { ChildRepository } from "../core/ports/ChildRepository";
-import type { TimelineItem, CreateTimelineItemDto, AuditEntry, EncryptedTimelineItem, EncryptedPayload } from "../core/domain/TimelineItem";
+import type { TimelineItem, PlainTimelineItem, CreateTimelineItemDto, AuditEntry, EncryptedTimelineItem, EncryptedPayload } from "../core/domain/TimelineItem";
 import { TimelineItemSchema } from "../core/domain/TimelineItem";
 import { DateProvider } from "../core/ports/DateProvider";
 import { UuidProvider } from "../core/ports/UuidProvider";
@@ -118,7 +118,7 @@ export class TimelineServiceImpl {
     /**
      * Helper to build the EncryptedTimelineItem from a validated plaintext TimelineItem
      */
-    private async encryptItem(item: TimelineItem, childId: string): Promise<EncryptedTimelineItem> {
+    private async encryptItem(item: PlainTimelineItem, childId: string): Promise<EncryptedTimelineItem> {
         const child = await this.childRepository.findById(childId);
         if (!child) {
             throw new Error(`Child not found: ${childId}`);
@@ -184,6 +184,8 @@ export class TimelineServiceImpl {
 
         return {
             ...unencryptedFields,
+            type: item.type,
+            encryption: "ENCRYPTED",
             encryptedPayload: payload
         } as EncryptedTimelineItem;
     }
@@ -202,17 +204,18 @@ export class TimelineServiceImpl {
 
         // Generate ID and timestamp
         // Map childId (singular from controller) to childIds (plural array expected by domain)
-        const item: TimelineItem = {
+        const item = {
             ...dto,
+            encryption: "PLAINTEXT",
             childIds: [dto.childId],
             id: this.uuidProvider.generate(),
             createdAt: timestamp,
             auditTrail: [initialAudit],
             isDeleted: false,
-        } as unknown as TimelineItem;
+        } as unknown as PlainTimelineItem;
 
         // Validate using Zod schema
-        const validated = TimelineItemSchema.parse(item);
+        const validated = TimelineItemSchema.parse(item) as PlainTimelineItem;
 
         // Business rule: Validate handover dates
         if (validated.type === "HANDOVER") {
@@ -310,13 +313,14 @@ export class TimelineServiceImpl {
         // Validate the incoming full item while preserving immutable server-side fields.
         const validated = TimelineItemSchema.parse({
             ...fullPlaintextUpdate,
+            encryption: "PLAINTEXT",
             id: existing.id,
             createdBy: existing.createdBy,
             createdAt: existing.createdAt,
             createdByName: existing.createdByName,
             childIds: existing.childIds,
             isDeleted: existing.isDeleted,
-        });
+        }) as PlainTimelineItem;
 
         // We cannot calculate precise field differences on the backend anymore 
         // because we can't read the existing ciphertext.

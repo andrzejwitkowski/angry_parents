@@ -10,6 +10,7 @@ export interface TimelineItemDocument extends Omit<EncryptedTimelineItem, 'id'>,
 const timelineItemSchema = new Schema<TimelineItemDocument>({
     id: { type: String, required: true, unique: true },
     type: { type: String, required: true, index: true },
+    encryption: { type: String, required: true, enum: ['PLAINTEXT', 'ENCRYPTED'], index: true },
     date: { type: String, required: true, index: true },
     createdAt: { type: String, required: true },
     createdBy: { type: String, required: true },

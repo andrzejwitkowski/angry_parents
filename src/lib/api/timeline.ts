@@ -64,19 +64,22 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
                 return item;
             }
 
-            const base = { ...item } as Partial<TimelineItem>;
-            delete (base as any).encryptedPayload;
-            delete (base as any).ciphertext;
+            const base = { ...item } as any;
+            delete base.encryptedPayload;
+            delete base.ciphertext;
+
             const safeDecryptedFields = Object.fromEntries(
                 Object.entries(decryptedFields).filter(([key]) => !PROTECTED_FIELDS.has(key))
             );
             return {
                 ...base,
-                ...safeDecryptedFields
+                ...safeDecryptedFields,
+                encryption: "PLAINTEXT"
             } as TimelineItem;
         } catch (error) {
             console.warn(
-                error instanceof Error ? `Failed to decrypt timeline item: ${error.message}` : "Failed to decrypt timeline item"
+                `Failed to decrypt timeline item: ${error instanceof Error ? error.message : String(error)}`,
+                { itemId: item.id, error }
             );
             return item;
         }
