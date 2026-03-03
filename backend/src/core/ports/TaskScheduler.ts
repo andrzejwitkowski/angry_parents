@@ -11,6 +11,7 @@ export enum TaskStatus {
     PROCESSING = 'PROCESSING',
     COMPLETED = 'COMPLETED',
     FAILED = 'FAILED',
+    TIMED_OUT = 'TIMED_OUT',
 }
 
 export interface ITask<T> {
@@ -27,6 +28,8 @@ export interface ITask<T> {
     };
     workerId?: string | null;
     lockedUntil?: Date | null;
+    processingStartedAt?: Date | null;
+    timeoutMinutes?: number;
     error?: string | null;
     createdAt?: Date;
     updatedAt?: Date;

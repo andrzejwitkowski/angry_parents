@@ -71,9 +71,9 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     const items = await service.getItemsByDate(params.date);
                     return { items: selectCiphertextForUser(items, user.id) };
                 } catch (error) {
+                    set.status = 400;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 400,
                     };
                 }
             },
@@ -96,9 +96,9 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     const items = await service.getItemsByDateRange(query.from, query.to);
                     return { items: selectCiphertextForUser(items, user.id) };
                 } catch (error) {
+                    set.status = 400;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 400,
                     };
                 }
             },
@@ -194,9 +194,9 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     );
                     return selectSingleCiphertextForUser(updated, user.id);
                 } catch (error) {
+                    set.status = 404;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 404,
                     };
                 }
             },
@@ -241,10 +241,9 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     set.status = 204;
                     return null;
                 } catch (error) {
-                    // This error returns 404, not 400, so it's not changed by the instruction.
+                    set.status = 404;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 404,
                     };
                 }
             },

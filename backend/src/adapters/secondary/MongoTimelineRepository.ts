@@ -75,15 +75,26 @@ export class MongoTimelineRepository implements TimelineRepository {
   }
 
   async withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T> {
-    const session = await mongoose.startSession();
     try {
-      let result!: T;
-      await session.withTransaction(async () => {
-        result = await operation(session);
-      });
-      return result;
-    } finally {
-      await session.endSession();
+      const session = await mongoose.startSession();
+      try {
+        let result!: T;
+        await session.withTransaction(async () => {
+          result = await operation(session);
+        });
+        return result;
+      } finally {
+        await session.endSession();
+      }
+    } catch (error) {
+      if (error instanceof Error && (
+        error.message.includes("Transaction numbers are only allowed on a replica set member") ||
+        error.message.includes("sessions are not supported")
+      )) {
+        console.warn("[MongoDB] Transactions not supported on this instance. Running operation without transaction.");
+        return await operation();
+      }
+      throw error;
     }
   }
 }
