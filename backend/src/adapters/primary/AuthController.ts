@@ -357,17 +357,20 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 try {
                     const devKeyPair = await getDevKeyPair();
                     const devRsaPublicKey = devKeyPair.publicKey;
+                    const DUMMY_DAD_ID = "dummy-dad-id-stable";
+                    const DUMMY_MOM_ID = "dummy-mom-id-stable";
+
                     await Family.findByIdAndUpdate(
                         finalFamilyId,
                         {
                             _id: finalFamilyId,
                             name: "Mock Family",
-                            parentIds: [finalUserId],
+                            parentIds: [finalUserId, DUMMY_MOM_ID], // Ensure 2 IDs for encryption logic
                             children: [{ id: MOCK_CHILD_ID, name: "Mock Child" }],
                             custodyPatterns: [],
                             parentPublicKeys: [
-                                { parentId: "dummy-dad-id", role: "dad", rsaPublicKeyBase64: devRsaPublicKey },
-                                { parentId: "dummy-mom-id", role: "mom", rsaPublicKeyBase64: devRsaPublicKey }
+                                { parentId: finalUserId, role: "dad", rsaPublicKeyBase64: devRsaPublicKey },
+                                { parentId: DUMMY_MOM_ID, role: "mom", rsaPublicKeyBase64: devRsaPublicKey }
                             ]
                         },
                         { upsert: true, new: true }
@@ -548,6 +551,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
             const mockBody = (body || {}) as { userId?: string };
             const finalUserId = mockBody.userId || new mongoose.Types.ObjectId().toString();
+            const DUMMY_MOM_ID = "dummy-mom-id-stable";
             let finalFamilyId = "";
 
             // MOCK IN DB
@@ -557,16 +561,35 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     finalFamilyId = family._id.toString();
                     if (!family.parentIds.includes(finalUserId)) {
                         family.parentIds.push(finalUserId);
-                        await family.save();
                     }
+                    if (!family.parentIds.includes(DUMMY_MOM_ID)) {
+                        family.parentIds.push(DUMMY_MOM_ID);
+                    }
+                    const devKeyPair = await getDevKeyPair();
+                    const devRsaPublicKey = devKeyPair.publicKey;
+                    const parentPublicKeys = family.parentPublicKeys || [];
+                    if (!parentPublicKeys.find((k) => k.parentId === finalUserId)) {
+                        parentPublicKeys.push({ parentId: finalUserId, role: "dad", rsaPublicKeyBase64: devRsaPublicKey });
+                    }
+                    if (!parentPublicKeys.find((k) => k.parentId === DUMMY_MOM_ID)) {
+                        parentPublicKeys.push({ parentId: DUMMY_MOM_ID, role: "mom", rsaPublicKeyBase64: devRsaPublicKey });
+                    }
+                    family.parentPublicKeys = parentPublicKeys;
+                    await family.save();
                 } else {
+                    const devKeyPair = await getDevKeyPair();
+                    const devRsaPublicKey = devKeyPair.publicKey;
                     finalFamilyId = new mongoose.Types.ObjectId().toString();
                     family = new Family({
                         _id: finalFamilyId,
                         name: "Mock Family",
-                        parentIds: [finalUserId],
+                        parentIds: [finalUserId, DUMMY_MOM_ID],
                         children: [],
                         custodyPatterns: [],
+                        parentPublicKeys: [
+                            { parentId: finalUserId, role: "dad", rsaPublicKeyBase64: devRsaPublicKey },
+                            { parentId: DUMMY_MOM_ID, role: "mom", rsaPublicKeyBase64: devRsaPublicKey }
+                        ]
                     });
                     await family.save();
                 }

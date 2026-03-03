@@ -146,12 +146,18 @@ export const timelineApi = {
     async update(
         id: string,
         fullItem: TimelineItem,
-        signatureData: MutationSignature
+        signatureData: MutationSignature,
+        childId?: string
     ): Promise<TimelineItem> {
-        // BUGFIX: Enforce that payload.id matches the URL id to prevent mismatches
+        const resolvedChildId = childId || (fullItem.childIds && fullItem.childIds[0]);
+        if (!resolvedChildId) {
+            throw new TimelineApiError("Cannot update timeline item: missing childId");
+        }
+
         const payload = {
             ...fullItem,
             id: id,
+            childId: resolvedChildId,
             ...signatureData
         };
 

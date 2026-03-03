@@ -37,7 +37,7 @@ const mockItem: MedsItem = {
     administered: false,
     auditTrail: [],
     isDeleted: false,
-    childIds: [],
+    childIds: ["child-1"],
 };
 
 const ownerUser = {
@@ -101,11 +101,16 @@ describe('MedsCard', () => {
         fireEvent.click(checkbox);
 
         await waitFor(() => {
-            expect(timelineApi.update).toHaveBeenCalledWith('1', expect.objectContaining({ administered: true }), expect.objectContaining({
-                signatureBase64: expect.any(String),
-                timestamp: expect.any(String),
-                keyId: expect.any(String),
-            }));
+            expect(timelineApi.update).toHaveBeenCalledWith(
+                '1',
+                expect.objectContaining({ administered: true }),
+                expect.objectContaining({
+                    signatureBase64: expect.any(String),
+                    timestamp: expect.any(String),
+                    keyId: expect.any(String),
+                }),
+                "child-1"
+            );
             expect(onUpdate).toHaveBeenCalled();
         });
     });

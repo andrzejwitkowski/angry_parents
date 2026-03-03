@@ -42,9 +42,21 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
     const handleCheckboxChange = async (checked: boolean) => {
+        const childId = item.childIds[0];
+        if ((item as any).ciphertext || !item.medicineName || !item.dosage || !childId) {
+            console.warn("Cannot update encrypted item");
+            alert(t("daylog.cannotUpdateEncrypted"));
+            return;
+        }
+
         setIsUpdating(true);
         try {
-            const updated = await timelineApi.update(item.id, { ...item, administered: checked }, await getMutationSignature());
+            const updated = await timelineApi.update(
+                item.id,
+                { ...item, administered: checked },
+                await getMutationSignature(),
+                childId
+            );
             setAdministered(checked);
             onUpdate?.(updated as MedsItem);
         } catch (error) {
