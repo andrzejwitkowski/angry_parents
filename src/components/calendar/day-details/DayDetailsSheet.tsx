@@ -113,7 +113,7 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, activeChildId: ex
                         />
                     ) : (
                         <div className="text-center text-slate-500 italic p-4">
-                            {t("daylog.selectChildToAdd")}
+                            {t("daylog.selectChildToAddEvents")}
                         </div>
                     )}
                 </div>

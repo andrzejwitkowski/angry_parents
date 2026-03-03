@@ -19,7 +19,9 @@ describe("Timeline Audit System", () => {
             familyId: "family-1",
             name: "Child",
             color: "#FFF",
-            icon: "child"
+            icon: "child",
+            momId: "dad-1", // Using IDs from the mock below
+            dadId: "user-1"
         });
 
         const mockCryptoService = {
@@ -31,6 +33,7 @@ describe("Timeline Audit System", () => {
         const mockFamilyModel = {
             findById: async () => ({
                 id: "family-1",
+                parentIds: ["dad-1", "user-1"],
                 parents: [
                     { id: "dad-1", role: "ADMIN", publicKeyParams: { x: "x1", y: "y1" } },
                     { id: "user-1", role: "USER", publicKeyParams: { x: "x2", y: "y2" } }

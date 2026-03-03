@@ -39,7 +39,12 @@ describe("TimelineService", () => {
         };
 
         mockChildRepository = {
-            findById: vi.fn().mockImplementation((id: string) => Promise.resolve({ id, familyId: 'family1' }))
+            findById: vi.fn().mockImplementation((id: string) => Promise.resolve({
+                id,
+                familyId: 'family1',
+                momId: 'mom-1',
+                dadId: 'dad-1'
+            }))
         };
 
         mockForensicIntentRepository = {

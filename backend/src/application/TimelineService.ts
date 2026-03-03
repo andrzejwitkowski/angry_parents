@@ -72,11 +72,19 @@ export class TimelineServiceImpl {
      * Returns a JSON string of all sensitive fields.
      */
     private extractContentForEncryption(item: TimelineItem): string {
-        const contentFields = Object.fromEntries(
-            Object.entries(item as Record<string, unknown>).filter(
-                ([key, value]) => !TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key) && value !== undefined
-            )
-        );
+        const plainItem = item as Record<string, unknown>;
+        const contentFields: Record<string, unknown> = {};
+
+        for (const [key, value] of Object.entries(plainItem)) {
+            if (TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key)) {
+                continue;
+            }
+            if (value === undefined) {
+                continue;
+            }
+            contentFields[key] = value;
+        }
+
         return JSON.stringify(contentFields);
     }
 
@@ -127,15 +135,30 @@ export class TimelineServiceImpl {
 
         const plaintextStr = this.extractContentForEncryption(item);
 
-        const momKeyEntry = family.parentPublicKeys.find(p => p.role === "mom");
-        const dadKeyEntry = family.parentPublicKeys.find(p => p.role === "dad");
+        const momId = (child as any).momId || (family.parentIds && family.parentIds[0]);
+        const dadId = (child as any).dadId || (family.parentIds && family.parentIds[1]);
 
-        if (!momKeyEntry?.rsaPublicKeyBase64 || !dadKeyEntry?.rsaPublicKeyBase64) {
-            throw new Error("Cannot encrypt: Both mom and dad must have registered RSA public keys.");
+        if (!momId || !dadId) {
+            throw new Error(
+                `Cannot encrypt: Unable to resolve momId and dadId for child: ${childId}. Child has moms: ${(child as any).momId}, dads: ${(child as any).dadId}. Family has parents: ${family.parentIds || 'undefined'}`
+            );
+        }
+
+        const momKeyEntry = family.parentPublicKeys.find((k) => k.parentId === momId || k.role === "mom");
+        const dadKeyEntry = family.parentPublicKeys.find((k) => k.parentId === dadId || k.role === "dad");
+
+        if (!momKeyEntry || !dadKeyEntry) {
+            throw new Error(
+                `Cannot encrypt: Missing RSA public keys for both parents (momId: ${momId}, dadId: ${dadId})`
+            );
         }
 
         const momKey = momKeyEntry.rsaPublicKeyBase64;
         const dadKey = dadKeyEntry.rsaPublicKeyBase64;
+
+        if (!momKey || !dadKey) {
+            throw new Error("Cannot encrypt: Both mom and dad must have registered RSA public keys.");
+        }
 
         const encryptedForMom = await this.cryptoService.encryptRSA(plaintextStr, momKey);
         const encryptedForDad = await this.cryptoService.encryptRSA(plaintextStr, dadKey);

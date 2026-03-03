@@ -26,6 +26,7 @@ describe("Timeline Forensic Integration", () => {
 
         const mockFamilyModel = {
             findById: vi.fn().mockResolvedValue({
+                parentIds: ["mom-1", "dad-1"],
                 parentPublicKeys: [
                     { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" },
                     { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-pub-key" }
@@ -43,7 +44,12 @@ describe("Timeline Forensic Integration", () => {
         };
 
         const mockChildRepository = {
-            findById: vi.fn().mockResolvedValue({ id: "child-1", familyId: "family1" })
+            findById: vi.fn().mockResolvedValue({
+                id: "child-1",
+                familyId: "family1",
+                momId: "mom-1",
+                dadId: "dad-1"
+            })
         };
 
         service = new TimelineServiceImpl(

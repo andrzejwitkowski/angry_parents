@@ -23,49 +23,66 @@ export type BaseTimelineItem = {
 
 export type NoteItem = BaseTimelineItem & {
     type: "NOTE";
-    content: string;
+    content?: string;
 };
 
 export type HandoverItem = BaseTimelineItem & {
     type: "HANDOVER";
-    location: string;
-    time: string; // HH:MM
-    status: "PENDING" | "COMPLETED";
+    location?: string;
+    time?: string; // HH:MM
+    status?: "PENDING" | "COMPLETED";
 };
 
 export type MedsItem = BaseTimelineItem & {
     type: "MEDS";
-    medicineName: string;
-    dosage: string;
-    administered: boolean;
+    medicineName?: string;
+    dosage?: string;
+    administered?: boolean;
 };
 
 export type MedicalVisitItem = BaseTimelineItem & {
     type: "MEDICAL_VISIT";
-    doctor: string;
+    doctor?: string;
     specialization?: string;
-    diagnosis: string;
+    diagnosis?: string;
     recommendations?: string;
-    attachments: string[]; // File URLs
+    attachments?: string[]; // File URLs
 };
 
 export type IncidentItem = BaseTimelineItem & {
     type: "INCIDENT";
-    severity: "LOW" | "MEDIUM" | "HIGH";
-    description: string;
+    severity?: "LOW" | "MEDIUM" | "HIGH";
+    description?: string;
 };
 
 export type VacationItem = BaseTimelineItem & {
     type: "VACATION";
-    status: string;
+    status?: string;
 };
 
 export type AttachmentItem = BaseTimelineItem & {
     type: "ATTACHMENT";
-    fileName: string;
-    fileUrl: string;
-    fileSize: number;
-    mimeType: string;
+    fileName?: string;
+    fileUrl?: string;
+    fileSize?: number;
+    mimeType?: string;
+};
+
+export type TimelineItemType =
+    | "NOTE"
+    | "HANDOVER"
+    | "MEDS"
+    | "MEDICAL_VISIT"
+    | "INCIDENT"
+    | "VACATION"
+    | "ATTACHMENT";
+
+/**
+ * Represents an item that is explicitly encrypted.
+ */
+export type EncryptedTimelineItem = BaseTimelineItem & {
+    type: TimelineItemType;
+    encryptedPayload: NonNullable<BaseTimelineItem["encryptedPayload"]>;
 };
 
 // Discriminated union
@@ -76,7 +93,8 @@ export type TimelineItem =
     | MedicalVisitItem
     | IncidentItem
     | VacationItem
-    | AttachmentItem;
+    | AttachmentItem
+    | EncryptedTimelineItem;
 
 // DTO for creating new items (without id, createdAt, auditTrail, isDeleted)
 export type CreateTimelineItemDto = Omit<TimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted">;

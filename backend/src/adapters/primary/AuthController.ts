@@ -23,6 +23,14 @@ const rpID = "localhost";
 const origin = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
 
 const registrationChallenges = new Map<string, string>();
+let cachedDevKeyPair: { publicKey: string; privateKey: string } | null = null;
+
+async function getDevKeyPair() {
+    if (!cachedDevKeyPair) {
+        cachedDevKeyPair = await generateDevRSAKeyPair();
+    }
+    return cachedDevKeyPair;
+}
 
 function setCookie(token: string): string {
     const isProd = process.env.NODE_ENV === "production";
@@ -347,7 +355,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
                 // MOCK IN DB - use upsert to avoid duplicate key errors across test runs
                 try {
-                    const { publicKey: devRsaPublicKey } = await generateDevRSAKeyPair();
+                    const devKeyPair = await getDevKeyPair();
+                    const devRsaPublicKey = devKeyPair.publicKey;
                     await Family.findByIdAndUpdate(
                         finalFamilyId,
                         {
@@ -468,7 +477,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 invitation.status = "accepted";
                 await invitation.save();
             } else {
-                const { publicKey: devRsaPublicKey } = await generateDevRSAKeyPair();
+                const devKeyPair = await getDevKeyPair();
+                const devRsaPublicKey = devKeyPair.publicKey;
                 const newFamily = await Family.create({
                     parentIds: [],
                     parentPublicKeys: [

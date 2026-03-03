@@ -45,8 +45,10 @@ export type SignatureData = {
 };
 
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
+    const isDev = import.meta.env.DEV;
     const privateKeyBase64 = import.meta.env.VITE_DEV_RSA_PRIVATE_KEY;
-    if (!import.meta.env.DEV || !privateKeyBase64) return items;
+
+    if (!isDev || !privateKeyBase64) return items;
 
     if (!cachedPrivateKey) {
         cachedPrivateKey = await importPrivateKey(privateKeyBase64);
@@ -56,39 +58,36 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
         if (!item.encryptedPayload) return item;
 
         const payload = item.encryptedPayload;
-        const ciphertexts = [payload.encryptedForMom, payload.encryptedForDad].filter((v): v is string => Boolean(v));
-        if (ciphertexts.length === 0) return item;
+        // The API now returns only the ciphertext for the specific role.
+        // We attempt to decrypt whatever is available in the payload.
+        const ciphertext = payload.encryptedForMom || payload.encryptedForDad;
 
-        let lastError: unknown = null;
-        for (const ciphertext of ciphertexts) {
-            try {
-                const decrypted = await decryptRSA(ciphertext, cachedPrivateKey as CryptoKey);
-                const decryptedFields = JSON.parse(decrypted);
+        if (!ciphertext) return item;
 
-                // BUGFIX: Ensure decryptedFields is a non-null object before merging
-                if (typeof decryptedFields !== 'object' || decryptedFields === null || Array.isArray(decryptedFields)) {
-                    console.warn("Decrypted fields are not a plain object:", decryptedFields);
-                    return item;
-                }
+        try {
+            const decrypted = await decryptRSA(ciphertext, cachedPrivateKey as CryptoKey);
+            const decryptedFields = JSON.parse(decrypted);
 
-                const base = { ...item } as Partial<TimelineItem>;
-                delete base.encryptedPayload;
-                const safeDecryptedFields = Object.fromEntries(
-                    Object.entries(decryptedFields).filter(([key]) => !PROTECTED_FIELDS.has(key))
-                );
-                return {
-                    ...base,
-                    ...safeDecryptedFields
-                } as TimelineItem;
-            } catch (error) {
-                lastError = error;
+            if (typeof decryptedFields !== 'object' || decryptedFields === null || Array.isArray(decryptedFields)) {
+                console.warn("Decrypted fields are not a plain object:", decryptedFields);
+                return item;
             }
-        }
 
-        console.warn(
-            lastError instanceof Error ? `Failed to decrypt timeline item: ${lastError.message}` : "Failed to decrypt timeline item"
-        );
-        return item;
+            const base = { ...item } as Partial<TimelineItem>;
+            delete base.encryptedPayload;
+            const safeDecryptedFields = Object.fromEntries(
+                Object.entries(decryptedFields).filter(([key]) => !PROTECTED_FIELDS.has(key))
+            );
+            return {
+                ...base,
+                ...safeDecryptedFields
+            } as TimelineItem;
+        } catch (error) {
+            console.warn(
+                error instanceof Error ? `Failed to decrypt timeline item: ${error.message}` : "Failed to decrypt timeline item"
+            );
+            return item;
+        }
     }));
 }
 

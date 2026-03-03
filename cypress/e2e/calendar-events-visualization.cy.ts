@@ -5,9 +5,9 @@ describe("Calendar Events Visualization", () => {
 
     beforeEach(() => {
         // Set up intercepts before login/visit to capture all requests
+        cy.intercept('GET', '**/api/children*').as('fetchChildren');
         cy.intercept('POST', '**/api/timeline').as('createTimeline');
         cy.intercept('GET', '**/api/timeline/range*').as('fetchMonthEvents');
-        cy.intercept('GET', '**/api/children*').as('fetchChildren');
 
         // Login directly via API - Use relative URI if supported or env
         const apiUrl = Cypress.env('apiUrl') || 'http://localhost:3000/api';
@@ -110,7 +110,9 @@ describe("Calendar Events Visualization", () => {
         cy.get('[role="dialog"], [role="tooltip"]', { timeout: 5000 }).should("exist");
     });
 
-    // Helper to add a note via the DayLogbook Sheet and wait for timeline + refetch.
+    /**
+     * Helper to add a note via the Day Logbook Sheet and wait for the timeline request.
+     */
     const addNote = (content: string) => {
         getSheet().find('[data-testid="action-note"]').click({ force: true });
         getSheet().find('[data-testid="content-input"]').clear({ force: true }).type(content, { force: true });
