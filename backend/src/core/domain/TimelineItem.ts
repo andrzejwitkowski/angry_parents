@@ -18,6 +18,7 @@ const BaseTimelineItemSchema = z.object({
     auditTrail: z.array(AuditEntrySchema).default([]),
     isDeleted: z.boolean().default(false),
     childIds: z.array(z.string()).default([]),
+    ciphertext: z.string().optional(), // For API responses: the ciphertext for the requesting user
 });
 
 // NOTE: Standard text message
@@ -101,10 +102,7 @@ export type TimelineItem = z.infer<typeof TimelineItemSchema>;
  * Encrypted payload containing the dual ciphertext for content fields.
  * This replaces the plaintext content fields when saving to MongoDB.
  */
-export type EncryptedPayload = {
-    encryptedForMom: string; // Base64 ciphertext
-    encryptedForDad: string; // Base64 ciphertext
-};
+export type EncryptedPayload = Record<string, string>; // userId -> Base64 ciphertext
 
 /**
  * A TimelineItem as it exists in storage (with encrypted content).

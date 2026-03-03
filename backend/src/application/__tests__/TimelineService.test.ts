@@ -89,9 +89,9 @@ describe("TimelineService", () => {
             // Should be encrypted, so doctor/diagnosis fields shouldn't be present at top level
             expect((item as any).doctor).toBeUndefined();
             expect(item.encryptedPayload).toBeDefined();
-            expect(item.encryptedPayload.encryptedForMom).toContain("encrypted-{\"doctor\":");
-            expect(item.encryptedPayload.encryptedForDad).toContain("encrypted-{\"doctor\":");
-            expect(item.encryptedPayload.encryptedForMom).not.toEqual(item.encryptedPayload.encryptedForDad);
+            expect(item.encryptedPayload["mom-1"]).toContain("encrypted-{\"doctor\":");
+            expect(item.encryptedPayload["dad-1"]).toContain("encrypted-{\"doctor\":");
+            expect(item.encryptedPayload["mom-1"]).not.toEqual(item.encryptedPayload["dad-1"]);
         });
 
         it("should create a medication item", async () => {

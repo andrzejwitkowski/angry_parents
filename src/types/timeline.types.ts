@@ -18,7 +18,8 @@ export type BaseTimelineItem = {
     auditTrail: AuditEntry[];
     isDeleted: boolean;
     childIds: string[];
-    encryptedPayload?: { encryptedForMom?: string; encryptedForDad?: string };
+    ciphertext?: string; // Decrypted ciphertext from API
+    encryptedPayload?: Record<string, string>; // userId -> Base64 ciphertext
 };
 
 export type NoteItem = BaseTimelineItem & {
@@ -82,7 +83,7 @@ export type TimelineItemType =
  */
 export type EncryptedTimelineItem = BaseTimelineItem & {
     type: TimelineItemType;
-    encryptedPayload: NonNullable<BaseTimelineItem["encryptedPayload"]>;
+    encryptedPayload: Record<string, string>;
 };
 
 // Discriminated union

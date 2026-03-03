@@ -36,7 +36,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 let cachedPrivateKey: CryptoKey | null = null;
 const PROTECTED_FIELDS = new Set([
-    "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload"
+    "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload", "ciphertext"
 ]);
 
 
@@ -50,13 +50,8 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
         cachedPrivateKey = await importPrivateKey(privateKeyBase64);
     }
 
-    return Promise.all(items.map(async (item) => {
-        if (!item.encryptedPayload) return item;
-
-        const payload = item.encryptedPayload;
-        // The API now returns only the ciphertext for the specific role.
-        // We attempt to decrypt whatever is available in the payload.
-        const ciphertext = payload.encryptedForMom || payload.encryptedForDad;
+    return Promise.all(items.map(async (item: any) => {
+        const ciphertext = item.ciphertext;
 
         if (!ciphertext) return item;
 
@@ -70,7 +65,8 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
             }
 
             const base = { ...item } as Partial<TimelineItem>;
-            delete base.encryptedPayload;
+            delete (base as any).encryptedPayload;
+            delete (base as any).ciphertext;
             const safeDecryptedFields = Object.fromEntries(
                 Object.entries(decryptedFields).filter(([key]) => !PROTECTED_FIELDS.has(key))
             );

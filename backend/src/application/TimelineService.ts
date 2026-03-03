@@ -163,7 +163,10 @@ export class TimelineServiceImpl {
         const encryptedForMom = await this.cryptoService.encryptRSA(plaintextStr, momKey);
         const encryptedForDad = await this.cryptoService.encryptRSA(plaintextStr, dadKey);
 
-        const payload: EncryptedPayload = { encryptedForMom, encryptedForDad };
+        const payload: EncryptedPayload = {
+            [momId]: encryptedForMom,
+            [dadId]: encryptedForDad
+        };
 
         const unencryptedFields = Object.fromEntries(
             Object.entries(item as Record<string, unknown>).filter(([key]) => TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key))

@@ -48,7 +48,7 @@ describe("Child Management Service Enhancements", () => {
             childIds: [child.id],
             auditTrail: [],
             isDeleted: false,
-            encryptedPayload: { encryptedForMom: "x", encryptedForDad: "y" }
+            encryptedPayload: { "user-mom": "x", "user-dad": "y" }
         } as any);
 
         // 3. Try to delete the child - should throw
