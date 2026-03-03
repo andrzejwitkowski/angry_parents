@@ -17,11 +17,12 @@ export class MongoForensicIntentRepository implements ForensicIntentRepository {
         return (doc as unknown as ForensicIntentRecord) ?? null;
     }
 
-    async markProcessing(id: string): Promise<void> {
-        await ForensicIntentModel.updateOne(
-            { id, status: { $ne: "COMPLETED" } },
+    async markProcessing(id: string): Promise<boolean> {
+        const result = await ForensicIntentModel.updateOne(
+            { id, status: "PENDING" },
             { $set: { status: "PROCESSING" }, $inc: { retryCount: 1 } }
         );
+        return result.modifiedCount === 1;
     }
 
     async markCompleted(id: string): Promise<void> {

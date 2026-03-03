@@ -1,5 +1,6 @@
 import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types";
 import { decryptRSA, importPrivateKey } from "@/lib/crypto-utils";
+import type { MutationSignature } from "@/lib/signature-provider";
 
 const API_BASE_URL = "http://localhost:3000/api";
 
@@ -38,11 +39,6 @@ const PROTECTED_FIELDS = new Set([
     "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload"
 ]);
 
-export type SignatureData = {
-    signatureBase64: string;
-    timestamp: string;
-    keyId: string;
-};
 
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
     const isDev = import.meta.env.DEV;
@@ -126,7 +122,7 @@ export const timelineApi = {
      */
     async create(
         dto: CreateTimelineItemDto & { childId: string },
-        signatureData: SignatureData
+        signatureData: MutationSignature
     ): Promise<TimelineItem> {
         const payload = {
             ...dto,
@@ -154,7 +150,7 @@ export const timelineApi = {
     async update(
         id: string,
         fullItem: TimelineItem,
-        signatureData: SignatureData
+        signatureData: MutationSignature
     ): Promise<TimelineItem> {
         // BUGFIX: Enforce that payload.id matches the URL id to prevent mismatches
         const payload = {
@@ -182,7 +178,7 @@ export const timelineApi = {
      */
     async delete(
         id: string,
-        signatureData: SignatureData
+        signatureData: MutationSignature
     ): Promise<void> {
         const response = await fetch(`${API_BASE_URL}/timeline/${id}`, {
             method: "DELETE",

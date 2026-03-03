@@ -18,7 +18,7 @@ export interface ForensicIntentRecord {
 export interface ForensicIntentRepository {
     save(intent: ForensicIntentRecord, session?: unknown): Promise<void>;
     findById(id: string): Promise<ForensicIntentRecord | null>;
-    markProcessing(id: string): Promise<void>;
+    markProcessing(id: string): Promise<boolean>;
     markCompleted(id: string): Promise<void>;
     markRetry(id: string, errorMessage: string): Promise<void>;
 }

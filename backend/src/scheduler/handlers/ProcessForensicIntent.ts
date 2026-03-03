@@ -11,7 +11,8 @@ export const createProcessForensicIntentHandler = (
         return;
     }
 
-    await forensicIntentRepository.markProcessing(intent.id);
+    const claimed = await forensicIntentRepository.markProcessing(intent.id);
+    if (!claimed) return;
 
     try {
         await forensicService.createPendingDocument(

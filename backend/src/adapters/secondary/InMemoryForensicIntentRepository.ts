@@ -11,12 +11,13 @@ export class InMemoryForensicIntentRepository implements ForensicIntentRepositor
         return this.intents.get(id) ?? null;
     }
 
-    async markProcessing(id: string): Promise<void> {
+    async markProcessing(id: string): Promise<boolean> {
         const intent = this.intents.get(id);
-        if (!intent || intent.status === "COMPLETED") return;
+        if (!intent || intent.status !== "PENDING") return false;
         intent.status = "PROCESSING";
         intent.retryCount += 1;
         this.intents.set(id, intent);
+        return true;
     }
 
     async markCompleted(id: string): Promise<void> {
