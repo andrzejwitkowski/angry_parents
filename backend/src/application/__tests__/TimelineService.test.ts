@@ -1,22 +1,74 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TimelineServiceImpl } from "../TimelineService";
 import { InMemoryTimelineRepository } from "../../adapters/secondary/InMemoryTimelineRepository";
 import { RealDateProvider } from "../../adapters/secondary/RealDateProvider";
 import { RealUuidProvider } from "../../adapters/secondary/RealUuidProvider";
-import type { CreateTimelineItemDto, MedicalVisitItem, MedsItem, NoteItem, IncidentItem } from "../../core/domain/TimelineItem";
+import type { CreateTimelineItemDto, MedicalVisitItem, MedsItem, NoteItem, IncidentItem, EncryptedTimelineItem } from "../../core/domain/TimelineItem";
+import type { ICryptoService } from "../../core/ports/ICryptoService";
+import type { Model } from "mongoose";
+import type { IFamily } from "../../models/Family";
+
+// Mock Crypto Service that just returns a predictable string
+class MockCryptoService implements ICryptoService {
+    async verifySignature(): Promise<boolean> { return true; }
+    async getFingerprint(): Promise<string> { return "mock-fingerprint"; }
+    async encryptRSA(plaintext: string, publicKey: string): Promise<string> {
+        return `encrypted-${plaintext.substring(0, 10)}-with-${publicKey}`;
+    }
+}
 
 describe("TimelineService", () => {
     let service: TimelineServiceImpl;
     let repository: InMemoryTimelineRepository;
+    let mockFamilyModel: Partial<Model<IFamily>>;
+    let mockChildRepository: any;
+    let mockForensicIntentRepository: any;
+    let mockTaskManager: any;
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
-        service = new TimelineServiceImpl(repository, new RealDateProvider(), new RealUuidProvider());
+
+        // Setup mock family model that returns 2 valid parent public keys
+        mockFamilyModel = {
+            findById: vi.fn().mockResolvedValue({
+                parentPublicKeys: [
+                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" },
+                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-pub-key" }
+                ]
+            })
+        };
+
+        mockChildRepository = {
+            findById: vi.fn().mockImplementation((id: string) => Promise.resolve({
+                id,
+                familyId: 'family1',
+                momId: 'mom-1',
+                dadId: 'dad-1'
+            }))
+        };
+
+        mockForensicIntentRepository = {
+            save: vi.fn().mockResolvedValue(undefined)
+        };
+        mockTaskManager = {
+            schedule: vi.fn().mockResolvedValue({ id: "task-1" })
+        };
+
+        service = new TimelineServiceImpl(
+            repository,
+            new RealDateProvider(),
+            new RealUuidProvider(),
+            new MockCryptoService(),
+            mockFamilyModel as Model<IFamily>,
+            mockChildRepository,
+            mockForensicIntentRepository,
+            mockTaskManager
+        );
     });
 
     describe("createItem", () => {
-        it("should create a valid medical visit item", async () => {
-            const dto: CreateTimelineItemDto = {
+        it("should create a valid medical visit item (encrypted)", async () => {
+            const dto: CreateTimelineItemDto & { childId: string } = {
                 type: "MEDICAL_VISIT",
                 date: "2026-01-27",
                 createdBy: "user-123",
@@ -25,15 +77,21 @@ describe("TimelineService", () => {
                 recommendations: "Rest and fluids",
                 attachments: [],
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+            } as CreateTimelineItemDto & { childId: string };
 
-            const item = await service.createItem(dto);
-            const medicalItem = item as MedicalVisitItem;
+            const item = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
             expect(item.id).toBeDefined();
             expect(item.createdAt).toBeDefined();
             expect(item.type).toBe("MEDICAL_VISIT");
-            expect(medicalItem.doctor).toBe("Dr. Smith");
+
+            // Should be encrypted, so doctor/diagnosis fields shouldn't be present at top level
+            expect((item as any).doctor).toBeUndefined();
+            expect(item.encryptedPayload).toBeDefined();
+            expect(item.encryptedPayload["mom-1"]).toContain("encrypted-{\"encrypti-with-");
+            expect(item.encryptedPayload["dad-1"]).toContain("encrypted-{\"encrypti-with-");
+            expect(item.encryptedPayload["mom-1"]).not.toEqual(item.encryptedPayload["dad-1"]);
         });
 
         it("should create a medication item", async () => {
@@ -45,14 +103,14 @@ describe("TimelineService", () => {
                 dosage: "500mg",
                 administered: false,
                 childIds: ["child-1"],
+                childId: "child-1",
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any as CreateTimelineItemDto;
+            } as any as CreateTimelineItemDto & { childId: string };
 
-            const item = await service.createItem(dto);
-            const medicationItem = item as MedsItem;
+            const item = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
             expect(item.type).toBe("MEDS");
-            expect(medicationItem.administered).toBe(false);
+            expect(item.encryptedPayload).toBeDefined();
         });
 
         it("should reject handover with past date", async () => {
@@ -68,9 +126,10 @@ describe("TimelineService", () => {
                 time: "15:00",
                 status: "PENDING",
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+            } as CreateTimelineItemDto & { childId: string };
 
-            await expect(service.createItem(dto)).rejects.toThrow(
+            await expect(service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any)).rejects.toThrow(
                 "Handover date cannot be in the past"
             );
         });
@@ -86,9 +145,10 @@ describe("TimelineService", () => {
                 time: "15:00",
                 status: "PENDING",
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+            } as CreateTimelineItemDto & { childId: string };
 
-            const item = await service.createItem(dto);
+            const item = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
             expect(item.type).toBe("HANDOVER");
         });
 
@@ -100,6 +160,7 @@ describe("TimelineService", () => {
                 doctor: "Dr. Smith",
                 diagnosis: undefined,
                 attachments: [],
+                childId: "child-1",
             };
 
             // @ts-expect-error - testing invalid DTO
@@ -114,12 +175,12 @@ describe("TimelineService", () => {
                 severity: "HIGH",
                 description: "Child fell from swing",
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+            } as CreateTimelineItemDto & { childId: string };
 
-            const item = await service.createItem(dto);
-            const incidentItem = item as IncidentItem;
+            const item = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
             expect(item.type).toBe("INCIDENT");
-            expect(incidentItem.severity).toBe("HIGH");
+            expect(item.encryptedPayload).toBeDefined();
         });
     });
 
@@ -131,7 +192,11 @@ describe("TimelineService", () => {
                 createdBy: "user-123",
                 content: "First note",
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1",
+            } as unknown as CreateTimelineItemDto & { childId: string };
 
             const dto2 = {
                 type: "NOTE",
@@ -139,17 +204,20 @@ describe("TimelineService", () => {
                 createdBy: "user-123",
                 content: "Second note",
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1",
+            } as unknown as CreateTimelineItemDto & { childId: string };
 
-            await service.createItem(dto1);
+            await service.createItem({ ...dto1, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
             await new Promise((resolve) => setTimeout(resolve, 10)); // Small delay
-            await service.createItem(dto2);
+            const item2 = await service.createItem({ ...dto2, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
             const items = await service.getItemsByDate("2026-01-27");
 
             expect(items).toHaveLength(2);
-            expect((items[0] as NoteItem).content).toBe("Second note"); // Newest first
-            expect((items[1] as NoteItem).content).toBe("First note");
+            expect(items[0].id).toBe(item2.id); // Newest first
         });
 
         it("should reject invalid date format", async () => {
@@ -165,7 +233,7 @@ describe("TimelineService", () => {
     });
 
     describe("updateItem", () => {
-        it("should update medication administered status", async () => {
+        it("should update and re-encrypt item", async () => {
             const dto = {
                 type: "MEDS",
                 date: "2026-01-27",
@@ -174,19 +242,39 @@ describe("TimelineService", () => {
                 dosage: "500mg",
                 administered: false,
                 childIds: ["child-1"],
+                childId: "child-1",
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any as CreateTimelineItemDto;
+            } as any as CreateTimelineItemDto & { childId: string };
 
-            const created = await service.createItem(dto);
-            const updated = await service.updateItem(created.id, { administered: true }, "user-123");
+            const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
-            expect((updated as MedsItem).administered).toBe(true);
-            expect((updated as MedsItem).medicineName).toBe("Aspirin");
+            const updatedPlaintext = {
+                ...dto,
+                id: created.id,
+                administered: true,
+                createdAt: created.createdAt,
+                auditTrail: created.auditTrail,
+                isDeleted: false,
+            } as any;
+
+            const updated = await service.updateItem(created.id, updatedPlaintext, "user-123", "child-1", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user123-name");
+
+            expect(updated.encryptedPayload).toBeDefined();
+            expect(updated.auditTrail.length).toBe(2);
+            expect(updated.auditTrail[1].action).toBe("UPDATED");
         });
 
         it("should throw error when updating non-existent item", async () => {
             await expect(
-                service.updateItem("non-existent-id", { administered: true }, "user-123")
+                service.updateItem("non-existent-id", {} as any, "user-123", "child-1", {
+                    signatureBase64: "mock-sig",
+                    timestamp: "2024-01-01T12:00:00.000Z",
+                    keyId: "key1"
+                }, "user123-name")
             ).rejects.toThrow("Timeline item with id non-existent-id not found");
         });
 
@@ -197,11 +285,16 @@ describe("TimelineService", () => {
                 createdBy: "owner-id",
                 content: "Secret note",
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+            } as unknown as CreateTimelineItemDto & { childId: string };
 
-            const created = await service.createItem(dto);
+            const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
             await expect(
-                service.updateItem(created.id, { content: "Hacked" }, "other-id")
+                service.updateItem(created.id, { content: "Hacked" } as any, "other-id", "child-1", {
+                    signatureBase64: "mock-sig",
+                    timestamp: "2024-01-01T12:00:00.000Z",
+                    keyId: "key1"
+                }, "other-name")
             ).rejects.toThrow("Unauthorized: You can only modify your own items");
         });
     });
@@ -214,17 +307,26 @@ describe("TimelineService", () => {
                 createdBy: "user-123",
                 content: "Test note",
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+            } as unknown as CreateTimelineItemDto & { childId: string };
 
-            const created = await service.createItem(dto);
-            await service.deleteItem(created.id, "user-123");
+            const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+            await service.deleteItem(created.id, "user-123", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user-123-name");
 
             const items = await service.getItemsByDate("2026-01-27");
             expect(items).toHaveLength(0);
         });
 
         it("should throw error when deleting non-existent item", async () => {
-            await expect(service.deleteItem("non-existent-id", "user-123")).rejects.toThrow(
+            await expect(service.deleteItem("non-existent-id", "user-123", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user-123-name")).rejects.toThrow(
                 "Timeline item with id non-existent-id not found"
             );
         });
@@ -236,11 +338,16 @@ describe("TimelineService", () => {
                 createdBy: "owner-id",
                 content: "To be deleted",
                 childIds: ["child-1"],
-            } as CreateTimelineItemDto;
+                childId: "child-1",
+            } as unknown as CreateTimelineItemDto & { childId: string };
 
-            const created = await service.createItem(dto);
+            const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
             await expect(
-                service.deleteItem(created.id, "other-id")
+                service.deleteItem(created.id, "other-id", {
+                    signatureBase64: "mock-sig",
+                    timestamp: "2024-01-01T12:00:00.000Z",
+                    keyId: "key1"
+                }, "other-name")
             ).rejects.toThrow("Unauthorized: You can only delete your own items");
         });
     });

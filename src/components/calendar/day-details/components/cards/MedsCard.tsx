@@ -1,3 +1,5 @@
+import { getMutationSignature } from "@/lib/signature-provider";
+
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pill, Trash2, Pencil } from "lucide-react";
@@ -40,9 +42,21 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
     const handleCheckboxChange = async (checked: boolean) => {
+        const childId = item.childIds[0];
+        if ((item as any).ciphertext || !item.medicineName || !item.dosage || !childId) {
+            console.warn("Cannot update encrypted item");
+            alert(t("daylog.cannotUpdateEncrypted"));
+            return;
+        }
+
         setIsUpdating(true);
         try {
-            const updated = await timelineApi.update(item.id, { administered: checked });
+            const updated = await timelineApi.update(
+                item.id,
+                { ...item, administered: checked },
+                await getMutationSignature(),
+                childId
+            );
             setAdministered(checked);
             onUpdate?.(updated as MedsItem);
         } catch (error) {
@@ -56,7 +70,7 @@ export function MedsCard({ item, onUpdate, onDelete, user }: MedsCardProps) {
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id);
+            await timelineApi.delete(item.id, await getMutationSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete medication:", error);

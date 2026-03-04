@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 import { ITask, TaskStatus, TaskType, TaskHandler, ScheduleOptions, ITaskManager } from './types.ts';
 import { calculatePayloadHash } from './utils/crypto.ts';
 import { randomUUID } from 'crypto';
+import { ObservabilityService } from '../core/ports/ObservabilityService';
 
 // Mongoose Document Interface
 // We treat payload as `any` at the DB level but strictly typed at the Manager level
@@ -28,6 +29,8 @@ const TaskSchema = new Schema<ITaskDocument>(
         },
         workerId: { type: String, default: null },
         lockedUntil: { type: Date, default: null },
+        processingStartedAt: { type: Date, default: null },
+        timeoutMinutes: { type: Number, default: 10 },
         error: { type: String, default: null },
     },
     {
@@ -79,11 +82,14 @@ export class TaskManager implements ITaskManager {
     private visibilityTimeoutMs: number;
     private loopPromise: Promise<void> | null = null;
     private abortController: AbortController | null = null;
+    private observability: ObservabilityService;
 
     constructor(
+        observability: ObservabilityService,
         pollIntervalMs = 1000,
         visibilityTimeoutMs = 5 * 60 * 1000 // 5 minutes
     ) {
+        this.observability = observability;
         this.workerId = randomUUID();
         this.pollIntervalMs = pollIntervalMs;
         this.visibilityTimeoutMs = visibilityTimeoutMs;
@@ -189,6 +195,37 @@ export class TaskManager implements ITaskManager {
         const now = new Date();
         const lockExpiration = new Date(now.getTime() + this.visibilityTimeoutMs);
 
+        // 1. Detect and handle timed-out tasks
+        // A task is timed out if it's PROCESSING and now > processingStartedAt + timeoutMinutes
+        // We use a single updateMany for efficiency but fetch IDs first for observability.
+        const timeoutQuery = {
+            status: TaskStatus.PROCESSING,
+            processingStartedAt: { $ne: null },
+            $expr: {
+                $gt: [
+                    now,
+                    { $add: ["$processingStartedAt", { $multiply: ["$timeoutMinutes", 60, 1000] }] }
+                ]
+            }
+        };
+
+        const timedOutTasks = await this.model.find(timeoutQuery, { type: 1, _id: 1, timeoutMinutes: 1, processingStartedAt: 1 }).lean();
+
+        if (timedOutTasks.length > 0) {
+            await this.model.updateMany(
+                { _id: { $in: timedOutTasks.map(t => t._id) } },
+                { $set: { status: TaskStatus.TIMED_OUT, lockedUntil: null } }
+            );
+
+            for (const task of timedOutTasks) {
+                this.observability.trackTimeout(task.type, task._id.toString(), {
+                    processingStartedAt: task.processingStartedAt,
+                    timeoutMinutes: task.timeoutMinutes
+                });
+            }
+        }
+
+        // 2. Claim available tasks
         // Query for tasks that are:
         // 1. NEW and scheduledAt <= now
         // 2. OR PENDING and lockedUntil <= now (expired lock / zombie)
@@ -224,9 +261,9 @@ export class TaskManager implements ITaskManager {
 
         try {
             // Execute Handler
-            // We cast payload to strict type expected by handler, assuming strict insertion
-            task.status = TaskStatus.PROCESSING; // Optional: Update status to processing if we want more granularity, but PENDING is fine as "claimed"
-            // Actually, let's keep it as PENDING (Claimed) as per standard visibility timeout patterns.
+            task.status = TaskStatus.PROCESSING;
+            task.processingStartedAt = new Date();
+            await task.save();
 
             await handler(task.payload);
 

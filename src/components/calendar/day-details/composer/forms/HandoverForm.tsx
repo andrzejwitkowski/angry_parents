@@ -20,7 +20,7 @@ const handoverSchema = z.object({
 type HandoverFormData = z.infer<typeof handoverSchema>;
 
 interface HandoverFormProps {
-    initialData?: HandoverFormData;
+    initialData?: Partial<HandoverFormData>;
     onSubmit: (data: HandoverFormData) => void;
     isSubmitting?: boolean;
 }

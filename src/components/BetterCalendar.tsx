@@ -104,6 +104,7 @@ export function BetterCalendar({
                 isOpen={isSheetOpen}
                 onClose={() => setIsSheetOpen(false)}
                 user={user}
+                activeChildId={selectedChildId}
                 onUpdate={() => {
                     fetchMonthData();
                     if (onDataChange) onDataChange();

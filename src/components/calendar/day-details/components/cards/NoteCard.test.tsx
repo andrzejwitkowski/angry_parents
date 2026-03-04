@@ -97,7 +97,11 @@ describe('NoteCard', () => {
         fireEvent.click(confirmBtn);
 
         await waitFor(() => {
-            expect(timelineApi.delete).toHaveBeenCalledWith('note-1');
+            expect(timelineApi.delete).toHaveBeenCalledWith('note-1', expect.objectContaining({
+                signatureBase64: expect.any(String),
+                timestamp: expect.any(String),
+                keyId: expect.any(String),
+            }));
             expect(onDelete).toHaveBeenCalled();
         }, { timeout: 2000 });
     });

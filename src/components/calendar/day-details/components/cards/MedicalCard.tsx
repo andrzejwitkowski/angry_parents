@@ -1,3 +1,5 @@
+import { getMutationSignature } from "@/lib/signature-provider";
+
 import { Stethoscope, FileText, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -34,10 +36,11 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
     const { t } = useTranslation();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const isOwner = user?.id === item.createdBy;
+    const medicalItem = item as Partial<MedicalVisitItem>;
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id);
+            await timelineApi.delete(item.id, await getMutationSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete medical visit:", error);
@@ -55,9 +58,13 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                             <Stethoscope className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-emerald-900">{item.doctor}</h3>
-                            {item.specialization && (
-                                <p className="text-sm text-emerald-700">{item.specialization}</p>
+                            <h3 className="font-bold text-emerald-900">
+                                {medicalItem.doctor ?? (
+                                    <span className="text-xs text-slate-400 italic">{t("common.encryptedContent")}</span>
+                                )}
+                            </h3>
+                            {medicalItem.specialization && (
+                                <p className="text-sm text-emerald-700">{medicalItem.specialization}</p>
                             )}
                         </div>
                     </div>
@@ -118,7 +125,9 @@ export function MedicalCard({ item, user, onUpdate, onDelete }: MedicalCardProps
                         {t("medical.diagnosis").replace("*", "")}
                     </p>
                     <p className="text-lg font-bold text-emerald-900">
-                        {item.diagnosis}
+                        {medicalItem.diagnosis ?? (
+                            <span className="text-xs text-slate-400 italic">{t("common.encryptedContent")}</span>
+                        )}
                     </p>
                 </div>
 

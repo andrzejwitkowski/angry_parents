@@ -9,6 +9,7 @@ import { ForensicDocument } from "../src/core/domain/forensic/ForensicDocument";
 // Mocks
 const mockRepo = {
     getLastFinalizedDocument: mock(async () => null),
+    getLastDocument: mock(async () => null),
     getDocumentByIndex: mock(async () => null),
     saveDocument: mock(async () => { }),
     getSystemState: mock(async () => null),

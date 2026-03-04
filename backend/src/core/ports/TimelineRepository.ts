@@ -1,4 +1,4 @@
-import type { TimelineItem, CreateTimelineItemDto } from "../domain/TimelineItem";
+import type { TimelineItem, CreateTimelineItemDto, EncryptedTimelineItem } from "../domain/TimelineItem";
 
 /**
  * Repository Port (Interface)
@@ -7,37 +7,39 @@ import type { TimelineItem, CreateTimelineItemDto } from "../domain/TimelineItem
  */
 export interface TimelineRepository {
     /**
-     * Save a new timeline item
+     * Save a new timeline item (with encrypted content)
      */
-    save(item: TimelineItem): Promise<TimelineItem>;
+    save(item: EncryptedTimelineItem, session?: unknown): Promise<EncryptedTimelineItem>;
 
     /**
      * Find all timeline items for a specific date
      * @param date - ISO date string (YYYY-MM-DD)
      */
-    findByDate(date: string): Promise<TimelineItem[]>;
+    findByDate(date: string): Promise<EncryptedTimelineItem[]>;
 
     /**
      * Find timeline items within a date range
      * @param from - Start date (YYYY-MM-DD)
      * @param to - End date (YYYY-MM-DD)
      */
-    findByDateRange(from: string, to: string): Promise<TimelineItem[]>;
+    findByDateRange(from: string, to: string): Promise<EncryptedTimelineItem[]>;
 
     /**
      * Find a single timeline item by ID
      */
-    findById(id: string): Promise<TimelineItem | null>;
+    findById(id: string): Promise<EncryptedTimelineItem | null>;
 
     /**
-     * Update an existing timeline item
+     * Update an existing timeline item (with encrypted content)
      */
-    update(id: string, updates: Partial<TimelineItem>): Promise<TimelineItem>;
+    update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem>;
 
     /**
      * Delete a timeline item
      */
-    delete(id: string): Promise<void>;
+    delete(id: string, session?: unknown): Promise<void>;
+
+    withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T>;
 
     /**
      * Count items associated with a specific child

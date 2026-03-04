@@ -20,7 +20,7 @@ const medicalSchema = z.object({
 type MedicalFormData = z.infer<typeof medicalSchema>;
 
 interface MedicalFormProps {
-    initialData?: MedicalFormData;
+    initialData?: Partial<MedicalFormData>;
     onSubmit: (data: MedicalFormData) => void;
     isSubmitting?: boolean;
 }

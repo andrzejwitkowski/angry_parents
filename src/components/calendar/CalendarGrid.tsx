@@ -23,6 +23,7 @@ export function CalendarGrid({ days, currentDate, events, onDayClick, user, cust
 
     return (
         <div
+            data-testid="calendar-grid"
             className={cn(
                 "w-full grid grid-cols-7 overflow-hidden",
                 compact ? "" : "flex-1 h-full"

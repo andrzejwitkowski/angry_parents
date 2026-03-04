@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getMutationSignature } from "@/lib/signature-provider";
 import { useTranslation } from "react-i18next";
 import { ActionToolbar, type ActionMode } from "./ActionToolbar";
 import { MedicalForm } from "./forms/MedicalForm";
@@ -14,9 +15,10 @@ interface LogComposerProps {
     date: string; // YYYY-MM-DD
     onSuccess: () => void;
     createdBy: string;
+    childId: string;
 }
 
-export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
+export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposerProps) {
     const { t } = useTranslation();
     const [selectedMode, setSelectedMode] = useState<ActionMode | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,14 +32,15 @@ export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
 
         setIsSubmitting(true);
         try {
-            const dto: CreateTimelineItemDto = {
+            const dto: CreateTimelineItemDto & { childId: string } = {
                 type: selectedMode,
                 date,
                 createdBy,
+                childId,
                 ...(formData as Omit<CreateTimelineItemDto, "type" | "date" | "createdBy">),
             };
 
-            await timelineApi.create(dto);
+            await timelineApi.create(dto, await getMutationSignature());
             setSelectedMode(null);
             onSuccess();
         } catch (error) {
@@ -54,12 +57,12 @@ export function LogComposer({ date, onSuccess, createdBy }: LogComposerProps) {
 
             {selectedMode && (
                 <div className="p-6 bg-white rounded-2xl border border-slate-100 shadow-xl animate-in slide-in-from-bottom-4 transition-all">
-                    {selectedMode === "MEDICAL_VISIT" && <MedicalForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} />}
-                    {selectedMode === "HANDOVER" && <HandoverForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} />}
-                    {selectedMode === "MEDS" && <MedsForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} />}
-                    {selectedMode === "INCIDENT" && <IncidentForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} />}
-                    {selectedMode === "NOTE" && <NoteForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} />}
-                    {selectedMode === "VACATION" && <VacationForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} />}
+                    {selectedMode === "MEDICAL_VISIT" && <MedicalForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "HANDOVER" && <HandoverForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "MEDS" && <MedsForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "INCIDENT" && <IncidentForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "NOTE" && <NoteForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "VACATION" && <VacationForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
                     {selectedMode === "ATTACHMENT" && (
                         <div className="p-4 text-center text-slate-500 italic">
                             {t("daylog.attachmentComingSoon")}

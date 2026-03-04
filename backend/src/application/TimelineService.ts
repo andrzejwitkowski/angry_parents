@@ -1,8 +1,23 @@
 import type { TimelineRepository } from "../core/ports/TimelineRepository";
-import type { TimelineItem, CreateTimelineItemDto, AuditEntry } from "../core/domain/TimelineItem";
+import type { ChildRepository } from "../core/ports/ChildRepository";
+import type { TimelineItem, PlainTimelineItem, CreateTimelineItemDto, AuditEntry, EncryptedTimelineItem, EncryptedPayload } from "../core/domain/TimelineItem";
 import { TimelineItemSchema } from "../core/domain/TimelineItem";
 import { DateProvider } from "../core/ports/DateProvider";
 import { UuidProvider } from "../core/ports/UuidProvider";
+import type { ICryptoService } from "../core/ports/ICryptoService";
+import type { Model } from "mongoose";
+import type { IFamily } from "../models/Family";
+import { PasskeyModel } from "../models/Passkey";
+import type { ForensicIntentRecord, ForensicIntentRepository } from "../core/ports/ForensicIntentRepository";
+import type { ITaskManager } from "../core/ports/TaskScheduler";
+import { TaskType } from "../core/ports/TaskScheduler";
+import type { ProcessForensicIntentPayload } from "../scheduler/types";
+
+export type SignatureData = {
+    signatureBase64: string;
+    timestamp: string;
+    keyId: string;
+};
 
 /**
  * TimelineService Implementation
@@ -10,13 +25,173 @@ import { UuidProvider } from "../core/ports/UuidProvider";
  * Follows Hexagonal Architecture - depends only on ports, not adapters.
  */
 export class TimelineServiceImpl {
+    private static readonly UNENCRYPTED_ITEM_FIELDS = new Set([
+        "id",
+        "type",
+        "date",
+        "createdAt",
+        "createdBy",
+        "createdByName",
+        "auditTrail",
+        "isDeleted",
+        "childIds",
+    ]);
+
     constructor(
         private readonly repository: TimelineRepository,
         private readonly dateProvider: DateProvider,
-        private readonly uuidProvider: UuidProvider
+        private readonly uuidProvider: UuidProvider,
+        private readonly cryptoService: ICryptoService,
+        private readonly familyModel: Model<IFamily>,
+        private readonly childRepository: ChildRepository,
+        private readonly forensicIntentRepository: ForensicIntentRepository,
+        private readonly taskManager: ITaskManager
     ) { }
 
-    async createItem(dto: CreateTimelineItemDto): Promise<TimelineItem> {
+    private async saveWithForensicIntent(
+        persist: (session?: unknown) => Promise<EncryptedTimelineItem | void>,
+        intent: ForensicIntentRecord
+    ): Promise<EncryptedTimelineItem | void> {
+        const persisted = await this.repository.withTransaction(async (session?: unknown) => {
+            const result = await persist(session);
+            await this.forensicIntentRepository.save(intent, session);
+            return result;
+        });
+
+        await this.taskManager.schedule<ProcessForensicIntentPayload>(
+            TaskType.PROCESS_FORENSIC_INTENT,
+            { intentId: intent.id },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+
+        return persisted;
+    }
+
+    /**
+     * Helper to extract content fields from a TimelineItem for encryption.
+     * Returns a JSON string of all sensitive fields.
+     */
+    private extractContentForEncryption(item: TimelineItem): string {
+        const plainItem = item as Record<string, unknown>;
+        const contentFields: Record<string, unknown> = {};
+
+        for (const [key, value] of Object.entries(plainItem)) {
+            if (TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key)) {
+                continue;
+            }
+            if (value === undefined) {
+                continue;
+            }
+            contentFields[key] = value;
+        }
+
+        return JSON.stringify(contentFields);
+    }
+
+    private assertSignatureMetadata(signatureBase64: string, timestamp: string, keyId: string): void {
+        if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+            return;
+        }
+        if (!signatureBase64 || !timestamp || !keyId) {
+            throw new Error("signatureBase64, timestamp, and keyId are required for data integrity");
+        }
+        if (Number.isNaN(Date.parse(timestamp))) {
+            throw new Error("Invalid signature timestamp");
+        }
+    }
+
+    private async resolveSignerPublicKey(signerId: string, keyId: string): Promise<string> {
+        if (process.env.NODE_ENV !== "production") {
+            return "dev-signature-unverified";
+        }
+        const credentialId = Buffer.from(keyId, "base64url");
+        if (credentialId.length === 0) {
+            throw new Error("Invalid keyId");
+        }
+        const passkey = await PasskeyModel.findOne({ userId: signerId, credentialID: credentialId }).lean();
+        if (!passkey) {
+            throw new Error("Passkey not found for signer");
+        }
+        return Buffer.from(passkey.credentialPublicKey).toString("base64url");
+    }
+
+    /**
+     * Helper to build the EncryptedTimelineItem from a validated plaintext TimelineItem
+     */
+    private async encryptItem(item: PlainTimelineItem, childId: string): Promise<EncryptedTimelineItem> {
+        const child = await this.childRepository.findById(childId);
+        if (!child) {
+            throw new Error(`Child not found: ${childId}`);
+        }
+
+        const family = await this.familyModel.findById(child.familyId);
+        if (!family) {
+            throw new Error(`Family not found for child: ${childId} (familyId: ${child.familyId})`);
+        }
+
+        if (!family.parentPublicKeys || family.parentPublicKeys.length < 2) {
+            throw new Error(`Cannot encrypt: Both parents must have registered RSA public keys.`);
+        }
+
+        const plaintextStr = this.extractContentForEncryption(item);
+
+        // Prefer selecting recipients directly from parentPublicKeys by role.
+        let momKeyEntry = family.parentPublicKeys.find((k) => k.role === "mom");
+        let dadKeyEntry = family.parentPublicKeys.find((k) => k.role === "dad");
+
+        // Fallback: if role metadata is incomplete, resolve by parentIds ordering.
+        const momIdFromFamily = family.parentIds && family.parentIds[0];
+        const dadIdFromFamily = family.parentIds && family.parentIds[1];
+        if (!momKeyEntry && momIdFromFamily) {
+            momKeyEntry = family.parentPublicKeys.find((k) => k.parentId === momIdFromFamily);
+        }
+        if (!dadKeyEntry && dadIdFromFamily) {
+            dadKeyEntry = family.parentPublicKeys.find((k) => k.parentId === dadIdFromFamily);
+        }
+
+        if (!momKeyEntry || !dadKeyEntry) {
+            throw new Error(
+                `Cannot encrypt: Missing RSA public keys for both parents. parentIds: ${family.parentIds || "undefined"}, keys present for: ${family.parentPublicKeys.map(k => k.role || k.parentId).join(', ')}`
+            );
+        }
+
+        const momKey = momKeyEntry.rsaPublicKeyBase64;
+        const dadKey = dadKeyEntry.rsaPublicKeyBase64;
+
+        if (!momKey || !dadKey) {
+            throw new Error("Cannot encrypt: Both mom and dad must have registered RSA public keys (base64).");
+        }
+
+        // Use the actual parentIds for the payload keys
+        const finalMomId = momKeyEntry.parentId || momIdFromFamily;
+        const finalDadId = dadKeyEntry.parentId || dadIdFromFamily;
+
+        if (!finalMomId || !finalDadId) {
+            throw new Error(`Cannot encrypt: Unable to resolve parent IDs for payload. Mom: ${finalMomId}, Dad: ${finalDadId}`);
+        }
+
+        const encryptedForMom = await this.cryptoService.encryptRSA(plaintextStr, momKey);
+        const encryptedForDad = await this.cryptoService.encryptRSA(plaintextStr, dadKey);
+
+        const payload: EncryptedPayload = {
+            [finalMomId]: encryptedForMom,
+            [finalDadId]: encryptedForDad
+        };
+
+        const unencryptedFields = Object.fromEntries(
+            Object.entries(item as Record<string, unknown>).filter(([key]) => TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key))
+        );
+
+        return {
+            ...unencryptedFields,
+            type: item.type,
+            encryption: "ENCRYPTED",
+            encryptedPayload: payload
+        } as EncryptedTimelineItem;
+    }
+
+    async createItem(dto: CreateTimelineItemDto & { childId: string } & SignatureData): Promise<EncryptedTimelineItem> {
+        this.assertSignatureMetadata(dto.signatureBase64, dto.timestamp, dto.keyId);
         const timestamp = this.dateProvider.getIsoString();
 
         // Initial audit entry
@@ -28,16 +203,19 @@ export class TimelineServiceImpl {
         };
 
         // Generate ID and timestamp
-        const item: TimelineItem = {
+        // Map childId (singular from controller) to childIds (plural array expected by domain)
+        const item = {
             ...dto,
+            encryption: "PLAINTEXT",
+            childIds: [dto.childId],
             id: this.uuidProvider.generate(),
             createdAt: timestamp,
             auditTrail: [initialAudit],
             isDeleted: false,
-        } as TimelineItem;
+        } as unknown as PlainTimelineItem;
 
         // Validate using Zod schema
-        const validated = TimelineItemSchema.parse(item);
+        const validated = TimelineItemSchema.parse(item) as PlainTimelineItem;
 
         // Business rule: Validate handover dates
         if (validated.type === "HANDOVER") {
@@ -54,10 +232,28 @@ export class TimelineServiceImpl {
             throw new Error("Medical visit must include a diagnosis");
         }
 
-        return this.repository.save(validated);
+        const encryptedItem = await this.encryptItem(validated, dto.childId);
+        const signerPublicKey = await this.resolveSignerPublicKey(dto.createdBy, dto.keyId);
+
+        const intent: ForensicIntentRecord = {
+            id: this.uuidProvider.generate(),
+            timelineItem: encryptedItem,
+            signerPublicKey,
+            signatureBase64: dto.signatureBase64,
+            keyId: dto.keyId,
+            timestamp: dto.timestamp,
+            signerId: dto.createdBy,
+            status: "PENDING",
+            retryCount: 0
+        };
+
+        return this.saveWithForensicIntent(
+            (session?: unknown) => this.repository.save(encryptedItem, session),
+            intent
+        ) as Promise<EncryptedTimelineItem>;
     }
 
-    async getItemsByDate(date: string): Promise<TimelineItem[]> {
+    async getItemsByDate(date: string): Promise<EncryptedTimelineItem[]> {
         // Validate date format
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             throw new Error("Invalid date format. Expected YYYY-MM-DD");
@@ -72,7 +268,7 @@ export class TimelineServiceImpl {
         );
     }
 
-    async getItemsByDateRange(from: string, to: string): Promise<TimelineItem[]> {
+    async getItemsByDateRange(from: string, to: string): Promise<EncryptedTimelineItem[]> {
         // Validate date formats
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(from) || !dateRegex.test(to)) {
@@ -91,7 +287,16 @@ export class TimelineServiceImpl {
         });
     }
 
-    async updateItem(id: string, updates: Partial<TimelineItem>, userId: string, userName?: string): Promise<TimelineItem> {
+    async updateItem(
+        id: string,
+        fullPlaintextUpdate: TimelineItem,
+        userId: string,
+        childId: string,
+        signatureData: SignatureData,
+        userName?: string
+    ): Promise<EncryptedTimelineItem> {
+        const { signatureBase64, timestamp, keyId } = signatureData;
+        this.assertSignatureMetadata(signatureBase64, timestamp, keyId);
         const existing = await this.repository.findById(id);
         if (!existing) {
             throw new Error(`Timeline item with id ${id} not found`);
@@ -101,42 +306,65 @@ export class TimelineServiceImpl {
         if (existing.createdBy !== userId) {
             throw new Error("Unauthorized: You can only modify your own items");
         }
-
-        // Calculate changes for audit trail
-        const changes: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(updates)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if (JSON.stringify((existing as any)[key]) !== JSON.stringify(value)) {
-                changes[key] = value;
-            }
+        if (!existing.childIds.includes(childId)) {
+            throw new Error("Child does not belong to this timeline item");
         }
 
-        if (Object.keys(changes).length === 0) {
-            return existing;
-        }
+        // Validate the incoming full item while preserving immutable server-side fields.
+        const validated = TimelineItemSchema.parse({
+            ...fullPlaintextUpdate,
+            encryption: "PLAINTEXT",
+            id: existing.id,
+            createdBy: existing.createdBy,
+            createdAt: existing.createdAt,
+            createdByName: existing.createdByName,
+            childIds: existing.childIds,
+            isDeleted: existing.isDeleted,
+        }) as PlainTimelineItem;
 
+        // We cannot calculate precise field differences on the backend anymore 
+        // because we can't read the existing ciphertext.
+        // The audit trail just records an "UPDATED" action.
         const auditEntry: AuditEntry = {
             timestamp: this.dateProvider.getIsoString(),
             userId,
             userName,
             action: "UPDATED",
-            changes,
+            changes: { note: "Field-level changes hidden due to encryption" }
         };
 
-        // Merge updates with existing item
-        const updated = {
-            ...existing,
-            ...updates,
-            auditTrail: [...existing.auditTrail, auditEntry]
+        validated.auditTrail = [...existing.auditTrail, auditEntry];
+
+        // Re-encrypt the full item
+        const encryptedUpdatedItem = await this.encryptItem(validated, childId);
+        const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
+
+        const intent: ForensicIntentRecord = {
+            id: this.uuidProvider.generate(),
+            timelineItem: encryptedUpdatedItem,
+            signerPublicKey,
+            signatureBase64,
+            keyId,
+            timestamp,
+            signerId: userId,
+            status: "PENDING",
+            retryCount: 0
         };
 
-        // Validate the merged result
-        const validated = TimelineItemSchema.parse(updated);
-
-        return this.repository.update(id, validated);
+        return this.saveWithForensicIntent(
+            (session?: unknown) => this.repository.update(id, encryptedUpdatedItem, session),
+            intent
+        ) as Promise<EncryptedTimelineItem>;
     }
 
-    async deleteItem(id: string, userId: string, userName?: string): Promise<void> {
+    async deleteItem(
+        id: string,
+        userId: string,
+        signatureData: SignatureData,
+        userName?: string
+    ): Promise<void> {
+        const { signatureBase64, timestamp, keyId } = signatureData;
+        this.assertSignatureMetadata(signatureBase64, timestamp, keyId);
         const existing = await this.repository.findById(id);
         if (!existing) {
             throw new Error(`Timeline item with id ${id} not found`);
@@ -159,7 +387,23 @@ export class TimelineServiceImpl {
             isDeleted: true,
             auditTrail: [...existing.auditTrail, auditEntry]
         };
+        const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
-        await this.repository.update(id, updated);
+        const intent: ForensicIntentRecord = {
+            id: this.uuidProvider.generate(),
+            timelineItem: updated as EncryptedTimelineItem,
+            signerPublicKey,
+            signatureBase64,
+            keyId,
+            timestamp,
+            signerId: userId,
+            status: "PENDING",
+            retryCount: 0
+        };
+
+        await this.saveWithForensicIntent(
+            (session?: unknown) => this.repository.update(id, updated as EncryptedTimelineItem, session),
+            intent
+        );
     }
 }

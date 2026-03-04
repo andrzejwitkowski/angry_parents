@@ -60,6 +60,16 @@ export class MongoForensicRepository implements IForensicRepository {
         return docs.length > 0 ? (docs[0] as ForensicDocument<T>) : null;
     }
 
+    async getLastDocument<T>(): Promise<ForensicDocument<T> | null> {
+        const docs = await this.docCollection
+            .find({})
+            .sort({ index: -1 })
+            .limit(1)
+            .toArray();
+
+        return docs.length > 0 ? (docs[0] as ForensicDocument<T>) : null;
+    }
+
     async getAllDocuments<T>(): Promise<ForensicDocument<T>[]> {
         return (await this.docCollection.find({}).sort({ index: 1 }).toArray()) as ForensicDocument<T>[];
     }

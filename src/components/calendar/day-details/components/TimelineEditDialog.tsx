@@ -1,3 +1,5 @@
+import { getMutationSignature } from "@/lib/signature-provider";
+
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -27,9 +29,25 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
+        const childId = item.childIds[0];
+        if (item.encryption === "ENCRYPTED" || !childId) {
+            console.warn("Cannot edit encrypted item");
+            alert(t("daylog.cannotEditEncrypted"));
+            return;
+        }
+
+        // The item is already narrowed to PlainTimelineItem by the encryption === "ENCRYPTED" check above
+        // but TypeScript might still need help if it doesn't cross the function boundary.
+        // However, the forms are rendered only for item.encryption === "PLAINTEXT" below.
+
         setIsSubmitting(true);
         try {
-            const updated = await timelineApi.update(item.id, formData);
+            const updated = await timelineApi.update(
+                item.id,
+                { ...item, ...formData },
+                await getMutationSignature(),
+                childId
+            );
             onSuccess(updated);
             onOpenChange(false);
         } catch (error) {
@@ -47,44 +65,44 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
                     <DialogTitle>{t("daylog.editEntry")}</DialogTitle>
                 </DialogHeader>
                 <div className="py-4">
-                    {item.type === "MEDICAL_VISIT" && (
+                    {item.encryption === "PLAINTEXT" && item.type === "MEDICAL_VISIT" && (
                         <MedicalForm
-                            initialData={item as import("@/types/timeline.types").MedicalVisitItem}
+                            initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.type === "HANDOVER" && (
+                    {item.encryption === "PLAINTEXT" && item.type === "HANDOVER" && (
                         <HandoverForm
-                            initialData={item as import("@/types/timeline.types").HandoverItem}
+                            initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.type === "MEDS" && (
+                    {item.encryption === "PLAINTEXT" && item.type === "MEDS" && (
                         <MedsForm
-                            initialData={item as import("@/types/timeline.types").MedsItem}
+                            initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.type === "INCIDENT" && (
+                    {item.encryption === "PLAINTEXT" && item.type === "INCIDENT" && (
                         <IncidentForm
-                            initialData={item as import("@/types/timeline.types").IncidentItem}
+                            initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.type === "NOTE" && (
+                    {item.encryption === "PLAINTEXT" && item.type === "NOTE" && (
                         <NoteForm
-                            initialData={item as import("@/types/timeline.types").NoteItem}
+                            initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.type === "VACATION" && (
+                    {item.encryption === "PLAINTEXT" && item.type === "VACATION" && (
                         <VacationForm
-                            initialData={item as import("@/types/timeline.types").VacationItem}
+                            initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />

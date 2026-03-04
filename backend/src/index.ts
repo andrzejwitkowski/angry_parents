@@ -5,6 +5,7 @@ import { TaskType } from "./scheduler/types";
 import { createSyncUserPendingDocsHandler } from "./scheduler/handlers/SyncUserPendingDocs";
 import { createProcessDocumentIntegrityHandler } from "./scheduler/handlers/ProcessDocumentIntegrity";
 import { createBlockchainPublishHandler } from "./scheduler/handlers/BlockchainPublish";
+import { createProcessForensicIntentHandler } from "./scheduler/handlers/ProcessForensicIntent";
 import { MongoForensicRepository } from "./adapters/secondary/MongoForensicRepository";
 import { BunCryptoService } from "./adapters/secondary/BunCryptoService";
 import { ViemBlockchainAnchor } from "./adapters/secondary/ViemBlockchainAnchor";
@@ -13,6 +14,7 @@ import { ForensicService } from "./application/ForensicService";
 import { forensicController as createForensicController } from "./adapters/primary/ForensicController";
 import { MongoTimelineRepository } from "./adapters/secondary/MongoTimelineRepository";
 import { TimelineServiceImpl } from "./application/TimelineService";
+import { Family } from "./models/Family";
 import { t as translate } from "./lib/i18n";
 import { createTimelineController } from "./adapters/primary/TimelineController";
 import { RealDateProvider } from "./adapters/secondary/RealDateProvider";
@@ -28,6 +30,7 @@ import { MongoChildRepository } from "./adapters/secondary/MongoChildRepository"
 import { ChildService } from "./application/ChildService";
 import { createChildController } from "./adapters/primary/ChildController";
 import { MongoPasskeyRepository } from "./adapters/secondary/MongoPasskeyRepository";
+import { MongoForensicIntentRepository } from "./adapters/secondary/MongoForensicIntentRepository";
 import { createWebAuthnController } from "./adapters/primary/WebAuthnController";
 import { createAuthController } from "./adapters/primary/AuthController";
 import { cors } from "@elysiajs/cors";
@@ -53,19 +56,31 @@ if (!mongoose.connection.db) {
 const registrationProcessRepository = new MongoRegistrationProcessRepository(mongoose.connection.db as any);
 const forensicRepository = new MongoForensicRepository(mongoose.connection.db as any);
 const timelineRepository = new MongoTimelineRepository();
+const forensicIntentRepository = new MongoForensicIntentRepository();
 const custodyRepository = new MongoCustodyRepository();
 const scheduleRepository = new MongoScheduleRepository();
 const childRepository = new MongoChildRepository();
 const passkeyRepository = new MongoPasskeyRepository();
 
 // Services
-const timelineService = new TimelineServiceImpl(timelineRepository, dateProvider, uuidProvider);
-const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
-const propagationService = new PropagationService(scheduleRepository);
-const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
+// Services
 const cryptoService = new BunCryptoService();
 const blockchainAnchor = new MockBlockchainAnchor();
 const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService, taskManager);
+
+const timelineService = new TimelineServiceImpl(
+    timelineRepository,
+    dateProvider,
+    uuidProvider,
+    cryptoService,
+    Family,
+    childRepository,
+    forensicIntentRepository,
+    taskManager
+);
+const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
+const propagationService = new PropagationService(scheduleRepository);
+const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
 
 // Controllers
 const timelineController = createTimelineController(timelineService);
@@ -90,6 +105,11 @@ taskManager.registerHandler(
 taskManager.registerHandler(
     TaskType.BLOCKCHAIN_PUBLISH,
     createBlockchainPublishHandler(forensicRepository, blockchainAnchor)
+);
+
+taskManager.registerHandler(
+    TaskType.PROCESS_FORENSIC_INTENT,
+    createProcessForensicIntentHandler(forensicIntentRepository, forensicService)
 );
 
 // Start Scheduler

@@ -1,3 +1,5 @@
+import { getMutationSignature } from "@/lib/signature-provider";
+
 import { Paperclip, FileText, Trash2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -41,7 +43,7 @@ export function AttachmentCard({ item, user, onDelete }: AttachmentCardProps) {
 
     const handleDelete = async () => {
         try {
-            await timelineApi.delete(item.id);
+            await timelineApi.delete(item.id, await getMutationSignature());
             onDelete?.();
         } catch (error) {
             console.error("Failed to delete attachment:", error);

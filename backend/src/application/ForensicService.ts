@@ -36,27 +36,41 @@ export class ForensicService {
         userPublicKey: string,
         signatureBase64: string,
         keyId: string,
-        timestamp: string, // REQUIRED: User must provide the timestamp they signed
-        signerId: string
+        timestamp: string,
+        signerId: string,
+        index?: number,
+        prevHash?: string
     ): Promise<ForensicDocument<T>> {
-        // 1. Get last finalized doc to establish chain
-        const lastDoc = await this.repository.getLastFinalizedDocument();
-        const prevHash = lastDoc ? lastDoc.hash : "GENESIS_HASH";
-        const index = lastDoc ? lastDoc.index + 1 : 0;
+        // 1. Determine index and prevHash
+        let targetIndex = index;
+        let targetPrevHash = prevHash;
+
+        if (targetIndex === undefined || targetPrevHash === undefined) {
+            const lastDoc = await this.repository.getLastDocument();
+            if (targetIndex === undefined) targetIndex = lastDoc ? lastDoc.index + 1 : 0;
+            if (targetPrevHash === undefined) targetPrevHash = lastDoc ? lastDoc.hash : "GENESIS_HASH";
+        }
 
         // 2. Create Payload Candidate
-        const tempDoc = new ForensicDocument(index, content, prevHash, timestamp);
+        const tempDoc = new ForensicDocument(targetIndex, content, targetPrevHash, timestamp);
 
         // 3. Calculate Hash
         const payload = tempDoc.toPayload();
         const hash = await ForensicChain.calculateHash(payload);
         tempDoc.hash = hash;
 
+        if (process.env.NODE_ENV === "production") {
+            const isValid = await this.crypto.verifySignature(userPublicKey, hash, signatureBase64);
+            if (!isValid) {
+                throw new Error("Invalid signature for forensic document");
+            }
+        }
+
         // IDEMPOTENCY CHECK: Check if this exact document already exists
-        const existingAtIndex = await this.repository.getDocumentByIndex<T>(index);
+        const existingAtIndex = await this.repository.getDocumentByIndex<T>(targetIndex);
         if (existingAtIndex) {
             if (existingAtIndex.hash === hash) {
-                console.log(`[Forensic] Pending Document already exists at index ${index} with same hash. Idempotent return.`);
+                console.log(`[Forensic] Pending Document already exists at index ${targetIndex} with same hash. Idempotent return.`);
                 // Ensure signature is present (if somehow saved without it?)
                 if (!existingAtIndex.signatures.some(s => s.signature === signatureBase64)) {
                     // Should not happen if we save atomically, but good for robustness
@@ -70,7 +84,7 @@ export class ForensicService {
                 }
                 return existingAtIndex;
             } else {
-                throw new Error(`Conflict: Index ${index} is already occupied by a different document (Hash mismatch). Fetch latest head and retry.`);
+                throw new Error(`Conflict: Index ${targetIndex} is already occupied by a different document (Hash mismatch). Fetch latest head and retry.`);
             }
         }
 
@@ -87,17 +101,17 @@ export class ForensicService {
 
         // 5. Save
         await this.repository.saveDocument(tempDoc);
-        console.log(`[Forensic] Pending Document created at index ${index}.`);
+        console.log(`[Forensic] Pending Document created at index ${targetIndex}.`);
 
         // 6. Schedule Integrity Check (Async)
         await this.taskManager.schedule<ProcessDocumentIntegrityPayload>(
             TaskType.PROCESS_DOCUMENT_INTEGRITY,
-            { documentIndex: index },
+            { documentIndex: targetIndex },
             {
                 retryPolicy: { maxRetries: 3, initialDelayMinutes: 0 } // Immediate retry if busy
             }
         );
-        console.log(`[Forensic] Scheduled Integrity Check for index ${index}.`);
+        console.log(`[Forensic] Scheduled Integrity Check for index ${targetIndex}.`);
 
         return tempDoc;
     }

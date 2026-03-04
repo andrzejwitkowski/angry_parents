@@ -22,11 +22,13 @@ export type BaseTimelineItem = {
 
 export type NoteItem = BaseTimelineItem & {
     type: "NOTE";
+    encryption: "PLAINTEXT";
     content: string;
 };
 
 export type HandoverItem = BaseTimelineItem & {
     type: "HANDOVER";
+    encryption: "PLAINTEXT";
     location: string;
     time: string; // HH:MM
     status: "PENDING" | "COMPLETED";
@@ -34,6 +36,7 @@ export type HandoverItem = BaseTimelineItem & {
 
 export type MedsItem = BaseTimelineItem & {
     type: "MEDS";
+    encryption: "PLAINTEXT";
     medicineName: string;
     dosage: string;
     administered: boolean;
@@ -41,6 +44,7 @@ export type MedsItem = BaseTimelineItem & {
 
 export type MedicalVisitItem = BaseTimelineItem & {
     type: "MEDICAL_VISIT";
+    encryption: "PLAINTEXT";
     doctor: string;
     specialization?: string;
     diagnosis: string;
@@ -50,25 +54,36 @@ export type MedicalVisitItem = BaseTimelineItem & {
 
 export type IncidentItem = BaseTimelineItem & {
     type: "INCIDENT";
+    encryption: "PLAINTEXT";
     severity: "LOW" | "MEDIUM" | "HIGH";
     description: string;
 };
 
 export type VacationItem = BaseTimelineItem & {
     type: "VACATION";
+    encryption: "PLAINTEXT";
     status: string;
 };
 
 export type AttachmentItem = BaseTimelineItem & {
     type: "ATTACHMENT";
+    encryption: "PLAINTEXT";
     fileName: string;
     fileUrl: string;
     fileSize: number;
     mimeType: string;
 };
 
-// Discriminated union
-export type TimelineItem =
+export type TimelineItemType =
+    | "NOTE"
+    | "HANDOVER"
+    | "MEDS"
+    | "MEDICAL_VISIT"
+    | "INCIDENT"
+    | "VACATION"
+    | "ATTACHMENT";
+
+export type PlainTimelineItem =
     | NoteItem
     | HandoverItem
     | MedsItem
@@ -77,5 +92,20 @@ export type TimelineItem =
     | VacationItem
     | AttachmentItem;
 
-// DTO for creating new items (without id, createdAt, auditTrail, isDeleted)
-export type CreateTimelineItemDto = Omit<TimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted">;
+/**
+ * Represents an item that is explicitly encrypted.
+ */
+export type EncryptedTimelineItem = BaseTimelineItem & {
+    type: TimelineItemType;
+    encryption: "ENCRYPTED";
+    encryptedPayload: Record<string, string>;
+    ciphertext?: string; // Encrypted ciphertext for this user, from API
+};
+
+// Discriminated union
+export type TimelineItem = PlainTimelineItem | EncryptedTimelineItem;
+
+// DTO for creating new items (without id, createdAt, auditTrail, isDeleted, and encryption)
+export type CreateTimelineItemDto = Omit<PlainTimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted" | "encryption">;
+
+export type UpdateTimelineItemDto = Partial<CreateTimelineItemDto>;

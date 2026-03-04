@@ -16,7 +16,7 @@ const vacationSchema = z.object({
 type VacationFormData = z.infer<typeof vacationSchema>;
 
 interface VacationFormProps {
-    initialData?: VacationFormData;
+    initialData?: Partial<VacationFormData>;
     onSubmit: (data: VacationFormData) => void;
     isSubmitting?: boolean;
 }

@@ -14,8 +14,14 @@ import { IBlockchainAnchor } from '../../core/ports/IBlockchainAnchor';
 import { ForensicDocument } from '../../core/domain/forensic/ForensicDocument';
 import { SystemState } from '../../core/domain/forensic/SystemState';
 import { Passkey } from '../../core/domain/Passkey';
+import { ObservabilityService } from '../../core/ports/ObservabilityService';
 
 // --- Mocks ---
+
+class MockObservabilityService implements ObservabilityService {
+    trackTimeout(): void { }
+    log(): void { }
+}
 
 class MockForensicRepository implements IForensicRepository {
     public docs: ForensicDocument<unknown>[] = [];
@@ -42,6 +48,10 @@ class MockForensicRepository implements IForensicRepository {
         return this.docs as ForensicDocument<T>[];
     }
 
+    async getLastDocument<T>(): Promise<ForensicDocument<T> | null> {
+        return (this.docs.sort((a, b) => b.index - a.index)[0] as ForensicDocument<T>) || null;
+    }
+
     async getSystemState(): Promise<SystemState | null> {
         return this.systemState;
     }
@@ -56,6 +66,10 @@ class MockCryptoService implements ICryptoService {
         // Simplified mock: accept signature if it equals "SIGNATURE_FOR_" + data (roughly) or valid
         // Or specific test logic.
         return true;
+    }
+
+    async encryptRSA(): Promise<string> {
+        return "mock-encrypted";
     }
 
     async getFingerprint(): Promise<string> {
@@ -125,7 +139,7 @@ describe('Task Scheduler & Integrity Pipeline', () => {
     });
 
     it('Duplicate Prevention: Verify strict deduplication for same payload', async () => {
-        taskManager = new TaskManager(100);
+        taskManager = new TaskManager(new MockObservabilityService(), 100);
         // Ensure indexes are built before testing constraints
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (taskManager as any).model.ensureIndexes();
@@ -159,7 +173,7 @@ describe('Task Scheduler & Integrity Pipeline', () => {
         mockCrypto = new MockCryptoService();
         mockPasskeyRepo = new MockPasskeyRepository();
         mockBlockchain = new MockBlockchainAnchor();
-        taskManager = new TaskManager(50); // fast polling
+        taskManager = new TaskManager(new MockObservabilityService(), 50); // fast polling
 
         // --- Setup Data ---
         const userId = "user-123";
@@ -278,7 +292,7 @@ describe('Task Scheduler & Integrity Pipeline', () => {
         mockCrypto = new MockCryptoService();
         mockPasskeyRepo = new MockPasskeyRepository();
         mockBlockchain = new MockBlockchainAnchor();
-        taskManager = new TaskManager(50);
+        taskManager = new TaskManager(new MockObservabilityService(), 50);
 
         // Document Ready for Blockchain
         const doc = new ForensicDocument(2, { data: "test" }, "prev", new Date().toISOString());
@@ -337,8 +351,8 @@ describe('Task Scheduler & Integrity Pipeline', () => {
     });
     it('Distributed Locking: Prevent multiple workers from claiming the same task', async () => {
         // Setup 2 schedulers
-        const scheduler1 = new TaskManager(10);
-        const scheduler2 = new TaskManager(10);
+        const scheduler1 = new TaskManager(new MockObservabilityService(), 10);
+        const scheduler2 = new TaskManager(new MockObservabilityService(), 10);
 
         let handler1Calls = 0;
         let handler2Calls = 0;
@@ -366,7 +380,7 @@ describe('Task Scheduler & Integrity Pipeline', () => {
     });
 
     it('Zombie Recovery: Pick up tasks with expired locks', async () => {
-        taskManager = new TaskManager(10);
+        taskManager = new TaskManager(new MockObservabilityService(), 10);
         let recovered = false;
 
         taskManager.registerHandler(TaskType.SYNC_USER_PENDING_DOCS, async () => {

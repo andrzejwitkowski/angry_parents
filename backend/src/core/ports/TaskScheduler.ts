@@ -2,6 +2,7 @@ export enum TaskType {
     SYNC_USER_PENDING_DOCS = 'SYNC_USER_PENDING_DOCS',
     PROCESS_DOCUMENT_INTEGRITY = 'PROCESS_DOCUMENT_INTEGRITY',
     BLOCKCHAIN_PUBLISH = 'BLOCKCHAIN_PUBLISH',
+    PROCESS_FORENSIC_INTENT = 'PROCESS_FORENSIC_INTENT',
 }
 
 export enum TaskStatus {
@@ -10,6 +11,7 @@ export enum TaskStatus {
     PROCESSING = 'PROCESSING',
     COMPLETED = 'COMPLETED',
     FAILED = 'FAILED',
+    TIMED_OUT = 'TIMED_OUT',
 }
 
 export interface ITask<T> {
@@ -26,6 +28,8 @@ export interface ITask<T> {
     };
     workerId?: string | null;
     lockedUntil?: Date | null;
+    processingStartedAt?: Date | null;
+    timeoutMinutes?: number;
     error?: string | null;
     createdAt?: Date;
     updatedAt?: Date;

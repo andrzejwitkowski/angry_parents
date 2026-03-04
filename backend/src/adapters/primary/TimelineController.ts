@@ -10,6 +10,29 @@ function getJwtFromCookie(request: Request): string | null {
     return match ? match[1] : null;
 }
 
+function isParentRole(role?: string): role is "mom" | "dad" {
+    return role === "mom" || role === "dad";
+}
+
+function selectCiphertextForUser(items: any[], userId: string) {
+    return items.map((item) => {
+        const typedItem = item as Record<string, any>;
+        const payload = typedItem.encryptedPayload as Record<string, string> | undefined;
+        if (!payload) return item;
+
+        // Return item with flattened ciphertext for the requesting user
+        const { encryptedPayload, ...rest } = typedItem;
+        return {
+            ...rest,
+            ciphertext: payload[userId] ?? ""
+        };
+    });
+}
+
+function selectSingleCiphertextForUser(item: any, userId: string) {
+    return selectCiphertextForUser([item], userId)[0];
+}
+
 /**
  * Timeline REST API Controller
  * Primary Adapter - handles HTTP requests and delegates to service layer
@@ -39,14 +62,22 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // GET /api/calendar/:date/timeline
         .get(
             "/calendar/:date/timeline",
-            async ({ params }) => {
+            async ({ params, user, set }) => {
                 try {
+                    if (!user) {
+                        set.status = 401;
+                        return { error: "Unauthorized" };
+                    }
+                    if (!isParentRole(user.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
+                    }
                     const items = await service.getItemsByDate(params.date);
-                    return { items };
+                    return { items: selectCiphertextForUser(items, user.id) };
                 } catch (error) {
+                    set.status = 400;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 400,
                     };
                 }
             },
@@ -60,14 +91,22 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // GET /api/timeline/range?from=YYYY-MM-DD&to=YYYY-MM-DD
         .get(
             "/timeline/range",
-            async ({ query }) => {
+            async ({ query, set, user }) => {
                 try {
+                    if (!user) {
+                        set.status = 401;
+                        return { error: "Unauthorized" };
+                    }
+                    if (!isParentRole(user.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
+                    }
                     const items = await service.getItemsByDateRange(query.from, query.to);
-                    return { items };
+                    return { items: selectCiphertextForUser(items, user.id) };
                 } catch (error) {
+                    set.status = 400;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 400,
                     };
                 }
             },
@@ -82,22 +121,29 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // POST /api/timeline
         .post(
             "/timeline",
-            async ({ body, user }) => {
+            async ({ body, user, set }) => {
                 try {
+                    if (!isParentRole(user?.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
+                    }
                     const userId = user?.id || "anonymous";
                     const userName = user?.name || "Unknown";
+                    if (!body.signatureBase64 || !body.timestamp || !body.keyId) {
+                        set.status = 400;
+                        return { error: "signatureBase64, timestamp, and keyId are required for data integrity" };
+                    }
 
                     const item = await service.createItem({
-                        ...body as CreateTimelineItemDto,
+                        ...body as CreateTimelineItemDto & { childId: string, signatureBase64: string, timestamp: string, keyId: string },
                         createdBy: userId,
-
                         createdByName: userName
                     });
-                    return item;
+                    return selectSingleCiphertextForUser(item, user.id);
                 } catch (error) {
+                    set.status = 400;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 400,
                     };
                 }
             },
@@ -113,8 +159,10 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         t.Literal("ATTACHMENT"),
                     ]),
                     date: t.String(),
-                    createdBy: t.String(),
-                    createdByName: t.Optional(t.String()),
+                    childId: t.String(), // Require childId for encryption Context (Family lookup)
+                    signatureBase64: t.String(),
+                    timestamp: t.String(),
+                    keyId: t.String()
                 }, { additionalProperties: true }),
             }
         )
@@ -122,19 +170,41 @@ export function createTimelineController(service: TimelineServiceImpl) {
         // PATCH /api/timeline/:id
         .patch(
             "/timeline/:id",
-            async ({ params, body, user }) => {
+            async ({ params, body, user, set }) => {
                 try {
                     if (!user) {
-                        return { error: "Unauthorized", status: 401 };
+                        set.status = 401;
+                        return { error: "Unauthorized" };
+                    }
+                    if (!isParentRole(user.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
                     }
                     const userName = user.name || "Unknown";
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const updated = await service.updateItem(params.id, body as any, user.id, userName);
-                    return updated;
+
+                    const payload = body as CreateTimelineItemDto & { childId: string; signatureBase64: string; timestamp: string; keyId: string };
+                    if (!payload.childId || !payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
+                        set.status = 400;
+                        return { error: "childId, signatureBase64, timestamp, and keyId are required" };
+                    }
+
+                    const updated = await service.updateItem(
+                        params.id,
+                        payload as any,
+                        user.id,
+                        payload.childId,
+                        {
+                            signatureBase64: payload.signatureBase64,
+                            timestamp: payload.timestamp,
+                            keyId: payload.keyId
+                        },
+                        userName
+                    );
+                    return selectSingleCiphertextForUser(updated, user.id);
                 } catch (error) {
+                    set.status = 404;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 404,
                     };
                 }
             },
@@ -142,26 +212,46 @@ export function createTimelineController(service: TimelineServiceImpl) {
                 params: t.Object({
                     id: t.String(),
                 }),
+                body: t.Object({
+                    childId: t.String(),
+                    signatureBase64: t.String(),
+                    timestamp: t.String(),
+                    keyId: t.String()
+                }, { additionalProperties: true }),
             }
         )
 
         // DELETE /api/timeline/:id
         .delete(
             "/timeline/:id",
-            async ({ params, set, user }) => {
+            async ({ params, body, user, set }) => {
                 try {
                     if (!user) {
                         set.status = 401;
                         return { error: "Unauthorized" };
                     }
+                    if (!isParentRole(user.role)) {
+                        set.status = 403;
+                        return { error: "Forbidden: parent role required" };
+                    }
+
+                    const payload = body as { signatureBase64: string; timestamp: string; keyId: string };
+                    if (!payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
+                        set.status = 400;
+                        return { error: "signatureBase64, timestamp, and keyId are required" };
+                    }
                     const userName = user.name || "Unknown";
-                    await service.deleteItem(params.id, user.id, userName);
+                    await service.deleteItem(params.id, user.id, {
+                        signatureBase64: payload.signatureBase64,
+                        timestamp: payload.timestamp,
+                        keyId: payload.keyId
+                    }, userName);
                     set.status = 204;
                     return null;
                 } catch (error) {
+                    set.status = 404;
                     return {
                         error: error instanceof Error ? error.message : "Unknown error",
-                        status: 404,
                     };
                 }
             },
@@ -169,6 +259,11 @@ export function createTimelineController(service: TimelineServiceImpl) {
                 params: t.Object({
                     id: t.String(),
                 }),
+                body: t.Object({
+                    signatureBase64: t.String(),
+                    timestamp: t.String(),
+                    keyId: t.String()
+                })
             }
         );
 }

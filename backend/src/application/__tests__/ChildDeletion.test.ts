@@ -10,21 +10,22 @@ import { RealUuidProvider } from "../../adapters/secondary/RealUuidProvider";
 
 describe("Child Management Service Enhancements", () => {
     let childService: ChildService;
-    let timelineService: TimelineServiceImpl;
     let childRepo: InMemoryChildRepository;
     let timelineRepo: InMemoryTimelineRepository;
 
+    let uuidProvider: RealUuidProvider;
+    let dateProvider: RealDateProvider;
+
     beforeEach(() => {
-        const dateProvider = new RealDateProvider();
-        const uuidProvider = new RealUuidProvider();
+        dateProvider = new RealDateProvider();
+        uuidProvider = new RealUuidProvider();
         childRepo = new InMemoryChildRepository();
         timelineRepo = new InMemoryTimelineRepository();
         childService = new ChildService(childRepo, timelineRepo, uuidProvider);
-        timelineService = new TimelineServiceImpl(timelineRepo, dateProvider, uuidProvider);
     });
 
     it("should update child color correctly", async () => {
-        const child = await childService.addChild({ name: "Alice", color: "#FF0000", icon: "user" });
+        const child = await childService.addChild("family-1", { name: "Alice", color: "#FF0000", icon: "user" });
 
         const updated = await childService.updateChild(child.id, { color: "#00FF00" });
 
@@ -35,17 +36,20 @@ describe("Child Management Service Enhancements", () => {
 
     it("should prevent deletion of a child if they have linked timeline items", async () => {
         // 1. Add a child
-        const child = await childService.addChild({ name: "Zoe", color: "#800080", icon: "user" });
+        const child = await childService.addChild("family-1", { name: "Zoe", color: "#800080", icon: "user" });
 
         // 2. Create a timeline item linked to this child
-        const dto: CreateTimelineItemDto = {
+        await timelineRepo.save({
+            id: uuidProvider.generate(),
             type: "NOTE",
             date: "2026-02-03",
             createdBy: "user-1",
-            content: "Notes for Zoe",
+            createdAt: dateProvider.getIsoString(),
             childIds: [child.id],
-        } as CreateTimelineItemDto;
-        await timelineService.createItem(dto);
+            auditTrail: [],
+            isDeleted: false,
+            encryptedPayload: { "user-mom": "x", "user-dad": "y" }
+        } as any);
 
         // 3. Try to delete the child - should throw
         await expect(childService.deleteChild(child.id)).rejects.toThrow("Cannot delete child: 1 timeline items are linked to this profile.");
@@ -56,7 +60,7 @@ describe("Child Management Service Enhancements", () => {
     });
 
     it("should allow deletion of a child if they have NO linked timeline items", async () => {
-        const child = await childService.addChild({ name: "Bob", color: "#0000FF", icon: "user" });
+        const child = await childService.addChild("family-1", { name: "Bob", color: "#0000FF", icon: "user" });
 
         await childService.deleteChild(child.id);
 
