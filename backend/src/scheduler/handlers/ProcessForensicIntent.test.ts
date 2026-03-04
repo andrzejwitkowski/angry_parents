@@ -20,7 +20,7 @@ describe("ProcessForensicIntent", () => {
         await handler({ intentId: "intent-1" });
 
         expect(mockRepo.findById).toHaveBeenCalledWith("intent-1");
-        expect(mockRepo.markProcessing).toHaveBeenCalledWith("intent-1");
+        expect(mockRepo.markProcessing).toHaveBeenCalledWith("intent-1", 5);
         expect(mockService.createPendingDocument).not.toHaveBeenCalled();
         expect(mockRepo.markCompleted).not.toHaveBeenCalled();
     });
@@ -49,7 +49,7 @@ describe("ProcessForensicIntent", () => {
         const handler = createProcessForensicIntentHandler(mockRepo, mockService);
         await handler({ intentId: "intent-1" });
 
-        expect(mockRepo.markProcessing).toHaveBeenCalledWith("intent-1");
+        expect(mockRepo.markProcessing).toHaveBeenCalledWith("intent-1", 5);
         expect(mockService.createPendingDocument).toHaveBeenCalledWith(
             { id: "item-1" },
             "pub",

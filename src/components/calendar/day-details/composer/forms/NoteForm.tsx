@@ -16,7 +16,7 @@ const noteSchema = z.object({
 type NoteFormData = z.infer<typeof noteSchema>;
 
 interface NoteFormProps {
-    initialData?: NoteFormData;
+    initialData?: Partial<NoteFormData>;
     onSubmit: (data: NoteFormData) => void;
     isSubmitting?: boolean;
 }

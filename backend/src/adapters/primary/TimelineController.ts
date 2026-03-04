@@ -64,7 +64,11 @@ export function createTimelineController(service: TimelineServiceImpl) {
             "/calendar/:date/timeline",
             async ({ params, user, set }) => {
                 try {
-                    if (!isParentRole(user?.role)) {
+                    if (!user) {
+                        set.status = 401;
+                        return { error: "Unauthorized" };
+                    }
+                    if (!isParentRole(user.role)) {
                         set.status = 403;
                         return { error: "Forbidden: parent role required" };
                     }
@@ -89,7 +93,11 @@ export function createTimelineController(service: TimelineServiceImpl) {
             "/timeline/range",
             async ({ query, set, user }) => {
                 try {
-                    if (!isParentRole(user?.role)) {
+                    if (!user) {
+                        set.status = 401;
+                        return { error: "Unauthorized" };
+                    }
+                    if (!isParentRole(user.role)) {
                         set.status = 403;
                         return { error: "Forbidden: parent role required" };
                     }

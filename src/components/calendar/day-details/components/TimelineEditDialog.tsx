@@ -30,25 +30,15 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
         const childId = item.childIds[0];
-        if ((item as any).ciphertext || !childId) {
+        if (item.encryption === "ENCRYPTED" || !childId) {
             console.warn("Cannot edit encrypted item");
             alert(t("daylog.cannotEditEncrypted"));
             return;
         }
 
-        const itemData = item as Record<string, unknown>;
-        if (
-            (item.type === "MEDS" && (typeof itemData.medicineName !== "string" || typeof itemData.dosage !== "string")) ||
-            (item.type === "MEDICAL_VISIT" && (typeof itemData.doctor !== "string" || typeof itemData.diagnosis !== "string")) ||
-            (item.type === "HANDOVER" && (typeof itemData.location !== "string" || typeof itemData.time !== "string" || typeof itemData.status !== "string")) ||
-            (item.type === "INCIDENT" && (typeof itemData.description !== "string" || typeof itemData.severity !== "string")) ||
-            (item.type === "NOTE" && typeof itemData.content !== "string") ||
-            (item.type === "VACATION" && typeof itemData.status !== "string")
-        ) {
-            console.warn("Cannot edit non-plaintext item");
-            alert(t("daylog.cannotEditEncrypted"));
-            return;
-        }
+        // The item is already narrowed to PlainTimelineItem by the encryption === "ENCRYPTED" check above
+        // but TypeScript might still need help if it doesn't cross the function boundary.
+        // However, the forms are rendered only for item.encryption === "PLAINTEXT" below.
 
         setIsSubmitting(true);
         try {

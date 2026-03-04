@@ -1,4 +1,4 @@
-import { ObservabilityService } from "../core/ports/ObservabilityService";
+import { ObservabilityService } from "../../core/ports/ObservabilityService";
 
 export class JsonLoggerObservability implements ObservabilityService {
     trackTimeout(taskType: string, taskId: string, metadata: any): void {

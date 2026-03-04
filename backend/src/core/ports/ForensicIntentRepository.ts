@@ -12,13 +12,14 @@ export interface ForensicIntentRecord {
     signerId: string;
     status: ForensicIntentStatus;
     retryCount: number;
+    processingStartedAt?: Date;
     lastError?: string;
 }
 
 export interface ForensicIntentRepository {
     save(intent: ForensicIntentRecord, session?: unknown): Promise<void>;
     findById(id: string): Promise<ForensicIntentRecord | null>;
-    markProcessing(id: string): Promise<boolean>;
+    markProcessing(id: string, timeoutMinutes?: number): Promise<boolean>;
     markCompleted(id: string): Promise<void>;
     markRetry(id: string, errorMessage: string): Promise<void>;
 }

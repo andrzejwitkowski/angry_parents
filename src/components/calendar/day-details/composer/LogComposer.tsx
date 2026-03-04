@@ -57,12 +57,12 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
 
             {selectedMode && (
                 <div className="p-6 bg-white rounded-2xl border border-slate-100 shadow-xl animate-in slide-in-from-bottom-4 transition-all">
-                    {selectedMode === "MEDICAL_VISIT" && <MedicalForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] } as any} />}
-                    {selectedMode === "HANDOVER" && <HandoverForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] } as any} />}
-                    {selectedMode === "MEDS" && <MedsForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] } as any} />}
-                    {selectedMode === "INCIDENT" && <IncidentForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] } as any} />}
-                    {selectedMode === "NOTE" && <NoteForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] } as any} />}
-                    {selectedMode === "VACATION" && <VacationForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] } as any} />}
+                    {selectedMode === "MEDICAL_VISIT" && <MedicalForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "HANDOVER" && <HandoverForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "MEDS" && <MedsForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "INCIDENT" && <IncidentForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "NOTE" && <NoteForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
+                    {selectedMode === "VACATION" && <VacationForm onSubmit={handleFormSubmit} isSubmitting={isSubmitting} initialData={{ childIds: [childId] }} />}
                     {selectedMode === "ATTACHMENT" && (
                         <div className="p-4 text-center text-slate-500 italic">
                             {t("daylog.attachmentComingSoon")}

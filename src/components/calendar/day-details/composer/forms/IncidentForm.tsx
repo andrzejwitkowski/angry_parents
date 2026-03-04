@@ -19,7 +19,7 @@ const incidentSchema = z.object({
 type IncidentFormData = z.infer<typeof incidentSchema>;
 
 interface IncidentFormProps {
-    initialData?: IncidentFormData;
+    initialData?: Partial<IncidentFormData>;
     onSubmit: (data: IncidentFormData) => void;
     isSubmitting?: boolean;
 }

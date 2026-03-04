@@ -11,7 +11,7 @@ export const createProcessForensicIntentHandler = (
         return;
     }
 
-    const claimed = await forensicIntentRepository.markProcessing(intent.id);
+    const claimed = await forensicIntentRepository.markProcessing(intent.id, 5); // 5 minute lease
     if (!claimed) return;
 
     try {

@@ -99,7 +99,7 @@ export type EncryptedTimelineItem = BaseTimelineItem & {
     type: TimelineItemType;
     encryption: "ENCRYPTED";
     encryptedPayload: Record<string, string>;
-    ciphertext?: string; // For API responses: the ciphertext for the requesting user
+    ciphertext?: string; // Encrypted ciphertext for this user, from API
 };
 
 // Discriminated union

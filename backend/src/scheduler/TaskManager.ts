@@ -197,23 +197,27 @@ export class TaskManager implements ITaskManager {
 
         // 1. Detect and handle timed-out tasks
         // A task is timed out if it's PROCESSING and now > processingStartedAt + timeoutMinutes
-        // We use $where for complex date math or we can pre-calculate in JS if we fetch them.
-        // Actually, it's safer to do it in two steps or use an aggregation/multiple updates.
-
-        // Find tasks that should be TIMED_OUT
-        const timedOutTasks = await this.model.find({
+        // We use a single updateMany for efficiency but fetch IDs first for observability.
+        const timeoutQuery = {
             status: TaskStatus.PROCESSING,
-            processingStartedAt: { $ne: null }
-        }).lean();
+            processingStartedAt: { $ne: null },
+            $expr: {
+                $gt: [
+                    now,
+                    { $add: ["$processingStartedAt", { $multiply: ["$timeoutMinutes", 60, 1000] }] }
+                ]
+            }
+        };
 
-        for (const task of timedOutTasks) {
-            const timeoutMs = (task.timeoutMinutes || 10) * 60 * 1000;
-            const startedAt = new Date(task.processingStartedAt!).getTime();
-            if (now.getTime() > startedAt + timeoutMs) {
-                await this.model.updateOne(
-                    { _id: task._id },
-                    { $set: { status: TaskStatus.TIMED_OUT, lockedUntil: null } }
-                );
+        const timedOutTasks = await this.model.find(timeoutQuery, { type: 1, _id: 1, timeoutMinutes: 1, processingStartedAt: 1 }).lean();
+
+        if (timedOutTasks.length > 0) {
+            await this.model.updateMany(
+                { _id: { $in: timedOutTasks.map(t => t._id) } },
+                { $set: { status: TaskStatus.TIMED_OUT, lockedUntil: null } }
+            );
+
+            for (const task of timedOutTasks) {
                 this.observability.trackTimeout(task.type, task._id.toString(), {
                     processingStartedAt: task.processingStartedAt,
                     timeoutMinutes: task.timeoutMinutes

@@ -17,10 +17,29 @@ export class MongoForensicIntentRepository implements ForensicIntentRepository {
         return (doc as unknown as ForensicIntentRecord) ?? null;
     }
 
-    async markProcessing(id: string): Promise<boolean> {
+    async markProcessing(id: string, timeoutMinutes = 5): Promise<boolean> {
+        const now = new Date();
+        const timeoutMs = timeoutMinutes * 60 * 1000;
+
+        // Atomically claim if PENDING or if PROCESSING but timed out
         const result = await ForensicIntentModel.updateOne(
-            { id, status: "PENDING" },
-            { $set: { status: "PROCESSING" }, $inc: { retryCount: 1 } }
+            {
+                id,
+                $or: [
+                    { status: "PENDING" },
+                    {
+                        status: "PROCESSING",
+                        processingStartedAt: { $lt: new Date(now.getTime() - timeoutMs) }
+                    }
+                ]
+            },
+            {
+                $set: {
+                    status: "PROCESSING",
+                    processingStartedAt: now
+                },
+                $inc: { retryCount: 1 }
+            }
         );
         return result.modifiedCount === 1;
     }

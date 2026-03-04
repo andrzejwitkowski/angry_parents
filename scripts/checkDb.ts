@@ -1,5 +1,5 @@
-import { withMongoose } from './backend/src/lib/mongoose-util';
-import { Family } from './backend/src/models/Family';
+import { withMongoose } from '../backend/src/lib/mongoose-util';
+import { Family } from '../backend/src/models/Family';
 
 async function run() {
     await withMongoose(async () => {

@@ -15,6 +15,7 @@ const forensicIntentSchema = new Schema<ForensicIntentDocument>({
     signerId: { type: String, required: true },
     status: { type: String, enum: ["PENDING", "PROCESSING", "COMPLETED"], required: true, default: "PENDING", index: true },
     retryCount: { type: Number, required: true, default: 0 },
+    processingStartedAt: { type: Date, required: false },
     lastError: { type: String, required: false }
 }, {
     timestamps: true
