@@ -55,7 +55,10 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
     }
 
     return Promise.all(items.map(async (item: any) => {
-        const ciphertext = item.ciphertext;
+        const currentUserId = cachedMeData?.user?.id;
+        const ciphertext = currentUserId && item.encryptedPayload
+            ? item.encryptedPayload[currentUserId] ?? item.ciphertext
+            : item.ciphertext;
 
         if (!ciphertext) return item;
 
@@ -95,6 +98,11 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
 let cachedMeData: Awaited<ReturnType<typeof authApi.getMe>> | null = null;
 let cachedMeTimestamp = 0;
 const ME_CACHE_TTL_MS = 30_000; // 30 seconds
+
+export function invalidateMeCache() {
+    cachedMeData = null;
+    cachedMeTimestamp = 0;
+}
 
 async function encryptTimelineItem(item: any): Promise<any> {
     const now = Date.now();
@@ -175,8 +183,12 @@ export const timelineApi = {
             childIds: [dto.childId]
         });
 
+        // Strip fields not expected by backend schema
+        const { encryption, id, childId, ciphertext, encryptedPayload, ...cleanEncrypted } = encrypted;
+
         const payload = {
-            ...encrypted,
+            ...cleanEncrypted,
+            encryptedPayload: encrypted.encryptedPayload,
             ...signatureData
         };
 
@@ -215,10 +227,12 @@ export const timelineApi = {
             childIds: [resolvedChildId]
         });
 
+        // Strip fields not expected by backend schema
+        const { encryption, id: _id, childId: _childId, ciphertext, encryptedPayload, ...cleanEncrypted } = encrypted;
+
         const payload = {
-            ...encrypted,
-            id: id,
-            childId: resolvedChildId,
+            ...cleanEncrypted,
+            encryptedPayload: encrypted.encryptedPayload,
             ...signatureData
         };
 

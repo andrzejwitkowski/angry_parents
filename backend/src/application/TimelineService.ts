@@ -86,6 +86,11 @@ export class TimelineServiceImpl {
 
     async createItem(dto: CreateTimelineItemDto & SignatureData): Promise<EncryptedTimelineItem> {
         this.assertSignatureMetadata(dto.signatureBase64, dto.timestamp, dto.keyId);
+
+        if (!dto.childIds || dto.childIds.length === 0) {
+            throw new Error("Validation Error: childIds cannot be empty");
+        }
+
         const timestamp = this.dateProvider.getIsoString();
 
         // Initial audit entry
@@ -171,6 +176,10 @@ export class TimelineServiceImpl {
     ): Promise<EncryptedTimelineItem> {
         const { signatureBase64, timestamp, keyId } = updateDto;
         this.assertSignatureMetadata(signatureBase64, timestamp, keyId);
+
+        if (updateDto.childIds !== undefined && updateDto.childIds.length === 0) {
+            throw new Error("Validation Error: childIds cannot be empty");
+        }
 
         const existing = await this.repository.findById(id);
         if (!existing) {

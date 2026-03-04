@@ -1,0 +1,48 @@
+import type { TimelineItem } from "@/types/timeline.types";
+import { MedicalCard } from "./cards/MedicalCard";
+import { HandoverCard } from "./cards/HandoverCard";
+import { MedsCard } from "./cards/MedsCard";
+import { IncidentCard } from "./cards/IncidentCard";
+import { NoteCard } from "./cards/NoteCard";
+import { VacationCard } from "./cards/VacationCard";
+import { AttachmentCard } from "./cards/AttachmentCard";
+import type { User } from '@/types/user';
+
+interface TimelineItemFactoryProps {
+    item: TimelineItem;
+    onUpdate?: (updatedItem: TimelineItem) => void;
+    onDelete?: () => void;
+    user: User | null;
+}
+
+export function TimelineItemFactory({ item, onUpdate, onDelete, user }: TimelineItemFactoryProps) {
+    switch (item.type) {
+        case "MEDICAL_VISIT":
+            return <MedicalCard item={item as unknown as import("@/types/timeline").MedicalVisitItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
+
+        case "HANDOVER":
+            return <HandoverCard item={item as unknown as import("@/types/timeline").HandoverItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
+
+        case "MEDS":
+            return <MedsCard item={item as unknown as import("@/types/timeline").MedsItem} onUpdate={(val: any) => onUpdate?.(val)} onDelete={onDelete} user={user} />;
+
+        case "INCIDENT":
+            return <IncidentCard item={item as unknown as import("@/types/timeline").IncidentItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
+
+        case "NOTE":
+            return <NoteCard item={item as unknown as import("@/types/timeline").NoteItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
+
+        case "VACATION":
+            return <VacationCard item={item as unknown as import("@/types/timeline").VacationItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
+
+        case "ATTACHMENT":
+            return <AttachmentCard item={item as unknown as import("@/types/timeline").AttachmentItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
+
+        default: {
+            // TypeScript exhaustiveness check
+            const _exhaustive: never = item;
+            void _exhaustive;
+            return null;
+        }
+    }
+}

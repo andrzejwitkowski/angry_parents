@@ -4,13 +4,20 @@ describe("Calendar Events Visualization", () => {
     const getSheet = () => cy.get('[data-testid="day-details-sheet"]');
 
     beforeEach(() => {
+        // Clear state before run
+        cy.clearCookies();
+        cy.clearLocalStorage();
+        cy.window().then((win) => {
+            win.sessionStorage.clear();
+        });
+
         // Set up intercepts before login/visit to capture all requests
         cy.intercept('GET', '**/api/children*').as('fetchChildren');
         cy.intercept('POST', '**/api/timeline').as('createTimeline');
         cy.intercept('GET', '**/api/timeline/range*').as('fetchMonthEvents');
 
         // Login directly via API - Use relative URI if supported or env
-        const apiUrl = Cypress.env('apiUrl') || 'http://localhost:3000/api';
+        const apiUrl = Cypress.env('apiUrl') || 'http://localhost:5173/api';
         cy.request({
             method: 'POST',
             url: `${apiUrl}/auth/login/verify`,

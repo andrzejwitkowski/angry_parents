@@ -39,6 +39,7 @@ function findNextCustodyHandover(
                 return {
                     id: `custody-handover-${cur.date}-${cur.startTime}`,
                     type: "HANDOVER",
+                    encryption: "PLAINTEXT",
                     date: cur.date,
                     time: handoverTime,
                     location: "",
