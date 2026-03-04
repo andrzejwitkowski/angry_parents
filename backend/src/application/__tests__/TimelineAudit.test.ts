@@ -20,9 +20,7 @@ describe("Timeline Audit System", () => {
             name: "Child",
             color: "#FFF",
             icon: "child",
-            momId: "dad-1", // Using IDs from the mock below
-            dadId: "user-1"
-        });
+        } as any);
 
         const mockCryptoService = {
             encrypt: async (text: string) => `encrypted_${text}`,
@@ -70,11 +68,11 @@ describe("Timeline Audit System", () => {
             date: "2026-02-03",
             createdBy: "user-1",
             createdByName: "Alice",
-            content: "Hello",
-            childIds: [],
+            encryptedPayload: { "user-1": "encrypted-content" },
+            childIds: ["child-1"],
         } as CreateTimelineItemDto;
 
-        const item = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        const item = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         expect(item.auditTrail).toHaveLength(1);
         expect(item.auditTrail[0].action).toBe("CREATED");
@@ -89,30 +87,34 @@ describe("Timeline Audit System", () => {
             date: "2026-02-03",
             createdBy: "user-1",
             createdByName: "Alice",
-            content: "Initial content",
-            childIds: [],
+            encryptedPayload: { "user-1": "initial-encrypted" },
+            childIds: ["child-1"],
         } as CreateTimelineItemDto;
 
-        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // First update
-        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated once" } as any, "user-1", "child-1", {
+        await service.updateItem(created.id, {
+            ...dto,
+            encryptedPayload: { "user-1": "updated-once-encrypted" },
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
-        }, "Alice");
+        } as any, "user-1", "Alice");
 
         // Second update
-        const updated2 = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated twice" } as any, "user-1", "child-1", {
+        const updated2 = await service.updateItem(created.id, {
+            ...dto,
+            encryptedPayload: { "user-1": "updated-twice-encrypted" },
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
-        }, "Alice");
+        } as any, "user-1", "Alice");
 
         expect(updated2.auditTrail).toHaveLength(3);
         expect(updated2.auditTrail[1].action).toBe("UPDATED");
-        expect(updated2.auditTrail[1].changes).toEqual({ note: "Field-level changes hidden due to encryption" });
-        expect(updated2.auditTrail[2].changes).toEqual({ note: "Field-level changes hidden due to encryption" });
+        expect(updated2.auditTrail[1].changes).toEqual({ note: "Encrypted update received from client" });
+        expect(updated2.auditTrail[2].changes).toEqual({ note: "Encrypted update received from client" });
     });
 
     it("should track who made the update", async () => {
@@ -121,18 +123,20 @@ describe("Timeline Audit System", () => {
             date: "2026-02-03",
             createdBy: "user-1",
             createdByName: "Alice",
-            content: "Initial content",
-            childIds: [],
+            encryptedPayload: { "user-1": "initial-encrypted" },
+            childIds: ["child-1"],
         } as CreateTimelineItemDto;
 
-        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // Update by the same user (owner)
-        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Changed" } as any, "user-1", "child-1", {
+        const updated = await service.updateItem(created.id, {
+            ...dto,
+            encryptedPayload: { "user-1": "changed-encrypted" },
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
-        }, "Alice");
+        } as any, "user-1", "Alice");
 
         expect(updated.auditTrail[1].userId).toBe("user-1");
         expect(updated.auditTrail[1].userName).toBe("Alice");
@@ -144,11 +148,11 @@ describe("Timeline Audit System", () => {
             date: "2026-02-03",
             createdBy: "user-1",
             createdByName: "Alice",
-            content: "Delete me",
-            childIds: [],
+            encryptedPayload: { "user-1": "delete-me-encrypted" },
+            childIds: ["child-1"],
         } as CreateTimelineItemDto;
 
-        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
         await service.deleteItem(created.id, "user-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
@@ -173,20 +177,20 @@ describe("Timeline Audit System", () => {
             type: "MEDS",
             date: "2026-02-03",
             createdBy: "user-1",
-            medicineName: "Advil",
-            dosage: "200mg",
-            administered: false,
-            childIds: [],
+            encryptedPayload: { "user-1": "advil-encrypted" },
+            childIds: ["child-1"],
         } as CreateTimelineItemDto;
 
-        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
-        // Update with SAME values
-        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, administered: false } as any, "user-1", "child-1", {
+        // Update with SAME encrypted values
+        // Note: The service will still record an update because it can't diff ciphertexts
+        const updated = await service.updateItem(created.id, {
+            ...dto,
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
-        }, "Alice");
+        } as any, "user-1", "Alice");
 
         // Audit trail SHOULD increase now because we can't diff ciphertexts
         expect(updated.auditTrail).toHaveLength(2);

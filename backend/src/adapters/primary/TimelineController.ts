@@ -36,6 +36,7 @@ function selectSingleCiphertextForUser(item: any, userId: string) {
 /**
  * Timeline REST API Controller
  * Primary Adapter - handles HTTP requests and delegates to service layer
+ * Redesigned for True End-to-End Encryption (E2EE)
  */
 export function createTimelineController(service: TimelineServiceImpl) {
     return new Elysia({ prefix: "/api" })
@@ -129,13 +130,9 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     }
                     const userId = user?.id || "anonymous";
                     const userName = user?.name || "Unknown";
-                    if (!body.signatureBase64 || !body.timestamp || !body.keyId) {
-                        set.status = 400;
-                        return { error: "signatureBase64, timestamp, and keyId are required for data integrity" };
-                    }
 
                     const item = await service.createItem({
-                        ...body as CreateTimelineItemDto & { childId: string, signatureBase64: string, timestamp: string, keyId: string },
+                        ...body as any,
                         createdBy: userId,
                         createdByName: userName
                     });
@@ -158,12 +155,13 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         t.Literal("VACATION"),
                         t.Literal("ATTACHMENT"),
                     ]),
-                    date: t.String(),
-                    childId: t.String(), // Require childId for encryption Context (Family lookup)
+                    date: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+                    childIds: t.Array(t.String()),
+                    encryptedPayload: t.Record(t.String(), t.String()),
                     signatureBase64: t.String(),
                     timestamp: t.String(),
                     keyId: t.String()
-                }, { additionalProperties: true }),
+                }),
             }
         )
 
@@ -182,22 +180,10 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     }
                     const userName = user.name || "Unknown";
 
-                    const payload = body as CreateTimelineItemDto & { childId: string; signatureBase64: string; timestamp: string; keyId: string };
-                    if (!payload.childId || !payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
-                        set.status = 400;
-                        return { error: "childId, signatureBase64, timestamp, and keyId are required" };
-                    }
-
                     const updated = await service.updateItem(
                         params.id,
-                        payload as any,
+                        body as any,
                         user.id,
-                        payload.childId,
-                        {
-                            signatureBase64: payload.signatureBase64,
-                            timestamp: payload.timestamp,
-                            keyId: payload.keyId
-                        },
                         userName
                     );
                     return selectSingleCiphertextForUser(updated, user.id);
@@ -213,11 +199,13 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     id: t.String(),
                 }),
                 body: t.Object({
-                    childId: t.String(),
+                    date: t.Optional(t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" })),
+                    childIds: t.Optional(t.Array(t.String())),
+                    encryptedPayload: t.Optional(t.Record(t.String(), t.String())),
                     signatureBase64: t.String(),
                     timestamp: t.String(),
                     keyId: t.String()
-                }, { additionalProperties: true }),
+                }),
             }
         )
 
@@ -236,11 +224,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     }
 
                     const payload = body as { signatureBase64: string; timestamp: string; keyId: string };
-                    if (!payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
-                        set.status = 400;
-                        return { error: "signatureBase64, timestamp, and keyId are required" };
-                    }
                     const userName = user.name || "Unknown";
+
                     await service.deleteItem(params.id, user.id, {
                         signatureBase64: payload.signatureBase64,
                         timestamp: payload.timestamp,

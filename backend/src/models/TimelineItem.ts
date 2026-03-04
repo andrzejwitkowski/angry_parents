@@ -10,7 +10,7 @@ export interface TimelineItemDocument extends Omit<EncryptedTimelineItem, 'id'>,
 const timelineItemSchema = new Schema<TimelineItemDocument>({
     id: { type: String, required: true, unique: true },
     type: { type: String, required: true, index: true },
-    encryption: { type: String, required: true, enum: ['PLAINTEXT', 'ENCRYPTED'], index: true },
+    encryption: { type: String, required: true, enum: ['ENCRYPTED'], index: true },
     date: { type: String, required: true, index: true },
     createdAt: { type: String, required: true },
     createdBy: { type: String, required: true },
@@ -19,7 +19,7 @@ const timelineItemSchema = new Schema<TimelineItemDocument>({
     isDeleted: { type: Boolean, default: false },
     childIds: { type: [String], default: [] }
 }, {
-    timestamps: true,
+    timestamps: false,
     strict: false, // By setting strict: false, Mongoose saves properties not defined in the schema
     toJSON: { virtuals: true },
     toObject: { virtuals: true }

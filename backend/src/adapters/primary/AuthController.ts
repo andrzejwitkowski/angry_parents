@@ -439,8 +439,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         name: "User",
                         gender: payload.gender,
                         familyId: payload.familyId,
-                        family: family
-                    }
+                    },
+                    family: family
                 };
             } catch (err) {
                 console.error("[Me] error:", err);
@@ -570,8 +570,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     const parentPublicKeys = family.parentPublicKeys || [];
 
                     // Always ensure dev keys match current environment for both parents in mock family
-                    const dadKey = parentPublicKeys.find(k => k.parentId === finalUserId || k.role === "dad");
-                    const momKey = parentPublicKeys.find(k => k.parentId === DUMMY_MOM_ID || k.role === "mom");
+                    const dadKey = parentPublicKeys.find((k: any) => k.parentId === finalUserId || k.role === "dad");
+                    const momKey = parentPublicKeys.find((k: any) => k.parentId === DUMMY_MOM_ID || k.role === "mom");
 
                     if (dadKey) {
                         dadKey.rsaPublicKeyBase64 = devRsaPublicKey;

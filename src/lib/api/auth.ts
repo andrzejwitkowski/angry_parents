@@ -20,6 +20,17 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
 export type Gender = "mom" | "dad";
 
+export interface Family {
+    id: string;
+    name: string;
+    parentIds: string[];
+    parentPublicKeys: {
+        parentId: string;
+        role: Gender;
+        rsaPublicKeyBase64: string;
+    }[];
+}
+
 export const authApi = {
     getInvitation: (token: string) =>
         fetchApi<{ email: string; gender: Gender }>(
@@ -48,7 +59,11 @@ export const authApi = {
         ),
 
     getMe: () =>
-        fetchApi<{ user: { id: string; email: string; name: string; gender: Gender }; family: unknown; role: string }>("/me"),
+        fetchApi<{
+            user: { id: string; email: string; name: string; gender: Gender };
+            family: Family;
+            role: string
+        }>("/me"),
 
     logout: () =>
         fetchApi<{ ok: boolean }>("/logout", { method: "POST" }),

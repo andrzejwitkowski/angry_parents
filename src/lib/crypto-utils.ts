@@ -1,3 +1,14 @@
+export async function importPublicKey(keyData: string): Promise<CryptoKey> {
+    const keyBuffer = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
+    return crypto.subtle.importKey(
+        "spki",
+        keyBuffer,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        false,
+        ["encrypt"]
+    );
+}
+
 export async function importPrivateKey(keyData: string): Promise<CryptoKey> {
     const keyBuffer = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
     return crypto.subtle.importKey(
@@ -41,4 +52,40 @@ export async function decryptRSA(ciphertext: string, privateKey: CryptoKey): Pro
     );
 
     return new TextDecoder().decode(decryptedBuffer);
+}
+
+export async function encryptRSA(plaintext: string, publicKey: CryptoKey): Promise<string> {
+    const plaintextBuffer = new TextEncoder().encode(plaintext);
+
+    // Hybrid encryption: AES-GCM for data, RSA-OAEP for AES key
+    const aesKey = await crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+
+    const encryptedData = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        aesKey,
+        plaintextBuffer
+    );
+
+    // Export and RSA-encrypt the AES key
+    const rawAesKey = await crypto.subtle.exportKey("raw", aesKey);
+    const encryptedAesKey = await crypto.subtle.encrypt(
+        { name: "RSA-OAEP" },
+        publicKey,
+        rawAesKey
+    );
+
+    // Pack as JSON: { k: base64, iv: base64, d: base64 }
+    const envelope = {
+        k: btoa(String.fromCharCode(...new Uint8Array(encryptedAesKey))),
+        iv: btoa(String.fromCharCode(...iv)),
+        d: btoa(String.fromCharCode(...new Uint8Array(encryptedData))),
+    };
+
+    return btoa(JSON.stringify(envelope));
 }
