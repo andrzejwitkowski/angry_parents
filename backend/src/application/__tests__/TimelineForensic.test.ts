@@ -11,15 +11,19 @@ import type { IFamily } from "../../models/Family";
 class MockCryptoService implements ICryptoService {
     async verifySignature(): Promise<boolean> { return true; }
     async getFingerprint(): Promise<string> { return "mock-fingerprint"; }
-    async encryptRSA(plaintext: string, publicKey: string): Promise<string> {
-        return `encrypted-${plaintext.substring(0, 10)}-with-${publicKey}`;
-    }
 }
 
-describe("Timeline Forensic Integration", () => {
+describe("Timeline Forensic Integration (E2EE)", () => {
     let service: TimelineServiceImpl;
     let forensicIntentSave: ReturnType<typeof vi.fn>;
     let scheduleTask: ReturnType<typeof vi.fn>;
+
+    const mockEncryptedPayload = { "mom": "secret" };
+    const signatureData = {
+        signatureBase64: "mock-sig",
+        timestamp: "2024-01-01T12:00:00.000Z",
+        keyId: "key1"
+    };
 
     beforeEach(() => {
         const repository = new InMemoryTimelineRepository();
@@ -27,10 +31,6 @@ describe("Timeline Forensic Integration", () => {
         const mockFamilyModel = {
             findById: vi.fn().mockResolvedValue({
                 parentIds: ["mom-1", "dad-1"],
-                parentPublicKeys: [
-                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" },
-                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-pub-key" }
-                ]
             })
         };
 
@@ -47,8 +47,6 @@ describe("Timeline Forensic Integration", () => {
             findById: vi.fn().mockResolvedValue({
                 id: "child-1",
                 familyId: "family1",
-                momId: "mom-1",
-                dadId: "dad-1"
             })
         };
 
@@ -65,58 +63,53 @@ describe("Timeline Forensic Integration", () => {
     });
 
     it("create triggers forensic document creation", async () => {
-        const dto = {
+        const dto: CreateTimelineItemDto & typeof signatureData = {
             type: "NOTE",
             date: "2026-01-27",
             createdBy: "user-123",
-            content: "Initial note",
             childIds: ["child-1"],
-            childId: "child-1",
-        } as unknown as CreateTimelineItemDto & { childId: string };
+            encryptedPayload: mockEncryptedPayload,
+            ...signatureData
+        };
 
-        await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        await service.createItem(dto);
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(1);
         expect(scheduleTask).toHaveBeenCalledTimes(1);
     });
 
     it("update triggers forensic document creation", async () => {
-        const dto = {
+        const dto: CreateTimelineItemDto & typeof signatureData = {
             type: "NOTE",
             date: "2026-01-27",
             createdBy: "user-123",
-            content: "Initial note",
             childIds: ["child-1"],
-            childId: "child-1",
-        } as unknown as CreateTimelineItemDto & { childId: string };
+            encryptedPayload: mockEncryptedPayload,
+            ...signatureData
+        };
 
-        const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
-        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: false, content: "Updated note" } as any, "user-123", "child-1", {
-            signatureBase64: "mock-sig",
-            timestamp: "2024-01-01T12:00:00.000Z",
-            keyId: "key1"
-        }, "User");
+        const created = await service.createItem(dto);
+        await service.updateItem(created.id, {
+            ...dto,
+            encryptedPayload: { "mom": "updated" }
+        }, "user-123", "User");
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(2);
         expect(scheduleTask).toHaveBeenCalledTimes(2);
     });
 
     it("delete triggers forensic document creation", async () => {
-        const dto = {
+        const dto: CreateTimelineItemDto & typeof signatureData = {
             type: "NOTE",
             date: "2026-01-27",
             createdBy: "user-123",
-            content: "Initial note",
             childIds: ["child-1"],
-            childId: "child-1",
-        } as unknown as CreateTimelineItemDto & { childId: string };
+            encryptedPayload: mockEncryptedPayload,
+            ...signatureData
+        };
 
-        const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
-        await service.deleteItem(created.id, "user-123", {
-            signatureBase64: "mock-sig",
-            timestamp: "2024-01-01T12:00:00.000Z",
-            keyId: "key1"
-        }, "User");
+        const created = await service.createItem(dto);
+        await service.deleteItem(created.id, "user-123", signatureData, "User");
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(2);
         expect(scheduleTask).toHaveBeenCalledTimes(2);

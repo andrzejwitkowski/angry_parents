@@ -1,6 +1,7 @@
 import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types";
-import { decryptRSA, importPrivateKey } from "@/lib/crypto-utils";
+import { decryptRSA, importPrivateKey, encryptRSA, importPublicKey } from "@/lib/crypto-utils";
 import type { MutationSignature } from "@/lib/signature-provider";
+import { authApi } from "./auth";
 
 const API_BASE_URL = "http://localhost:3000/api";
 
@@ -40,6 +41,9 @@ const PROTECTED_FIELDS = new Set([
 ]);
 
 
+// TODO(prod): decryptTimelineItems currently only decrypts in DEV mode using VITE_DEV_RSA_PRIVATE_KEY.
+// For production, implement real private-key retrieval (e.g. from IndexedDB/WebCrypto keystore)
+// or surface a clear UX message for encrypted-but-unreadable items.
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
     const isDev = import.meta.env.DEV;
     const privateKeyBase64 = import.meta.env.VITE_DEV_RSA_PRIVATE_KEY;
@@ -51,7 +55,10 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
     }
 
     return Promise.all(items.map(async (item: any) => {
-        const ciphertext = item.ciphertext;
+        const currentUserId = cachedMeData?.user?.id;
+        const ciphertext = currentUserId && item.encryptedPayload
+            ? item.encryptedPayload[currentUserId] ?? item.ciphertext
+            : item.ciphertext;
 
         if (!ciphertext) return item;
 
@@ -84,6 +91,54 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
             return item;
         }
     }));
+}
+
+// Browser-side cache for getMe() — safe as module-level variable since there's
+// only one authenticated user per browser tab (same pattern as cachedPrivateKey).
+let cachedMeData: Awaited<ReturnType<typeof authApi.getMe>> | null = null;
+let cachedMeTimestamp = 0;
+const ME_CACHE_TTL_MS = 30_000; // 30 seconds
+
+export function invalidateMeCache() {
+    cachedMeData = null;
+    cachedMeTimestamp = 0;
+}
+
+async function encryptTimelineItem(item: any): Promise<any> {
+    const now = Date.now();
+    if (!cachedMeData || now - cachedMeTimestamp > ME_CACHE_TTL_MS) {
+        cachedMeData = await authApi.getMe();
+        cachedMeTimestamp = now;
+    }
+    const { family } = cachedMeData;
+    if (!family || !family.parentPublicKeys || family.parentPublicKeys.length < 2) {
+        throw new Error("Cannot encrypt: Both parents must have registered RSA public keys.");
+    }
+
+    const unencryptedFields: Record<string, any> = {};
+    const sensitiveFields: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(item)) {
+        if (PROTECTED_FIELDS.has(key)) {
+            unencryptedFields[key] = value;
+        } else if (value !== undefined) {
+            sensitiveFields[key] = value;
+        }
+    }
+
+    const plaintext = JSON.stringify(sensitiveFields);
+    const encryptedPayload: Record<string, string> = {};
+
+    for (const keyInfo of family.parentPublicKeys) {
+        const publicKey = await importPublicKey(keyInfo.rsaPublicKeyBase64);
+        encryptedPayload[keyInfo.parentId] = await encryptRSA(plaintext, publicKey);
+    }
+
+    return {
+        ...unencryptedFields,
+        encryption: "ENCRYPTED",
+        encryptedPayload
+    };
 }
 
 export const timelineApi = {
@@ -123,8 +178,17 @@ export const timelineApi = {
         dto: CreateTimelineItemDto & { childId: string },
         signatureData: MutationSignature
     ): Promise<TimelineItem> {
-        const payload = {
+        const encrypted = await encryptTimelineItem({
             ...dto,
+            childIds: [dto.childId]
+        });
+
+        // Strip fields not expected by backend schema
+        const { encryption, id, childId, ciphertext, encryptedPayload, ...cleanEncrypted } = encrypted;
+
+        const payload = {
+            ...cleanEncrypted,
+            encryptedPayload: encrypted.encryptedPayload,
             ...signatureData
         };
 
@@ -157,10 +221,16 @@ export const timelineApi = {
             throw new TimelineApiError("Cannot update timeline item: missing childId");
         }
 
-        const payload = {
+        const encrypted = await encryptTimelineItem({
             ...fullItem,
-            id: id,
-            childId: resolvedChildId,
+            id,
+            childIds: [resolvedChildId]
+        });
+
+        const payload = {
+            date: encrypted.date,
+            childIds: encrypted.childIds,
+            encryptedPayload: encrypted.encryptedPayload,
             ...signatureData
         };
 

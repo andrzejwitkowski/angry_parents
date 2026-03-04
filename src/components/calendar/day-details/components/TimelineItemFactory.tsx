@@ -18,25 +18,25 @@ interface TimelineItemFactoryProps {
 export function TimelineItemFactory({ item, onUpdate, onDelete, user }: TimelineItemFactoryProps) {
     switch (item.type) {
         case "MEDICAL_VISIT":
-            return <MedicalCard item={item} user={user} onUpdate={onUpdate} onDelete={onDelete} />;
+            return <MedicalCard item={item as unknown as import("@/types/timeline.types").MedicalVisitItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
 
         case "HANDOVER":
-            return <HandoverCard item={item} user={user} onUpdate={onUpdate} onDelete={onDelete} />;
+            return <HandoverCard item={item as unknown as import("@/types/timeline.types").HandoverItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
 
         case "MEDS":
-            return <MedsCard item={item} onUpdate={(val) => onUpdate?.(val)} onDelete={onDelete} user={user} />;
+            return <MedsCard item={item as unknown as import("@/types/timeline.types").MedsItem} onUpdate={(val: any) => onUpdate?.(val)} onDelete={onDelete} user={user} />;
 
         case "INCIDENT":
-            return <IncidentCard item={item} user={user} onUpdate={onUpdate} onDelete={onDelete} />;
+            return <IncidentCard item={item as unknown as import("@/types/timeline.types").IncidentItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
 
         case "NOTE":
-            return <NoteCard item={item} user={user} onUpdate={onUpdate} onDelete={onDelete} />;
+            return <NoteCard item={item as unknown as import("@/types/timeline.types").NoteItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
 
         case "VACATION":
-            return <VacationCard item={item} user={user} onUpdate={onUpdate} onDelete={onDelete} />;
+            return <VacationCard item={item as unknown as import("@/types/timeline.types").VacationItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
 
         case "ATTACHMENT":
-            return <AttachmentCard item={item} user={user} onUpdate={onUpdate} onDelete={onDelete} />;
+            return <AttachmentCard item={item as unknown as import("@/types/timeline.types").AttachmentItem} user={user} onUpdate={onUpdate as any} onDelete={onDelete} />;
 
         default: {
             // TypeScript exhaustiveness check

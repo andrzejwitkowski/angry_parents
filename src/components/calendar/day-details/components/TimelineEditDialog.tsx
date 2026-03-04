@@ -52,10 +52,29 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
             onOpenChange(false);
         } catch (error) {
             console.error("Failed to update entry:", error);
-            alert(error instanceof Error ? error.message : t("daylog.failedToUpdate"));
+            const message = error instanceof Error ? error.message : String(error);
+            alert(formatErrorMessage(message, t("daylog.failedToUpdate")));
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const formatErrorMessage = (message: string, defaultMessage: string) => {
+        try {
+            // Check if it's Zod JSON error
+            if (message.startsWith("[") && message.endsWith("]")) {
+                const parsed = JSON.parse(message);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed.map((err: any) => {
+                        const path = err.path?.join(".") || "";
+                        return `${path ? `${path}: ` : ""}${err.message || err.code}`;
+                    }).join("\n");
+                }
+            }
+        } catch (e) {
+            // Not JSON, fall back to raw message
+        }
+        return message || defaultMessage;
     };
 
     return (

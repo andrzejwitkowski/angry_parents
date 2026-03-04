@@ -7,12 +7,19 @@ export type MutationSignature = {
 };
 
 export async function getMutationSignature(): Promise<MutationSignature> {
-    const isTestRuntime =
-        import.meta.env.MODE === "test" ||
-        (typeof process !== "undefined" && (process.env.NODE_ENV === "test" || Boolean(process.versions?.bun))) ||
-        (typeof Bun !== "undefined");
+    const isTestOrBunEnvironment = () => {
+        try {
+            // Safe checks that don't throw ReferenceError in browser
+            // @ts-ignore
+            return (typeof process !== "undefined" && (process.env.NODE_ENV === "test" || Boolean(process.versions?.bun))) ||
+                // @ts-ignore
+                (typeof Bun !== "undefined");
+        } catch (e) {
+            return false;
+        }
+    };
 
-    if (import.meta.env.DEV || isTestRuntime) {
+    if (import.meta.env.DEV || isTestOrBunEnvironment()) {
         return createMockSignature();
     }
 
