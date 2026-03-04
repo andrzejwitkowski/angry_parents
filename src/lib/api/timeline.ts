@@ -227,11 +227,9 @@ export const timelineApi = {
             childIds: [resolvedChildId]
         });
 
-        // Strip fields not expected by backend schema
-        const { encryption, id: _id, childId: _childId, ciphertext, encryptedPayload, ...cleanEncrypted } = encrypted;
-
         const payload = {
-            ...cleanEncrypted,
+            date: encrypted.date,
+            childIds: encrypted.childIds,
             encryptedPayload: encrypted.encryptedPayload,
             ...signatureData
         };

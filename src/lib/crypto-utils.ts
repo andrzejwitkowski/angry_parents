@@ -60,11 +60,11 @@ export async function decryptRSA(ciphertext: string, privateKey: CryptoKey): Pro
  */
 function bytesToBase64(bytes: Uint8Array): string {
     const chunkSize = 0x8000; // 32KB chunks
-    let binary = "";
+    const chunks: string[] = [];
     for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        chunks.push(String.fromCharCode(...bytes.subarray(i, i + chunkSize)));
     }
-    return btoa(binary);
+    return btoa(chunks.join(""));
 }
 
 export async function encryptRSA(plaintext: string, publicKey: CryptoKey): Promise<string> {
