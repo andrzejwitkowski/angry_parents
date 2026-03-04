@@ -41,6 +41,9 @@ const PROTECTED_FIELDS = new Set([
 ]);
 
 
+// TODO(prod): decryptTimelineItems currently only decrypts in DEV mode using VITE_DEV_RSA_PRIVATE_KEY.
+// For production, implement real private-key retrieval (e.g. from IndexedDB/WebCrypto keystore)
+// or surface a clear UX message for encrypted-but-unreadable items.
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
     const isDev = import.meta.env.DEV;
     const privateKeyBase64 = import.meta.env.VITE_DEV_RSA_PRIVATE_KEY;
@@ -87,8 +90,19 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
     }));
 }
 
+// Browser-side cache for getMe() — safe as module-level variable since there's
+// only one authenticated user per browser tab (same pattern as cachedPrivateKey).
+let cachedMeData: Awaited<ReturnType<typeof authApi.getMe>> | null = null;
+let cachedMeTimestamp = 0;
+const ME_CACHE_TTL_MS = 30_000; // 30 seconds
+
 async function encryptTimelineItem(item: any): Promise<any> {
-    const { family } = await authApi.getMe();
+    const now = Date.now();
+    if (!cachedMeData || now - cachedMeTimestamp > ME_CACHE_TTL_MS) {
+        cachedMeData = await authApi.getMe();
+        cachedMeTimestamp = now;
+    }
+    const { family } = cachedMeData;
     if (!family || !family.parentPublicKeys || family.parentPublicKeys.length < 2) {
         throw new Error("Cannot encrypt: Both parents must have registered RSA public keys.");
     }

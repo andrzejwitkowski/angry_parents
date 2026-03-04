@@ -193,9 +193,9 @@ export class TimelineServiceImpl {
 
         const updatedItem: EncryptedTimelineItem = {
             ...coercedExisting,
-            date: updateDto.date || coercedExisting.date,
-            childIds: updateDto.childIds || coercedExisting.childIds,
-            encryptedPayload: updateDto.encryptedPayload || coercedExisting.encryptedPayload,
+            date: updateDto.date ?? coercedExisting.date,
+            childIds: updateDto.childIds ?? coercedExisting.childIds,
+            encryptedPayload: updateDto.encryptedPayload ?? coercedExisting.encryptedPayload,
             auditTrail: [...coercedExisting.auditTrail, auditEntry],
         };
 

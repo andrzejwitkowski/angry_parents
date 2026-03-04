@@ -73,6 +73,5 @@ export type CreateTimelineItemDto = {
 // Re-export types for backward compatibility where needed
 export type AuditEntry = z.infer<typeof AuditEntrySchema>;
 export type BaseTimelineItem = z.infer<typeof BaseTimelineItemSchema>;
-// PlainTimelineItem and specific types (NoteItem, etc.) are removed from backend
-// as the backend no longer validates or cares about their structure.
-export type PlainTimelineItem = any; 
+/** @deprecated PlainTimelineItem is no longer validated on the backend. Use EncryptedTimelineItem and explicitly cast if needed. */
+export type PlainTimelineItem = unknown;

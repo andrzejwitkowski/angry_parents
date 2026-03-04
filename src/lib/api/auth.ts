@@ -61,8 +61,7 @@ export const authApi = {
     getMe: () =>
         fetchApi<{
             user: { id: string; email: string; name: string; gender: Gender };
-            family: Family;
-            role: string
+            family: Family | null;
         }>("/me"),
 
     logout: () =>

@@ -54,6 +54,19 @@ export async function decryptRSA(ciphertext: string, privateKey: CryptoKey): Pro
     return new TextDecoder().decode(decryptedBuffer);
 }
 
+/**
+ * Chunked byte-to-base64 conversion to avoid RangeError
+ * when spreading large Uint8Arrays into String.fromCharCode().
+ */
+function bytesToBase64(bytes: Uint8Array): string {
+    const chunkSize = 0x8000; // 32KB chunks
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+}
+
 export async function encryptRSA(plaintext: string, publicKey: CryptoKey): Promise<string> {
     const plaintextBuffer = new TextEncoder().encode(plaintext);
 
@@ -82,9 +95,9 @@ export async function encryptRSA(plaintext: string, publicKey: CryptoKey): Promi
 
     // Pack as JSON: { k: base64, iv: base64, d: base64 }
     const envelope = {
-        k: btoa(String.fromCharCode(...new Uint8Array(encryptedAesKey))),
-        iv: btoa(String.fromCharCode(...iv)),
-        d: btoa(String.fromCharCode(...new Uint8Array(encryptedData))),
+        k: bytesToBase64(new Uint8Array(encryptedAesKey)),
+        iv: bytesToBase64(iv),
+        d: bytesToBase64(new Uint8Array(encryptedData)),
     };
 
     return btoa(JSON.stringify(envelope));
