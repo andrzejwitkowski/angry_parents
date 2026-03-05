@@ -23,9 +23,17 @@ function selectCiphertextForUser(items: any[], userId: string) {
 
         // Return item with flattened ciphertext for the requesting user
         const { encryptedPayload, ...rest } = typedItem;
+        let ciphertext = payload[userId];
+
+        // DEV fallback: all parents share the same RSA key, so any ciphertext will do
+        if (!ciphertext && process.env.NODE_ENV !== "production") {
+            const values = Object.values(payload);
+            ciphertext = values.length > 0 ? values[0] : "";
+        }
+
         return {
             ...rest,
-            ciphertext: payload[userId] ?? ""
+            ciphertext: ciphertext ?? ""
         };
     });
 }

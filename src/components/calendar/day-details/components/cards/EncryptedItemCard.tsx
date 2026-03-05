@@ -15,6 +15,7 @@ export function EncryptedItemCard({ item }: EncryptedItemCardProps) {
         || window.localStorage.getItem("zkPrivateKey")
         || window.localStorage.getItem("privateKey")
         || window.localStorage.getItem("rsaPrivateKey")
+        || (import.meta as any).env.VITE_DEV_RSA_PRIVATE_KEY
     );
 
     return (
