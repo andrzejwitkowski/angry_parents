@@ -310,13 +310,19 @@ export class TimelineServiceImpl {
             throw new Error("Child does not belong to this timeline item");
         }
 
+        // Sanitize createdAt: Mongoose might have stored it as a Date or a non-ISO string
+        // If it's not a valid ISO string, convert it.
+        const sanitizedCreatedAt = existing.createdAt.includes('T') && existing.createdAt.endsWith('Z')
+            ? existing.createdAt
+            : new Date(existing.createdAt).toISOString();
+
         // Validate the incoming full item while preserving immutable server-side fields.
         const validated = TimelineItemSchema.parse({
             ...fullPlaintextUpdate,
             encryption: "PLAINTEXT",
             id: existing.id,
             createdBy: existing.createdBy,
-            createdAt: existing.createdAt,
+            createdAt: sanitizedCreatedAt,
             createdByName: existing.createdByName,
             childIds: existing.childIds,
             isDeleted: existing.isDeleted,

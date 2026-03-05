@@ -59,8 +59,7 @@ export function IncidentCard({ item, user, onUpdate, onDelete }: IncidentCardPro
     const { t } = useTranslation();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const isOwner = user?.id === item.createdBy;
-    const config = (item.severity && severityConfig[item.severity]) || severityConfig.LOW;
-    const description = item.description || t("common.encryptedContent");
+    const config = severityConfig[item.severity];
 
     const handleDelete = async () => {
         try {
@@ -90,7 +89,7 @@ export function IncidentCard({ item, user, onUpdate, onDelete }: IncidentCardPro
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className={config.color}>
-                            {!item.severity ? t("common.encryptedContent") : item.severity === "LOW" ? t("incident.severityLow") : item.severity === "MEDIUM" ? t("incident.severityMedium") : t("incident.severityHigh")}
+                            {item.severity === "LOW" ? t("incident.severityLow") : item.severity === "MEDIUM" ? t("incident.severityMedium") : t("incident.severityHigh")}
                         </Badge>
                         {isOwner && (
                             <div className="flex items-center gap-1">
@@ -145,7 +144,7 @@ export function IncidentCard({ item, user, onUpdate, onDelete }: IncidentCardPro
                         {t("incident.descriptionSection")}
                     </p>
                     <p className="text-base text-gray-900 leading-relaxed">
-                        {description}
+                        {item.description}
                     </p>
                 </div>
 

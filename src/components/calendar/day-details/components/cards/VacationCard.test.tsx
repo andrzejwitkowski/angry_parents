@@ -43,6 +43,7 @@ describe("VacationCard", () => {
         auditTrail: [],
         isDeleted: false,
         childIds: [],
+        encryption: "PLAINTEXT" as const,
     };
 
     beforeEach(() => {

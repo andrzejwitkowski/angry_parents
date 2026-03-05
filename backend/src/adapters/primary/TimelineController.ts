@@ -202,10 +202,17 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     );
                     return selectSingleCiphertextForUser(updated, user.id);
                 } catch (error) {
-                    set.status = 404;
-                    return {
-                        error: error instanceof Error ? error.message : "Unknown error",
-                    };
+                    const message = error instanceof Error ? error.message : String(error);
+                    if (message.includes("not found")) {
+                        set.status = 404;
+                    } else if (message.includes("Unauthorized") || message.includes("modify your own")) {
+                        set.status = 403;
+                    } else if (message.includes("invalid") || message.includes("required") || (error as any)?.name === "ZodError") {
+                        set.status = 400;
+                    } else {
+                        set.status = 500;
+                    }
+                    return { error: message };
                 }
             },
             {

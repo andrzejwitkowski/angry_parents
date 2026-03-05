@@ -297,6 +297,49 @@ describe("TimelineService", () => {
                 }, "other-name")
             ).rejects.toThrow("Unauthorized: You can only modify your own items");
         });
+
+        it("should successfully update an item with non-ISO createdAt (legacy data)", async () => {
+            const legacyDate = "Thu Mar 05 2026 10:35:40 GMT+0100 (Central European Standard Time)";
+            const id = "825b965e-75ba-45bb-846a-0aa327e3fced"; // Valid UUID
+
+            // Manually insert a "corrupted" item into the repository
+            const item = {
+                id,
+                type: "NOTE",
+                date: "2026-03-09",
+                content: "Legacy content",
+                createdBy: "user-123",
+                createdByName: "dad",
+                createdAt: legacyDate,
+                childIds: ["child-1"],
+                auditTrail: [],
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "user-123": "some-payload" },
+                isDeleted: false
+            } as any;
+
+            await repository.save(item);
+
+            const updateDto = {
+                type: "NOTE",
+                date: "2026-03-09",
+                content: "Updated content",
+                childId: "child-1"
+            } as any;
+
+            // This should NOT throw ZodError because we sanitize createdAt
+            const updated = await service.updateItem(id, updateDto, "user-123", "child-1", {
+                signatureBase64: "mock-sig",
+                timestamp: new Date().toISOString(),
+                keyId: "key1"
+            }, "dad");
+
+            expect(updated).toBeDefined();
+            const saved = await repository.findById(id);
+            // Should be converted to ISO format
+            expect(saved?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+            expect(saved?.createdAt).toContain('Z');
+        });
     });
 
     describe("deleteItem", () => {

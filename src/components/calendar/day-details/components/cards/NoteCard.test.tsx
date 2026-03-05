@@ -35,6 +35,7 @@ const mockItem: NoteItem = {
     auditTrail: [],
     isDeleted: false,
     childIds: [],
+    encryption: 'PLAINTEXT',
 };
 
 const ownerUser = {

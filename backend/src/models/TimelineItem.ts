@@ -19,7 +19,7 @@ const timelineItemSchema = new Schema<TimelineItemDocument>({
     isDeleted: { type: Boolean, default: false },
     childIds: { type: [String], default: [] }
 }, {
-    timestamps: true,
+    timestamps: { createdAt: false, updatedAt: true },
     strict: false, // By setting strict: false, Mongoose saves properties not defined in the schema
     toJSON: { virtuals: true },
     toObject: { virtuals: true }

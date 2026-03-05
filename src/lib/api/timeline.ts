@@ -50,13 +50,20 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
         cachedPrivateKey = await importPrivateKey(privateKeyBase64);
     }
 
-    return Promise.all(items.map(async (item: any) => {
-        const ciphertext = item.ciphertext;
+    return Promise.all(items.map(async (item) => {
+        if (item.encryption === "PLAINTEXT") return item;
 
-        if (!ciphertext) return item;
+        if (!item.ciphertext) {
+            console.warn(
+                `[TimelineApi] Decryption skipped for item ${item.id}: "ciphertext" is missing or empty. ` +
+                `This usually means the current user (ID: ${privateKeyBase64.substring(0, 10)}...) is not included in the item's encryptedPayload in the backend.`
+            );
+            return item;
+        }
 
         try {
-            const decrypted = await decryptRSA(ciphertext, cachedPrivateKey as CryptoKey);
+            const privateKey = cachedPrivateKey!;
+            const decrypted = await decryptRSA(item.ciphertext!, privateKey);
             const decryptedFields = JSON.parse(decrypted);
 
             if (typeof decryptedFields !== 'object' || decryptedFields === null || Array.isArray(decryptedFields)) {

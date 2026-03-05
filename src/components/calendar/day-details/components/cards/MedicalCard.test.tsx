@@ -40,6 +40,7 @@ const mockItem: MedicalVisitItem = {
     auditTrail: [],
     isDeleted: false,
     childIds: [],
+    encryption: 'PLAINTEXT',
 };
 
 const ownerUser = {
