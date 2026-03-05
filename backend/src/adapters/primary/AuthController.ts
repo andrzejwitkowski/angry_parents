@@ -439,8 +439,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         name: "User",
                         gender: payload.gender,
                         familyId: payload.familyId,
-                        family: family
-                    }
+                    },
+                    family: family ? { ...family, id: family._id.toString() } : null
                 };
             } catch (err) {
                 console.error("[Me] error:", err);

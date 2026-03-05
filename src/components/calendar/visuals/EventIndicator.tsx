@@ -38,13 +38,15 @@ export function EventIndicator({ event, onViewDetails, childColor }: EventIndica
     };
 
     const getTitle = () => {
-        switch (event.type) {
-            case "MEDICAL_VISIT": return `Visit: ${event.doctor}`;
-            case "MEDS": return `Meds: ${event.medicineName}`;
-            case "HANDOVER": return `Handover at ${event.location}`;
-            case "INCIDENT": return `Incident: ${event.severity}`;
+        if (event.encryption === "ENCRYPTED") return "Encrypted Event";
+        const e = event as any;
+        switch (e.type) {
+            case "MEDICAL_VISIT": return `Visit: ${e.doctor}`;
+            case "MEDS": return `Meds: ${e.medicineName}`;
+            case "HANDOVER": return `Handover at ${e.location}`;
+            case "INCIDENT": return `Incident: ${e.severity}`;
             case "NOTE": return "Note";
-            default: return event.type;
+            default: return e.type;
         }
     };
 
