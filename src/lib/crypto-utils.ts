@@ -21,33 +21,47 @@ export async function importPrivateKey(keyData: string): Promise<CryptoKey> {
 }
 
 export async function decryptRSA(ciphertext: string, privateKey: CryptoKey): Promise<string> {
-    const envelopeJson = atob(ciphertext);
-    const envelope = JSON.parse(envelopeJson) as { k: string; iv: string; d: string };
-    if (!envelope.k || !envelope.iv || !envelope.d) {
-        throw new Error("Invalid encrypted envelope");
+    const decoded = atob(ciphertext);
+
+    // Preferred format: hybrid envelope { k, iv, d } (frontend-originated encryption).
+    try {
+        const envelope = JSON.parse(decoded) as { k: string; iv: string; d: string };
+        if (envelope?.k && envelope?.iv && envelope?.d) {
+            const encryptedAesKey = Uint8Array.from(atob(envelope.k), c => c.charCodeAt(0));
+            const iv = Uint8Array.from(atob(envelope.iv), c => c.charCodeAt(0));
+            const encryptedData = Uint8Array.from(atob(envelope.d), c => c.charCodeAt(0));
+
+            const rawAesKey = await crypto.subtle.decrypt(
+                { name: "RSA-OAEP" },
+                privateKey,
+                encryptedAesKey
+            );
+
+            const aesKey = await crypto.subtle.importKey(
+                "raw",
+                rawAesKey,
+                { name: "AES-GCM" },
+                false,
+                ["decrypt"]
+            );
+
+            const decryptedBuffer = await crypto.subtle.decrypt(
+                { name: "AES-GCM", iv },
+                aesKey,
+                encryptedData
+            );
+
+            return new TextDecoder().decode(decryptedBuffer);
+        }
+    } catch {
+        // Fall through to legacy format handling below.
     }
 
-    const encryptedAesKey = Uint8Array.from(atob(envelope.k), c => c.charCodeAt(0));
-    const iv = Uint8Array.from(atob(envelope.iv), c => c.charCodeAt(0));
-    const encryptedData = Uint8Array.from(atob(envelope.d), c => c.charCodeAt(0));
-
-    const rawAesKey = await crypto.subtle.decrypt(
+    // Legacy format: raw RSA-OAEP ciphertext base64 (backend-originated encryption).
+    const encryptedData = Uint8Array.from(decoded, c => c.charCodeAt(0));
+    const decryptedBuffer = await crypto.subtle.decrypt(
         { name: "RSA-OAEP" },
         privateKey,
-        encryptedAesKey
-    );
-
-    const aesKey = await crypto.subtle.importKey(
-        "raw",
-        rawAesKey,
-        { name: "AES-GCM" },
-        false,
-        ["decrypt"]
-    );
-
-    const decryptedBuffer = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv },
-        aesKey,
         encryptedData
     );
 

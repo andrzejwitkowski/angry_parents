@@ -80,4 +80,31 @@ export class BunCryptoService implements ICryptoService {
         hasher.update(publicKeyPem);
         return hasher.digest("hex");
     }
+
+    async encryptRSA(plaintext: string, publicKeyBase64: string): Promise<string> {
+        try {
+            const keyData = new Uint8Array(Buffer.from(publicKeyBase64, "base64"));
+            const key = await crypto.subtle.importKey(
+                "spki",
+                keyData,
+                {
+                    name: "RSA-OAEP",
+                    hash: "SHA-256",
+                },
+                false,
+                ["encrypt"]
+            );
+
+            const data = new TextEncoder().encode(plaintext);
+            const encrypted = await crypto.subtle.encrypt(
+                { name: "RSA-OAEP" },
+                key,
+                data
+            );
+            return Buffer.from(encrypted).toString("base64");
+        } catch (e) {
+            console.error("[BunCryptoService] RSA encryption failed", e);
+            throw new Error(`RSA encryption failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+    }
 }

@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="bun test" tests="234" assertions="690" failures="0" skipped="0" time="15.045114">
+  <testsuite name="src/i18n.test.ts" file="src/i18n.test.ts" tests="4" assertions="3" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="i18n configuration" file="src/i18n.test.ts" line="4" tests="4" assertions="3" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="initializes with english as fallback language" classname="i18n configuration" time="0.000233" file="src/i18n.test.ts" line="5" assertions="2" />
+      <testcase name="contains english translations" classname="i18n configuration" time="0.000213" file="src/i18n.test.ts" line="10" assertions="1" />
+      <testcase name="contains polish translations" classname="i18n configuration" time="0.000053" file="src/i18n.test.ts" line="15" assertions="0" />
+      <testcase name="can switch to polish language" classname="i18n configuration" time="0.000064" file="src/i18n.test.ts" line="21" assertions="0" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/test/auth-integration.test.ts" file="backend/test/auth-integration.test.ts" tests="5" assertions="11" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Auth Controller Integration" file="backend/test/auth-integration.test.ts" line="20" tests="5" assertions="11" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testsuite name="GET /me" file="backend/test/auth-integration.test.ts" line="48" tests="1" assertions="1" failures="0" skipped="0" time="0.023" hostname="polpc14765">
+        <testcase name="should return 401 without token" classname="GET /me &amp;gt; Auth Controller Integration" time="0.023164" file="backend/test/auth-integration.test.ts" line="49" assertions="1" />
+      </testsuite>
+      <testsuite name="POST /logout" file="backend/test/auth-integration.test.ts" line="58" tests="1" assertions="2" failures="0" skipped="0" time="0.006" hostname="polpc14765">
+        <testcase name="should clear cookie" classname="POST /logout &amp;gt; Auth Controller Integration" time="0.006757" file="backend/test/auth-integration.test.ts" line="59" assertions="2" />
+      </testsuite>
+      <testsuite name="POST /mock-register" file="backend/test/auth-integration.test.ts" line="72" tests="3" assertions="8" failures="0" skipped="0" time="0.056" hostname="polpc14765">
+        <testcase name="should register a user WITHOUT token (creates own family)" classname="POST /mock-register &amp;gt; Auth Controller Integration" time="0.02411" file="backend/test/auth-integration.test.ts" line="73" assertions="3" />
+        <testcase name="should register a user with a valid token" classname="POST /mock-register &amp;gt; Auth Controller Integration" time="0.022295" file="backend/test/auth-integration.test.ts" line="92" assertions="3" />
+        <testcase name="should reject invalid invitation token" classname="POST /mock-register &amp;gt; Auth Controller Integration" time="0.010682" file="backend/test/auth-integration.test.ts" line="126" assertions="2" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/test/PropagationService.test.ts" file="backend/test/PropagationService.test.ts" tests="7" assertions="24" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="PropagationService" file="backend/test/PropagationService.test.ts" line="6" tests="7" assertions="24" failures="0" skipped="0" time="0.001" hostname="polpc14765">
+      <testcase name="should skip one-time rules" classname="PropagationService" time="0.001019" file="backend/test/PropagationService.test.ts" line="15" assertions="4" />
+      <testcase name="should alternate parent for odd week difference (Continuity)" classname="PropagationService" time="0.000171" file="backend/test/PropagationService.test.ts" line="63" assertions="3" />
+      <testcase name="should carry over anchorDate for CUSTOM_BLOCK correctly" classname="PropagationService" time="0.000157" file="backend/test/PropagationService.test.ts" line="122" assertions="6" />
+      <testcase name="should calculate CUSTOM_SEQUENCE parity correctly" classname="PropagationService" time="0.000133" file="backend/test/PropagationService.test.ts" line="160" assertions="5" />
+      <testcase name="should propagate WEEKLY pattern without parity swap" classname="PropagationService" time="0.000079" file="backend/test/PropagationService.test.ts" line="194" assertions="2" />
+      <testcase name="should propagate WEEKEND pattern without parity swap" classname="PropagationService" time="0.000139" file="backend/test/PropagationService.test.ts" line="222" assertions="2" />
+      <testcase name="should clear holidays when propagating" classname="PropagationService" time="0.000172" file="backend/test/PropagationService.test.ts" line="250" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/test/webauthn.test.ts" file="backend/test/webauthn.test.ts" tests="3" assertions="9" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="WebAuthnController" file="backend/test/webauthn.test.ts" line="18" tests="3" assertions="9" failures="0" skipped="0" time="0.004" hostname="polpc14765">
+      <testcase name="should generate registration options" classname="WebAuthnController" time="0.002005" file="backend/test/webauthn.test.ts" line="23" assertions="3" />
+      <testcase name="should allow mock verification in test env" classname="WebAuthnController" time="0.002421" file="backend/test/webauthn.test.ts" line="32" assertions="4" />
+      <testcase name="should return status hasPasskey=true after registration" classname="WebAuthnController" time="0.000232" file="backend/test/webauthn.test.ts" line="56" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/ForensicChain.test.ts" file="backend/tests/ForensicChain.test.ts" tests="4" assertions="8" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Forensic Chain Integrity Audit" file="backend/tests/ForensicChain.test.ts" line="5" tests="4" assertions="8" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="Passes for a valid chain" classname="Forensic Chain Integrity Audit" time="0.000691" file="backend/tests/ForensicChain.test.ts" line="74" assertions="2" />
+      <testcase name="Detects Tampering (SQL/Direct Edit simulation)" classname="Forensic Chain Integrity Audit" time="0.000213" file="backend/tests/ForensicChain.test.ts" line="86" assertions="2" />
+      <testcase name="Detects Deletion (Rollback/Gap)" classname="Forensic Chain Integrity Audit" time="0.000154" file="backend/tests/ForensicChain.test.ts" line="103" assertions="2" />
+      <testcase name="Detects Broken Hash Chain" classname="Forensic Chain Integrity Audit" time="0.000192" file="backend/tests/ForensicChain.test.ts" line="118" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/RuleEngine.test.ts" file="backend/tests/RuleEngine.test.ts" tests="2" assertions="43" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Rule Priority Engine (Formal Verification)" file="backend/tests/RuleEngine.test.ts" line="10" tests="2" assertions="43" failures="0" skipped="0" time="0.001" hostname="polpc14765">
+      <testcase name="should strictly respect the N+1 override property (Tower of Overrides)" classname="Rule Priority Engine (Formal Verification)" time="0.001006" file="backend/tests/RuleEngine.test.ts" line="25" assertions="40" />
+      <testcase name="should respect priority even when rules are inserted out of order (Sandwich Test)" classname="Rule Priority Engine (Formal Verification)" time="0.000148" file="backend/tests/RuleEngine.test.ts" line="81" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/ForensicServiceFailure.test.ts" file="backend/tests/ForensicServiceFailure.test.ts" tests="5" assertions="12" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="ForensicService Failure &amp; Retry Proof (Idempotency)" file="backend/tests/ForensicServiceFailure.test.ts" line="38" tests="5" assertions="12" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="Create: Survives crash BEFORE save (DB Empty) -&gt; Retry succeeds" classname="ForensicService Failure &amp;amp; Retry Proof (Idempotency)" time="0.000391" file="backend/tests/ForensicServiceFailure.test.ts" line="71" assertions="3" />
+      <testcase name="Create: Survives crash AFTER save (Client Timeout) -&gt; Retry returns existing" classname="ForensicService Failure &amp;amp; Retry Proof (Idempotency)" time="0.000189" file="backend/tests/ForensicServiceFailure.test.ts" line="85" assertions="4" />
+      <testcase name="Finalize: Resume from &apos;Signed Checkpoint&apos; (Skip Verify/Save Sig, Do Anchor)" classname="ForensicService Failure &amp;amp; Retry Proof (Idempotency)" time="0.000173" file="backend/tests/ForensicServiceFailure.test.ts" line="140" assertions="2" />
+      <testcase name="Finalize: Resume from &apos;Anchored Checkpoint&apos; (Skip Verify/Save Sig, Skip Anchor)" classname="ForensicService Failure &amp;amp; Retry Proof (Idempotency)" time="0.000103" file="backend/tests/ForensicServiceFailure.test.ts" line="156" assertions="2" />
+      <testcase name="Finalize: Recover from Zombie Tx (Verify Hash, Save TxId)" classname="ForensicService Failure &amp;amp; Retry Proof (Idempotency)" time="0.000246" file="backend/tests/ForensicServiceFailure.test.ts" line="179" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/ForensicService.test.ts" file="backend/tests/ForensicService.test.ts" tests="2" assertions="3" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="ForensicService Idempotency" file="backend/tests/ForensicService.test.ts" line="34" tests="2" assertions="3" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="createPendingDocument is idempotent" classname="ForensicService Idempotency" time="0.00023" file="backend/tests/ForensicService.test.ts" line="37" assertions="1" />
+      <testcase name="finalizeDocument is idempotent (Scenario: Already Finalized)" classname="ForensicService Idempotency" time="0.000273" file="backend/tests/ForensicService.test.ts" line="56" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/InMemoryTimelineRepository.test.ts" file="backend/tests/InMemoryTimelineRepository.test.ts" tests="4" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="InMemoryTimelineRepository - findByDateRange" file="backend/tests/InMemoryTimelineRepository.test.ts" line="5" tests="4" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should return empty array when no items exist in range" classname="InMemoryTimelineRepository - findByDateRange" time="0.000155" file="backend/tests/InMemoryTimelineRepository.test.ts" line="12" assertions="1" />
+      <testcase name="should return items within the date range" classname="InMemoryTimelineRepository - findByDateRange" time="0.00031" file="backend/tests/InMemoryTimelineRepository.test.ts" line="17" assertions="4" />
+      <testcase name="should include items on boundary dates" classname="InMemoryTimelineRepository - findByDateRange" time="0.00003" file="backend/tests/InMemoryTimelineRepository.test.ts" line="60" assertions="1" />
+      <testcase name="should return items from multiple dates in range" classname="InMemoryTimelineRepository - findByDateRange" time="0.000092" file="backend/tests/InMemoryTimelineRepository.test.ts" line="90" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/ScheduleService.test.ts" file="backend/tests/ScheduleService.test.ts" tests="4" assertions="31" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="ScheduleService" file="backend/tests/ScheduleService.test.ts" line="10" tests="4" assertions="31" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should create a rule and generate tagged entries" classname="ScheduleService" time="0.000466" file="backend/tests/ScheduleService.test.ts" line="21" assertions="20" />
+      <testcase name="should cascade delete entries when rule is deleted" classname="ScheduleService" time="0.000226" file="backend/tests/ScheduleService.test.ts" line="46" assertions="3" />
+      <testcase name="should NOT delete manual entries when deleting a rule" classname="ScheduleService" time="0.000226" file="backend/tests/ScheduleService.test.ts" line="76" assertions="2" />
+      <testcase name="should allow multiple rules to coexist and generate distinct entries" classname="ScheduleService" time="0.00031" file="backend/tests/ScheduleService.test.ts" line="111" assertions="6" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/TimelineService.test.ts" file="backend/tests/TimelineService.test.ts" tests="4" assertions="11" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="TimelineService - getItemsByDateRange" file="backend/tests/TimelineService.test.ts" line="8" tests="4" assertions="11" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should validate date format and throw error for invalid dates" classname="TimelineService - getItemsByDateRange" time="0.000274" file="backend/tests/TimelineService.test.ts" line="17" assertions="2" />
+      <testcase name="should return empty array when no items in range" classname="TimelineService - getItemsByDateRange" time="0.000071" file="backend/tests/TimelineService.test.ts" line="27" assertions="1" />
+      <testcase name="should return items sorted by date ascending, then creation time descending" classname="TimelineService - getItemsByDateRange" time="0.000352" file="backend/tests/TimelineService.test.ts" line="32" assertions="4" />
+      <testcase name="should handle multiple event types in range" classname="TimelineService - getItemsByDateRange" time="0.000142" file="backend/tests/TimelineService.test.ts" line="90" assertions="4" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/CustodyGenerator.test.ts" file="backend/tests/CustodyGenerator.test.ts" tests="8" assertions="51" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="CustodyGenerator" file="backend/tests/CustodyGenerator.test.ts" line="8" tests="8" assertions="51" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="Case 1: The &apos;Friday Handover&apos; (Split Day)" classname="CustodyGenerator" time="0.000319" file="backend/tests/CustodyGenerator.test.ts" line="15" assertions="18" />
+      <testcase name="Case 2: The &apos;Custom Block&apos; Rotation" classname="CustodyGenerator" time="0.000171" file="backend/tests/CustodyGenerator.test.ts" line="67" assertions="6" />
+      <testcase name="Case 6: Every Other Tuesday ([1, 13] Pattern)" classname="CustodyGenerator" time="0.00023" file="backend/tests/CustodyGenerator.test.ts" line="100" assertions="4" />
+      <testcase name="Case 3: Holiday Override (Priority)" classname="CustodyGenerator" time="0.000094" file="backend/tests/CustodyGenerator.test.ts" line="131" assertions="2" />
+      <testcase name="Case 4: The &apos;Sandwich&apos; Day (3 splits)" classname="CustodyGenerator" time="0.000151" file="backend/tests/CustodyGenerator.test.ts" line="181" assertions="10" />
+      <testcase name="Case 5: Month/Year Boundaries" classname="CustodyGenerator" time="0.000145" file="backend/tests/CustodyGenerator.test.ts" line="223" assertions="2" />
+      <testcase name="Case 7: Regression - Monday Start with Handover Time (User Bug Report)" classname="CustodyGenerator" time="0.000077" file="backend/tests/CustodyGenerator.test.ts" line="242" assertions="7" />
+      <testcase name="Case 8: Daylight Saving Time (DST) Math Bug" classname="CustodyGenerator" time="0.000223" file="backend/tests/CustodyGenerator.test.ts" line="272" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/CustodyPropagationRefactor.test.ts" file="backend/tests/CustodyPropagationRefactor.test.ts" tests="2" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Custody Propagation Stable Math" file="backend/tests/CustodyPropagationRefactor.test.ts" line="8" tests="2" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should maintain phase parity for Alternating Weekend after propagation" classname="Custody Propagation Stable Math" time="0.000519" file="backend/tests/CustodyPropagationRefactor.test.ts" line="12" assertions="6" />
+      <testcase name="should correctly initialize anchorDate in ScheduleService" classname="Custody Propagation Stable Math" time="0.000232" file="backend/tests/CustodyPropagationRefactor.test.ts" line="56" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/AlternatingWeekendReproduction.test.ts" file="backend/tests/AlternatingWeekendReproduction.test.ts" tests="1" assertions="4" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Alternating Weekend Reproduction (Feb 2026)" file="backend/tests/AlternatingWeekendReproduction.test.ts" line="6" tests="1" assertions="4" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should generate entries for the SECOND weekend (Feb 20-22) when starting on Feb 6" classname="Alternating Weekend Reproduction (Feb 2026)" time="0.000392" file="backend/tests/AlternatingWeekendReproduction.test.ts" line="9" assertions="4" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/tests/forensic_usage_demo.test.ts" file="backend/tests/forensic_usage_demo.test.ts" tests="2" assertions="4" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Forensic System Modularity" file="backend/tests/forensic_usage_demo.test.ts" line="19" tests="2" assertions="4" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="Supports TimeLineEntry items" classname="Forensic System Modularity" time="0.000189" file="backend/tests/forensic_usage_demo.test.ts" line="20" assertions="2" />
+      <testcase name="Supports OfficialDocument items" classname="Forensic System Modularity" time="0.000027" file="backend/tests/forensic_usage_demo.test.ts" line="38" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/hooks/useUpcomingActivity.test.ts" file="src/hooks/useUpcomingActivity.test.ts" tests="5" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="useUpcomingActivity – filtering &amp; sorting logic" file="src/hooks/useUpcomingActivity.test.ts" line="41" tests="5" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="picks the soonest activity from a mixed list" classname="useUpcomingActivity – filtering &amp;amp; sorting logic" time="0" file="src/hooks/useUpcomingActivity.test.ts" line="42" assertions="1" />
+      <testcase name="returns empty array when no items in range" classname="useUpcomingActivity – filtering &amp;amp; sorting logic" time="0.000734" file="src/hooks/useUpcomingActivity.test.ts" line="53" assertions="2" />
+      <testcase name="excludes items with date before today" classname="useUpcomingActivity – filtering &amp;amp; sorting logic" time="0.00004" file="src/hooks/useUpcomingActivity.test.ts" line="59" assertions="2" />
+      <testcase name="excludes deleted items" classname="useUpcomingActivity – filtering &amp;amp; sorting logic" time="0.00006" file="src/hooks/useUpcomingActivity.test.ts" line="69" assertions="1" />
+      <testcase name="later time on same day sorts after earlier time" classname="useUpcomingActivity – filtering &amp;amp; sorting logic" time="0.000041" file="src/hooks/useUpcomingActivity.test.ts" line="75" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/lib/utils.test.ts" file="src/lib/utils.test.ts" tests="1" assertions="3" failures="0" skipped="0" time="0.002" hostname="polpc14765">
+    <testcase name="cn merges classes correctly" classname="" time="0.002042" file="src/lib/utils.test.ts" line="4" assertions="3" />
+  </testsuite>
+  <testsuite name="src/lib/calendar-utils.test.ts" file="src/lib/calendar-utils.test.ts" tests="3" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="calendar-utils" file="src/lib/calendar-utils.test.ts" line="5" tests="3" assertions="7" failures="0" skipped="0" time="0.007" hostname="polpc14765">
+      <testcase name="getCalendarDays returns correct number of days for January 2026" classname="calendar-utils" time="0.000368" file="src/lib/calendar-utils.test.ts" line="6" assertions="3" />
+      <testcase name="isWeekend correctly identifies Saturday and Sunday" classname="calendar-utils" time="0.000085" file="src/lib/calendar-utils.test.ts" line="18" assertions="3" />
+      <testcase name="getMonthYearLabel returns correctly formatted string" classname="calendar-utils" time="0.007278" file="src/lib/calendar-utils.test.ts" line="28" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/lib/crypto-utils.test.ts" file="src/lib/crypto-utils.test.ts" tests="3" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="crypto-utils" file="src/lib/crypto-utils.test.ts" line="4" tests="3" assertions="5" failures="0" skipped="0" time="0.06" hostname="polpc14765">
+      <testcase name="should encrypt and decrypt a string" classname="crypto-utils" time="0.003835" file="src/lib/crypto-utils.test.ts" line="28" assertions="3" />
+      <testcase name="should encrypt and decrypt a JSON object string" classname="crypto-utils" time="0.001221" file="src/lib/crypto-utils.test.ts" line="42" assertions="1" />
+      <testcase name="should fail to decrypt with wrong key" classname="crypto-utils" time="0.056908" file="src/lib/crypto-utils.test.ts" line="53" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="tests/e2e-backend/full_registration_flow.test.ts" file="tests/e2e-backend/full_registration_flow.test.ts" tests="6" assertions="22" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Admin-Initiated Full Registration Flow" file="tests/e2e-backend/full_registration_flow.test.ts" line="19" tests="6" assertions="22" failures="0" skipped="0" time="0.042" hostname="polpc14765">
+      <testcase name="Step 1: Admin initiates registration" classname="Admin-Initiated Full Registration Flow" time="0.006562" file="tests/e2e-backend/full_registration_flow.test.ts" line="49" assertions="7" />
+      <testcase name="Step 2: Parent A opens invitation email (tracking)" classname="Admin-Initiated Full Registration Flow" time="0.010215" file="tests/e2e-backend/full_registration_flow.test.ts" line="78" assertions="3" />
+      <testcase name="Step 3: Parent A registers via token" classname="Admin-Initiated Full Registration Flow" time="0.009236" file="tests/e2e-backend/full_registration_flow.test.ts" line="97" assertions="4" />
+      <testcase name="Step 5: Parent B opens invitation email (tracking)" classname="Admin-Initiated Full Registration Flow" time="0.008751" file="tests/e2e-backend/full_registration_flow.test.ts" line="119" assertions="2" />
+      <testcase name="Step 6: Parent B registers via token" classname="Admin-Initiated Full Registration Flow" time="0.007085" file="tests/e2e-backend/full_registration_flow.test.ts" line="132" assertions="4" />
+      <testcase name="Step 7: Final registration process status is COMPLETED" classname="Admin-Initiated Full Registration Flow" time="0.002592" file="tests/e2e-backend/full_registration_flow.test.ts" line="153" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="tests/e2e-backend/forensic_flow.test.ts" file="tests/e2e-backend/forensic_flow.test.ts" tests="5" assertions="14" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Forensic Document Pipeline E2E" file="tests/e2e-backend/forensic_flow.test.ts" line="16" tests="5" assertions="14" failures="0" skipped="0" time="4.398" hostname="polpc14765">
+      <testcase name="User A can register and add a passkey" classname="Forensic Document Pipeline E2E" time="0.163617" file="tests/e2e-backend/forensic_flow.test.ts" line="77" assertions="3" />
+      <testcase name="User B can register and add a passkey" classname="Forensic Document Pipeline E2E" time="0.154932" file="tests/e2e-backend/forensic_flow.test.ts" line="89" assertions="3" />
+      <testcase name="User A can create a Pending Document" classname="Forensic Document Pipeline E2E" time="0.012646" file="tests/e2e-backend/forensic_flow.test.ts" line="108" assertions="3" />
+      <testcase name="User B can sign the SAME document (Multi-Sig)" classname="Forensic Document Pipeline E2E" time="0.009776" file="tests/e2e-backend/forensic_flow.test.ts" line="180" assertions="3" />
+      <testcase name="Scheduler finalizes the document" classname="Forensic Document Pipeline E2E" time="4.060635" file="tests/e2e-backend/forensic_flow.test.ts" line="224" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="tests/e2e-backend/admin_reg_flow.test.ts" file="tests/e2e-backend/admin_reg_flow.test.ts" tests="2" assertions="26" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Admin-Initiated Registration Flow E2E" file="tests/e2e-backend/admin_reg_flow.test.ts" line="9" tests="2" assertions="26" failures="0" skipped="0" time="0.072" hostname="polpc14765">
+      <testcase name="Full flow: Admin -&gt; Parent A -&gt; Parent B" classname="Admin-Initiated Registration Flow E2E" time="0.059493" file="tests/e2e-backend/admin_reg_flow.test.ts" line="30" assertions="23" />
+      <testcase name="Registration without token succeeds (creates own family)" classname="Admin-Initiated Registration Flow E2E" time="0.013063" file="tests/e2e-backend/admin_reg_flow.test.ts" line="107" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/test/auth/email.test.ts" file="backend/test/auth/email.test.ts" tests="2" assertions="4" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Email (Console Only)" file="backend/test/auth/email.test.ts" line="3" tests="2" assertions="4" failures="0" skipped="0" time="0.002" hostname="polpc14765">
+      <testcase name="should log email in dev mode" classname="Email (Console Only)" time="0.002723" file="backend/test/auth/email.test.ts" line="4" assertions="3" />
+      <testcase name="should use custom frontend URL from env" classname="Email (Console Only)" time="0.000374" file="backend/test/auth/email.test.ts" line="37" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/test/auth/jwt.test.ts" file="backend/test/auth/jwt.test.ts" tests="4" assertions="12" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="JWT" file="backend/test/auth/jwt.test.ts" line="4" tests="4" assertions="12" failures="0" skipped="0" time="0.001" hostname="polpc14765">
+      <testcase name="should sign and verify a valid token" classname="JWT" time="0.001997" file="backend/test/auth/jwt.test.ts" line="5" assertions="7" />
+      <testcase name="should return null for invalid token" classname="JWT" time="0.000365" file="backend/test/auth/jwt.test.ts" line="25" assertions="1" />
+      <testcase name="should return null for tampered token" classname="JWT" time="0.000362" file="backend/test/auth/jwt.test.ts" line="30" assertions="1" />
+      <testcase name="should generate a secure random secret" classname="JWT" time="0.000114" file="backend/test/auth/jwt.test.ts" line="39" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/scheduler/CustodyPreviewModal.test.tsx" file="src/components/scheduler/CustodyPreviewModal.test.tsx" tests="8" assertions="10" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="CustodyPreviewModal" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="37" tests="8" assertions="10" failures="0" skipped="0" time="0.223" hostname="polpc14765">
+      <testcase name="renders successfully when open and displays calendar" classname="CustodyPreviewModal" time="0.102929" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="66" assertions="3" />
+      <testcase name="generates correct explanation for ALTERNATING_WEEKEND" classname="CustodyPreviewModal" time="0.022991" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="89" assertions="1" />
+      <testcase name="generates correct explanation for CUSTOM_BLOCK" classname="CustodyPreviewModal" time="0.020102" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="108" assertions="1" />
+      <testcase name="generates correct explanation for CUSTOM_SEQUENCE" classname="CustodyPreviewModal" time="0.018561" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="135" assertions="1" />
+      <testcase name="disables confirm button when isLoading is true" classname="CustodyPreviewModal" time="0.015316" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="159" assertions="1" />
+      <testcase name="disables confirm button when entries are empty" classname="CustodyPreviewModal" time="0.014824" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="178" assertions="1" />
+      <testcase name="calls onConfirm when confirm button is clicked" classname="CustodyPreviewModal" time="0.016181" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="197" assertions="1" />
+      <testcase name="calls onClose when cancel button is clicked" classname="CustodyPreviewModal" time="0.016164" file="src/components/scheduler/CustodyPreviewModal.test.tsx" line="217" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/scheduler/__tests__/TaskManagerTimeout.test.ts" file="backend/src/scheduler/__tests__/TaskManagerTimeout.test.ts" tests="2" assertions="6" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="TaskManager Timeout Logic" file="backend/src/scheduler/__tests__/TaskManagerTimeout.test.ts" line="21" tests="2" assertions="6" failures="0" skipped="0" time="0.809" hostname="polpc14765">
+      <testcase name="should mark processing task as TIMED_OUT if it exceeds TTL" classname="TaskManager Timeout Logic" time="0.501327" file="backend/src/scheduler/__tests__/TaskManagerTimeout.test.ts" line="42" assertions="4" />
+      <testcase name="should NOT mark processing task as TIMED_OUT if it is within TTL" classname="TaskManager Timeout Logic" time="0.308257" file="backend/src/scheduler/__tests__/TaskManagerTimeout.test.ts" line="89" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/scheduler/__tests__/TaskManager.test.ts" file="backend/src/scheduler/__tests__/TaskManager.test.ts" tests="5" assertions="13" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Task Scheduler &amp; Integrity Pipeline" file="backend/src/scheduler/__tests__/TaskManager.test.ts" line="116" tests="5" assertions="13" failures="0" skipped="0" time="1.352" hostname="polpc14765">
+      <testcase name="Duplicate Prevention: Verify strict deduplication for same payload" classname="Task Scheduler &amp;amp; Integrity Pipeline" time="0.220822" file="backend/src/scheduler/__tests__/TaskManager.test.ts" line="141" assertions="3" />
+      <testcase name="Full Pipeline Flow: Sync -&gt; Integrity -&gt; Blockchain" classname="Task Scheduler &amp;amp; Integrity Pipeline" time="0.109356" file="backend/src/scheduler/__tests__/TaskManager.test.ts" line="170" assertions="4" />
+      <testcase name="Idempotency &amp; Failure Recovery: Simulate network failure" classname="Task Scheduler &amp;amp; Integrity Pipeline" time="0.312334" file="backend/src/scheduler/__tests__/TaskManager.test.ts" line="289" assertions="2" />
+      <testcase name="Distributed Locking: Prevent multiple workers from claiming the same task" classname="Task Scheduler &amp;amp; Integrity Pipeline" time="0.509219" file="backend/src/scheduler/__tests__/TaskManager.test.ts" line="352" assertions="1" />
+      <testcase name="Zombie Recovery: Pick up tasks with expired locks" classname="Task Scheduler &amp;amp; Integrity Pipeline" time="0.202595" file="backend/src/scheduler/__tests__/TaskManager.test.ts" line="382" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/scheduler/handlers/ProcessForensicIntent.test.ts" file="backend/src/scheduler/handlers/ProcessForensicIntent.test.ts" tests="2" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="ProcessForensicIntent" file="backend/src/scheduler/handlers/ProcessForensicIntent.test.ts" line="6" tests="2" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should bail out if markProcessing returns false (already claimed)" classname="ProcessForensicIntent" time="0.000504" file="backend/src/scheduler/handlers/ProcessForensicIntent.test.ts" line="7" assertions="4" />
+      <testcase name="should process and complete if markProcessing returns true" classname="ProcessForensicIntent" time="0.000109" file="backend/src/scheduler/handlers/ProcessForensicIntent.test.ts" line="28" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/application/__tests__/TimelineForensic.test.ts" file="backend/src/application/__tests__/TimelineForensic.test.ts" tests="3" assertions="6" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Timeline Forensic Integration" file="backend/src/application/__tests__/TimelineForensic.test.ts" line="19" tests="3" assertions="6" failures="0" skipped="0" time="0.003" hostname="polpc14765">
+      <testcase name="create triggers forensic document creation" classname="Timeline Forensic Integration" time="0.00308" file="backend/src/application/__tests__/TimelineForensic.test.ts" line="67" assertions="2" />
+      <testcase name="update triggers forensic document creation" classname="Timeline Forensic Integration" time="0.000894" file="backend/src/application/__tests__/TimelineForensic.test.ts" line="83" assertions="2" />
+      <testcase name="delete triggers forensic document creation" classname="Timeline Forensic Integration" time="0.000342" file="backend/src/application/__tests__/TimelineForensic.test.ts" line="104" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/application/__tests__/TimelineAudit.test.ts" file="backend/src/application/__tests__/TimelineAudit.test.ts" tests="5" assertions="19" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Timeline Audit System" file="backend/src/application/__tests__/TimelineAudit.test.ts" line="9" tests="5" assertions="19" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should create an item with initial audit trail" classname="Timeline Audit System" time="0.000707" file="backend/src/application/__tests__/TimelineAudit.test.ts" line="67" assertions="5" />
+      <testcase name="should track multiple updates in the audit trail" classname="Timeline Audit System" time="0.000358" file="backend/src/application/__tests__/TimelineAudit.test.ts" line="86" assertions="4" />
+      <testcase name="should track who made the update" classname="Timeline Audit System" time="0.000176" file="backend/src/application/__tests__/TimelineAudit.test.ts" line="118" assertions="2" />
+      <testcase name="should perform soft delete and record it in audit trail" classname="Timeline Audit System" time="0.000238" file="backend/src/application/__tests__/TimelineAudit.test.ts" line="141" assertions="6" />
+      <testcase name="should only track actual changes in update" classname="Timeline Audit System" time="0.000565" file="backend/src/application/__tests__/TimelineAudit.test.ts" line="171" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/application/__tests__/TimelineService.test.ts" file="backend/src/application/__tests__/TimelineService.test.ts" tests="16" assertions="30" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="TimelineService" file="backend/src/application/__tests__/TimelineService.test.ts" line="20" tests="16" assertions="30" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testsuite name="createItem" file="backend/src/application/__tests__/TimelineService.test.ts" line="69" tests="6" assertions="15" failures="0" skipped="0" time="0.001" hostname="polpc14765">
+        <testcase name="should create a valid medical visit item (encrypted)" classname="createItem &amp;gt; TimelineService" time="0.001095" file="backend/src/application/__tests__/TimelineService.test.ts" line="70" assertions="8" />
+        <testcase name="should create a medication item" classname="createItem &amp;gt; TimelineService" time="0.000063" file="backend/src/application/__tests__/TimelineService.test.ts" line="97" assertions="2" />
+        <testcase name="should reject handover with past date" classname="createItem &amp;gt; TimelineService" time="0.000517" file="backend/src/application/__tests__/TimelineService.test.ts" line="116" assertions="1" />
+        <testcase name="should accept handover with today&apos;s date" classname="createItem &amp;gt; TimelineService" time="0.000126" file="backend/src/application/__tests__/TimelineService.test.ts" line="137" assertions="1" />
+        <testcase name="should reject medical visit without diagnosis" classname="createItem &amp;gt; TimelineService" time="0.000842" file="backend/src/application/__tests__/TimelineService.test.ts" line="155" assertions="1" />
+        <testcase name="should create an incident with severity" classname="createItem &amp;gt; TimelineService" time="0.000689" file="backend/src/application/__tests__/TimelineService.test.ts" line="170" assertions="2" />
+      </testsuite>
+      <testsuite name="getItemsByDate" file="backend/src/application/__tests__/TimelineService.test.ts" line="187" tests="3" assertions="4" failures="0" skipped="0" time="0.014" hostname="polpc14765">
+        <testcase name="should return items sorted by creation time (newest first)" classname="getItemsByDate &amp;gt; TimelineService" time="0.014702" file="backend/src/application/__tests__/TimelineService.test.ts" line="188" assertions="2" />
+        <testcase name="should reject invalid date format" classname="getItemsByDate &amp;gt; TimelineService" time="0.000613" file="backend/src/application/__tests__/TimelineService.test.ts" line="223" assertions="1" />
+        <testcase name="should return empty array for date with no items" classname="getItemsByDate &amp;gt; TimelineService" time="0.000122" file="backend/src/application/__tests__/TimelineService.test.ts" line="229" assertions="1" />
+      </testsuite>
+      <testsuite name="updateItem" file="backend/src/application/__tests__/TimelineService.test.ts" line="235" tests="4" assertions="8" failures="0" skipped="0" time="0" hostname="polpc14765">
+        <testcase name="should update and re-encrypt item" classname="updateItem &amp;gt; TimelineService" time="0.000336" file="backend/src/application/__tests__/TimelineService.test.ts" line="236" assertions="3" />
+        <testcase name="should throw error when updating non-existent item" classname="updateItem &amp;gt; TimelineService" time="0.000079" file="backend/src/application/__tests__/TimelineService.test.ts" line="271" assertions="1" />
+        <testcase name="should throw error when non-owner tries to update" classname="updateItem &amp;gt; TimelineService" time="0.000235" file="backend/src/application/__tests__/TimelineService.test.ts" line="281" assertions="1" />
+        <testcase name="should successfully update an item with non-ISO createdAt (legacy data)" classname="updateItem &amp;gt; TimelineService" time="0.000272" file="backend/src/application/__tests__/TimelineService.test.ts" line="301" assertions="3" />
+      </testsuite>
+      <testsuite name="deleteItem" file="backend/src/application/__tests__/TimelineService.test.ts" line="345" tests="3" assertions="3" failures="0" skipped="0" time="0" hostname="polpc14765">
+        <testcase name="should delete an existing item" classname="deleteItem &amp;gt; TimelineService" time="0.000155" file="backend/src/application/__tests__/TimelineService.test.ts" line="346" assertions="1" />
+        <testcase name="should throw error when deleting non-existent item" classname="deleteItem &amp;gt; TimelineService" time="0.000046" file="backend/src/application/__tests__/TimelineService.test.ts" line="367" assertions="1" />
+        <testcase name="should throw error when non-owner tries to delete" classname="deleteItem &amp;gt; TimelineService" time="0.000065" file="backend/src/application/__tests__/TimelineService.test.ts" line="377" assertions="1" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/application/__tests__/ChildDeletion.test.ts" file="backend/src/application/__tests__/ChildDeletion.test.ts" tests="3" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="Child Management Service Enhancements" file="backend/src/application/__tests__/ChildDeletion.test.ts" line="11" tests="3" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should update child color correctly" classname="Child Management Service Enhancements" time="0.000366" file="backend/src/application/__tests__/ChildDeletion.test.ts" line="27" assertions="2" />
+      <testcase name="should prevent deletion of a child if they have linked timeline items" classname="Child Management Service Enhancements" time="0.000343" file="backend/src/application/__tests__/ChildDeletion.test.ts" line="37" assertions="2" />
+      <testcase name="should allow deletion of a child if they have NO linked timeline items" classname="Child Management Service Enhancements" time="0.000156" file="backend/src/application/__tests__/ChildDeletion.test.ts" line="62" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/visuals/DayCellBackground.test.tsx" file="src/components/calendar/visuals/DayCellBackground.test.tsx" tests="3" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="DayCellBackground" file="src/components/calendar/visuals/DayCellBackground.test.tsx" line="18" tests="3" assertions="5" failures="0" skipped="0" time="0.008" hostname="polpc14765">
+      <testcase name="renders nothing if entries are empty" classname="DayCellBackground" time="0.00153" file="src/components/calendar/visuals/DayCellBackground.test.tsx" line="19" assertions="1" />
+      <testcase name="renders solid background for single entry" classname="DayCellBackground" time="0.004381" file="src/components/calendar/visuals/DayCellBackground.test.tsx" line="24" assertions="2" />
+      <testcase name="renders gradient for split day (50/50)" classname="DayCellBackground" time="0.003097" file="src/components/calendar/visuals/DayCellBackground.test.tsx" line="38" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/primary/__tests__/AdminController.test.ts" file="backend/src/adapters/primary/__tests__/AdminController.test.ts" tests="3" assertions="8" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="AdminController" file="backend/src/adapters/primary/__tests__/AdminController.test.ts" line="26" tests="3" assertions="8" failures="0" skipped="0" time="0.016" hostname="polpc14765">
+      <testcase name="should list all registrations" classname="AdminController" time="0.005627" file="backend/src/adapters/primary/__tests__/AdminController.test.ts" line="36" assertions="2" />
+      <testcase name="should start a new registration process" classname="AdminController" time="0.007902" file="backend/src/adapters/primary/__tests__/AdminController.test.ts" line="44" assertions="4" />
+      <testcase name="should aggregate logs from all processes" classname="AdminController" time="0.004948" file="backend/src/adapters/primary/__tests__/AdminController.test.ts" line="64" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/primary/__tests__/TimelineController.test.ts" file="backend/src/adapters/primary/__tests__/TimelineController.test.ts" tests="2" assertions="6" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="TimelineController Ciphertext Selection" file="backend/src/adapters/primary/__tests__/TimelineController.test.ts" line="6" tests="2" assertions="6" failures="0" skipped="0" time="0.01" hostname="polpc14765">
+      <testcase name="should flatten encryptedPayload and return only the ciphertext for the specific user" classname="TimelineController Ciphertext Selection" time="0.00594" file="backend/src/adapters/primary/__tests__/TimelineController.test.ts" line="35" assertions="4" />
+      <testcase name="should return empty ciphertext if user ID is not in encryptedPayload" classname="TimelineController Ciphertext Selection" time="0.005518" file="backend/src/adapters/primary/__tests__/TimelineController.test.ts" line="62" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" tests="9" assertions="20" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MongoTimelineRepository" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="8" tests="9" assertions="20" failures="0" skipped="0" time="0.268" hostname="polpc14765">
+      <testcase name="should save and retrieve by id" classname="MongoTimelineRepository" time="0.201609" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="38" assertions="4" />
+      <testcase name="should return null for deleted item using findById" classname="MongoTimelineRepository" time="0.022849" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="48" assertions="1" />
+      <testcase name="should find items by date" classname="MongoTimelineRepository" time="0.028477" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="55" assertions="2" />
+      <testcase name="should find items by date range ignoring deleted ones" classname="MongoTimelineRepository" time="0.008529" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="69" assertions="4" />
+      <testcase name="should update a timeline item" classname="MongoTimelineRepository" time="0.0022" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="94" assertions="3" />
+      <testcase name="should soft delete an item" classname="MongoTimelineRepository" time="0.003225" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="106" assertions="2" />
+      <testcase name="should count items by childId ignoring deleted ones" classname="MongoTimelineRepository" time="0.004891" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="119" assertions="2" />
+      <testcase name="should throw when updating non-existent item" classname="MongoTimelineRepository" time="0.000987" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="140" assertions="1" />
+      <testcase name="should throw when deleting non-existent item" classname="MongoTimelineRepository" time="0.000753" file="backend/src/adapters/secondary/__tests__/MongoTimelineRepository.test.ts" line="144" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" file="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" tests="6" assertions="12" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MongoRegistrationProcessRepository" file="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" line="8" tests="6" assertions="12" failures="0" skipped="0" time="0.209" hostname="polpc14765">
+      <testcase name="should save a new process and find it by id" classname="MongoRegistrationProcessRepository" time="0.193488" file="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" line="25" assertions="2" />
+      <testcase name="should return null for invalid object id" classname="MongoRegistrationProcessRepository" time="0.005693" file="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" line="43" assertions="1" />
+      <testcase name="should update an existing process" classname="MongoRegistrationProcessRepository" time="0.005084" file="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" line="48" assertions="2" />
+      <testcase name="should throw when updating non-existent process" classname="MongoRegistrationProcessRepository" time="0.001682" file="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" line="68" assertions="1" />
+      <testcase name="should find by family id and token" classname="MongoRegistrationProcessRepository" time="0.003667" file="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" line="73" assertions="3" />
+      <testcase name="should append timeline event" classname="MongoRegistrationProcessRepository" time="0.002685" file="backend/src/adapters/secondary/__tests__/MongoRegistrationProcessRepository.test.ts" line="95" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/PasskeyRepository.contract.test.ts" file="backend/src/adapters/secondary/__tests__/PasskeyRepository.contract.test.ts" tests="2" assertions="10" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="PasskeyRepository contract" file="backend/src/adapters/secondary/__tests__/PasskeyRepository.contract.test.ts" line="51" tests="2" assertions="10" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testsuite name="PasskeyRepository contract (InMemory)" file="backend/src/adapters/secondary/__tests__/PasskeyRepository.contract.test.ts" line="11" tests="1" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+        <testcase name="supports save/find/count/updateCounter contract" classname="PasskeyRepository contract (InMemory) &amp;gt; PasskeyRepository contract" time="0.00029" file="backend/src/adapters/secondary/__tests__/PasskeyRepository.contract.test.ts" line="19" assertions="5" />
+      </testsuite>
+      <testsuite name="Mongo" file="backend/src/adapters/secondary/__tests__/PasskeyRepository.contract.test.ts" line="54" tests="1" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+        <testsuite name="PasskeyRepository contract (Mongo)" file="backend/src/adapters/secondary/__tests__/PasskeyRepository.contract.test.ts" line="11" tests="1" assertions="5" failures="0" skipped="0" time="0.248" hostname="polpc14765">
+          <testcase name="supports save/find/count/updateCounter contract" classname="PasskeyRepository contract (Mongo) &amp;gt; Mongo &amp;gt; PasskeyRepository contract" time="0.24806" file="backend/src/adapters/secondary/__tests__/PasskeyRepository.contract.test.ts" line="19" assertions="5" />
+        </testsuite>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/MongoScheduleRepository.test.ts" file="backend/src/adapters/secondary/__tests__/MongoScheduleRepository.test.ts" tests="5" assertions="11" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MongoScheduleRepository" file="backend/src/adapters/secondary/__tests__/MongoScheduleRepository.test.ts" line="8" tests="5" assertions="11" failures="0" skipped="0" time="0.271" hostname="polpc14765">
+      <testcase name="should save and retrieve a rule" classname="MongoScheduleRepository" time="0.211912" file="backend/src/adapters/secondary/__tests__/MongoScheduleRepository.test.ts" line="40" assertions="4" />
+      <testcase name="should return null for non-existent rule" classname="MongoScheduleRepository" time="0.001881" file="backend/src/adapters/secondary/__tests__/MongoScheduleRepository.test.ts" line="51" assertions="1" />
+      <testcase name="should update an existing rule" classname="MongoScheduleRepository" time="0.00264" file="backend/src/adapters/secondary/__tests__/MongoScheduleRepository.test.ts" line="56" assertions="1" />
+      <testcase name="should find all rules by childId" classname="MongoScheduleRepository" time="0.002813" file="backend/src/adapters/secondary/__tests__/MongoScheduleRepository.test.ts" line="66" assertions="4" />
+      <testcase name="should delete a rule" classname="MongoScheduleRepository" time="0.055061" file="backend/src/adapters/secondary/__tests__/MongoScheduleRepository.test.ts" line="93" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" tests="9" assertions="15" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="InMemoryTimelineRepository" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="5" tests="9" assertions="15" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should save and retrieve items by date" classname="InMemoryTimelineRepository" time="0.000556" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="12" assertions="3" />
+      <testcase name="should return empty array for dates with no items" classname="InMemoryTimelineRepository" time="0.000158" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="35" assertions="1" />
+      <testcase name="should find item by ID" classname="InMemoryTimelineRepository" time="0.000114" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="40" assertions="3" />
+      <testcase name="should return null for non-existent ID" classname="InMemoryTimelineRepository" time="0.000065" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="63" assertions="1" />
+      <testcase name="should update existing items" classname="InMemoryTimelineRepository" time="0.000088" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="68" assertions="2" />
+      <testcase name="should throw error when updating non-existent item" classname="InMemoryTimelineRepository" time="0.000034" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="90" assertions="1" />
+      <testcase name="should delete items" classname="InMemoryTimelineRepository" time="0.000131" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="96" assertions="2" />
+      <testcase name="should throw error when deleting non-existent item" classname="InMemoryTimelineRepository" time="0.000153" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="121" assertions="1" />
+      <testcase name="should store multiple items for the same date" classname="InMemoryTimelineRepository" time="0.000087" file="backend/src/adapters/secondary/__tests__/InMemoryTimelineRepository.test.ts" line="127" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" tests="7" assertions="14" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MongoCustodyRepository" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" line="8" tests="7" assertions="14" failures="0" skipped="0" time="0.225" hostname="polpc14765">
+      <testcase name="should save and retrieve entries by date range" classname="MongoCustodyRepository" time="0.215588" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" line="60" assertions="4" />
+      <testcase name="should retrieve entries for all children if childId is undefined" classname="MongoCustodyRepository" time="0.002611" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" line="70" assertions="3" />
+      <testcase name="should update existing entries on save (upsert behavior)" classname="MongoCustodyRepository" time="0.002405" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" line="81" assertions="2" />
+      <testcase name="should delete entries by rule matching" classname="MongoCustodyRepository" time="0.003489" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" line="92" assertions="2" />
+      <testcase name="should update priority by rule ID" classname="MongoCustodyRepository" time="0.002788" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" line="102" assertions="1" />
+      <testcase name="should delete all entries" classname="MongoCustodyRepository" time="0.001996" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" line="111" assertions="1" />
+      <testcase name="should ignore empty save input" classname="MongoCustodyRepository" time="0.000776" file="backend/src/adapters/secondary/__tests__/MongoCustodyRepository.test.ts" line="120" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" file="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" tests="6" assertions="11" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MongoPasskeyRepository" file="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" line="8" tests="6" assertions="11" failures="0" skipped="0" time="0.223" hostname="polpc14765">
+      <testcase name="should save and retrieve by credentialID" classname="MongoPasskeyRepository" time="0.216073" file="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" line="36" assertions="4" />
+      <testcase name="should return null for non-existent credentialID" classname="MongoPasskeyRepository" time="0.000981" file="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" line="46" assertions="1" />
+      <testcase name="should update existing passkey" classname="MongoPasskeyRepository" time="0.001727" file="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" line="51" assertions="1" />
+      <testcase name="should find multiple by userId" classname="MongoPasskeyRepository" time="0.002509" file="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" line="61" assertions="3" />
+      <testcase name="should count passkeys by userId" classname="MongoPasskeyRepository" time="0.003073" file="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" line="86" assertions="1" />
+      <testcase name="should update counter independently" classname="MongoPasskeyRepository" time="0.001939" file="backend/src/adapters/secondary/__tests__/MongoPasskeyRepository.test.ts" line="97" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/MongoChildRepository.test.ts" file="backend/src/adapters/secondary/__tests__/MongoChildRepository.test.ts" tests="5" assertions="13" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MongoChildRepository" file="backend/src/adapters/secondary/__tests__/MongoChildRepository.test.ts" line="8" tests="5" assertions="13" failures="0" skipped="0" time="0.222" hostname="polpc14765">
+      <testcase name="should save and retrieve a child" classname="MongoChildRepository" time="0.213553" file="backend/src/adapters/secondary/__tests__/MongoChildRepository.test.ts" line="33" assertions="6" />
+      <testcase name="should return null for non-existent child" classname="MongoChildRepository" time="0.001551" file="backend/src/adapters/secondary/__tests__/MongoChildRepository.test.ts" line="47" assertions="1" />
+      <testcase name="should update an existing child" classname="MongoChildRepository" time="0.003032" file="backend/src/adapters/secondary/__tests__/MongoChildRepository.test.ts" line="52" assertions="1" />
+      <testcase name="should find all children by familyId" classname="MongoChildRepository" time="0.00333" file="backend/src/adapters/secondary/__tests__/MongoChildRepository.test.ts" line="62" assertions="4" />
+      <testcase name="should delete a child" classname="MongoChildRepository" time="0.002097" file="backend/src/adapters/secondary/__tests__/MongoChildRepository.test.ts" line="82" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/adapters/secondary/__tests__/MongoForensicRepository.test.ts" file="backend/src/adapters/secondary/__tests__/MongoForensicRepository.test.ts" tests="5" assertions="12" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MongoForensicRepository" file="backend/src/adapters/secondary/__tests__/MongoForensicRepository.test.ts" line="8" tests="5" assertions="12" failures="0" skipped="0" time="0.098" hostname="polpc14765">
+      <testcase name="should save and get document by index" classname="MongoForensicRepository" time="0.059707" file="backend/src/adapters/secondary/__tests__/MongoForensicRepository.test.ts" line="32" assertions="3" />
+      <testcase name="should upsert by index" classname="MongoForensicRepository" time="0.003121" file="backend/src/adapters/secondary/__tests__/MongoForensicRepository.test.ts" line="42" assertions="2" />
+      <testcase name="should get last finalized document" classname="MongoForensicRepository" time="0.008829" file="backend/src/adapters/secondary/__tests__/MongoForensicRepository.test.ts" line="55" assertions="2" />
+      <testcase name="should return all documents sorted by index" classname="MongoForensicRepository" time="0.002661" file="backend/src/adapters/secondary/__tests__/MongoForensicRepository.test.ts" line="65" assertions="3" />
+      <testcase name="should store singleton system state with replacement" classname="MongoForensicRepository" time="0.026346" file="backend/src/adapters/secondary/__tests__/MongoForensicRepository.test.ts" line="75" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/TimelineHistoryDialog.test.tsx" file="src/components/calendar/day-details/components/TimelineHistoryDialog.test.tsx" tests="1" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="TimelineHistoryDialog" file="src/components/calendar/day-details/components/TimelineHistoryDialog.test.tsx" line="75" tests="1" assertions="5" failures="0" skipped="0" time="0.031" hostname="polpc14765">
+      <testcase name="renders child names instead of IDs in audit log" classname="TimelineHistoryDialog" time="0.031438" file="src/components/calendar/day-details/components/TimelineHistoryDialog.test.tsx" line="76" assertions="5" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/composer/forms/MedicalForm.test.tsx" file="src/components/calendar/day-details/composer/forms/MedicalForm.test.tsx" tests="3" assertions="10" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MedicalForm" file="src/components/calendar/day-details/composer/forms/MedicalForm.test.tsx" line="33" tests="3" assertions="10" failures="0" skipped="0" time="0.059" hostname="polpc14765">
+      <testcase name="renders correctly" classname="MedicalForm" time="0.012148" file="src/components/calendar/day-details/composer/forms/MedicalForm.test.tsx" line="34" assertions="3" />
+      <testcase name="shows validation errors when fields are empty" classname="MedicalForm" time="0.027595" file="src/components/calendar/day-details/composer/forms/MedicalForm.test.tsx" line="41" assertions="2" />
+      <testcase name="calls onSubmit with correct data when valid" classname="MedicalForm" time="0.020443" file="src/components/calendar/day-details/composer/forms/MedicalForm.test.tsx" line="50" assertions="5" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/cards/IncidentCard.test.tsx" file="src/components/calendar/day-details/components/cards/IncidentCard.test.tsx" tests="3" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="IncidentCard" file="src/components/calendar/day-details/components/cards/IncidentCard.test.tsx" line="36" tests="3" assertions="7" failures="0" skipped="0" time="0.081" hostname="polpc14765">
+      <testcase name="renders delete button for the owner" classname="IncidentCard" time="0.00458" file="src/components/calendar/day-details/components/cards/IncidentCard.test.tsx" line="64" assertions="2" />
+      <testcase name="hides delete button for non-owners" classname="IncidentCard" time="0.001512" file="src/components/calendar/day-details/components/cards/IncidentCard.test.tsx" line="71" assertions="2" />
+      <testcase name="calls delete API when delete button is clicked by owner" classname="IncidentCard" time="0.076197" file="src/components/calendar/day-details/components/cards/IncidentCard.test.tsx" line="78" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/cards/EncryptedItemCard.test.tsx" file="src/components/calendar/day-details/components/cards/EncryptedItemCard.test.tsx" tests="2" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="EncryptedItemCard" file="src/components/calendar/day-details/components/cards/EncryptedItemCard.test.tsx" line="25" tests="2" assertions="5" failures="0" skipped="0" time="0.005" hostname="polpc14765">
+      <testcase name="renders lock icon and encryption messages" classname="EncryptedItemCard" time="0.004181" file="src/components/calendar/day-details/components/cards/EncryptedItemCard.test.tsx" line="26" assertions="4" />
+      <testcase name="renders AuditIndicator" classname="EncryptedItemCard" time="0.001484" file="src/components/calendar/day-details/components/cards/EncryptedItemCard.test.tsx" line="47" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/cards/AttachmentCard.test.tsx" file="src/components/calendar/day-details/components/cards/AttachmentCard.test.tsx" tests="3" assertions="5" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="AttachmentCard" file="src/components/calendar/day-details/components/cards/AttachmentCard.test.tsx" line="36" tests="3" assertions="5" failures="0" skipped="0" time="0.069" hostname="polpc14765">
+      <testcase name="renders delete button for the owner" classname="AttachmentCard" time="0.002519" file="src/components/calendar/day-details/components/cards/AttachmentCard.test.tsx" line="75" assertions="1" />
+      <testcase name="hides delete button for non-owners" classname="AttachmentCard" time="0.00082" file="src/components/calendar/day-details/components/cards/AttachmentCard.test.tsx" line="80" assertions="1" />
+      <testcase name="calls delete API when delete button is clicked by owner" classname="AttachmentCard" time="0.067619" file="src/components/calendar/day-details/components/cards/AttachmentCard.test.tsx" line="85" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/cards/MedicalCard.test.tsx" file="src/components/calendar/day-details/components/cards/MedicalCard.test.tsx" tests="3" assertions="9" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MedicalCard" file="src/components/calendar/day-details/components/cards/MedicalCard.test.tsx" line="64" tests="3" assertions="9" failures="0" skipped="0" time="0.076" hostname="polpc14765">
+      <testcase name="renders correctly for owner" classname="MedicalCard" time="0.003576" file="src/components/calendar/day-details/components/cards/MedicalCard.test.tsx" line="69" assertions="4" />
+      <testcase name="renders correctly for non-owner" classname="MedicalCard" time="0.001258" file="src/components/calendar/day-details/components/cards/MedicalCard.test.tsx" line="81" assertions="2" />
+      <testcase name="calls delete API when delete button is clicked by owner" classname="MedicalCard" time="0.072927" file="src/components/calendar/day-details/components/cards/MedicalCard.test.tsx" line="91" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/cards/HandoverCard.test.tsx" file="src/components/calendar/day-details/components/cards/HandoverCard.test.tsx" tests="3" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="HandoverCard" file="src/components/calendar/day-details/components/cards/HandoverCard.test.tsx" line="35" tests="3" assertions="7" failures="0" skipped="0" time="0.07" hostname="polpc14765">
+      <testcase name="renders delete button for the owner" classname="HandoverCard" time="0.003231" file="src/components/calendar/day-details/components/cards/HandoverCard.test.tsx" line="64" assertions="2" />
+      <testcase name="hides delete button for non-owners" classname="HandoverCard" time="0.00141" file="src/components/calendar/day-details/components/cards/HandoverCard.test.tsx" line="71" assertions="2" />
+      <testcase name="calls delete API when delete button is clicked by owner" classname="HandoverCard" time="0.066252" file="src/components/calendar/day-details/components/cards/HandoverCard.test.tsx" line="78" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/cards/NoteCard.test.tsx" file="src/components/calendar/day-details/components/cards/NoteCard.test.tsx" tests="3" assertions="8" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="NoteCard" file="src/components/calendar/day-details/components/cards/NoteCard.test.tsx" line="58" tests="3" assertions="8" failures="0" skipped="0" time="0.067" hostname="polpc14765">
+      <testcase name="renders correctly for owner" classname="NoteCard" time="0.002634" file="src/components/calendar/day-details/components/cards/NoteCard.test.tsx" line="63" assertions="3" />
+      <testcase name="renders correctly for non-owner" classname="NoteCard" time="0.000839" file="src/components/calendar/day-details/components/cards/NoteCard.test.tsx" line="74" assertions="2" />
+      <testcase name="calls delete API when delete button is clicked by owner" classname="NoteCard" time="0.0659" file="src/components/calendar/day-details/components/cards/NoteCard.test.tsx" line="84" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/cards/VacationCard.test.tsx" file="src/components/calendar/day-details/components/cards/VacationCard.test.tsx" tests="3" assertions="7" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="VacationCard" file="src/components/calendar/day-details/components/cards/VacationCard.test.tsx" line="35" tests="3" assertions="7" failures="0" skipped="0" time="0.068" hostname="polpc14765">
+      <testcase name="renders delete button for the owner" classname="VacationCard" time="0.002295" file="src/components/calendar/day-details/components/cards/VacationCard.test.tsx" line="62" assertions="2" />
+      <testcase name="hides delete button for non-owners" classname="VacationCard" time="0.001027" file="src/components/calendar/day-details/components/cards/VacationCard.test.tsx" line="69" assertions="2" />
+      <testcase name="calls delete API when delete button is clicked by owner" classname="VacationCard" time="0.06565" file="src/components/calendar/day-details/components/cards/VacationCard.test.tsx" line="76" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="src/components/calendar/day-details/components/cards/MedsCard.test.tsx" file="src/components/calendar/day-details/components/cards/MedsCard.test.tsx" tests="4" assertions="13" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="MedsCard" file="src/components/calendar/day-details/components/cards/MedsCard.test.tsx" line="62" tests="4" assertions="13" failures="0" skipped="0" time="0.094" hostname="polpc14765">
+      <testcase name="renders correctly for owner" classname="MedsCard" time="0.008419" file="src/components/calendar/day-details/components/cards/MedsCard.test.tsx" line="67" assertions="4" />
+      <testcase name="renders correctly for non-owner" classname="MedsCard" time="0.004417" file="src/components/calendar/day-details/components/cards/MedsCard.test.tsx" line="79" assertions="3" />
+      <testcase name="calls onUpdate when checkbox is toggled by owner" classname="MedsCard" time="0.016166" file="src/components/calendar/day-details/components/cards/MedsCard.test.tsx" line="90" assertions="3" />
+      <testcase name="calls delete API when delete button is clicked by owner" classname="MedsCard" time="0.066688" file="src/components/calendar/day-details/components/cards/MedsCard.test.tsx" line="119" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/core/domain/child/strategies/__tests__/CustomBlockStrategy.test.ts" file="backend/src/core/domain/child/strategies/__tests__/CustomBlockStrategy.test.ts" tests="3" assertions="34" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="CustomBlockStrategy" file="backend/src/core/domain/child/strategies/__tests__/CustomBlockStrategy.test.ts" line="13" tests="3" assertions="34" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="generates basic custom block without customBlockStartDay" classname="CustomBlockStrategy" time="0.000329" file="backend/src/core/domain/child/strategies/__tests__/CustomBlockStrategy.test.ts" line="14" assertions="5" />
+      <testcase name="generates custom block with customBlockStartDay" classname="CustomBlockStrategy" time="0.000239" file="backend/src/core/domain/child/strategies/__tests__/CustomBlockStrategy.test.ts" line="56" assertions="9" />
+      <testcase name="biweekly Tuesday block — Feb 2026 — correct Tue+Wed pattern" classname="CustomBlockStrategy" time="0.000153" file="backend/src/core/domain/child/strategies/__tests__/CustomBlockStrategy.test.ts" line="104" assertions="20" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/core/domain/child/strategies/__tests__/AlternatingWeekendStrategy.test.ts" file="backend/src/core/domain/child/strategies/__tests__/AlternatingWeekendStrategy.test.ts" tests="5" assertions="13" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="AlternatingWeekendStrategy" file="backend/src/core/domain/child/strategies/__tests__/AlternatingWeekendStrategy.test.ts" line="25" tests="5" assertions="13" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="anchor=Sunday: Feb 1 is DAD (On-Sunday return part)" classname="AlternatingWeekendStrategy" time="0.000409" file="backend/src/core/domain/child/strategies/__tests__/AlternatingWeekendStrategy.test.ts" line="28" assertions="1" />
+      <testcase name="anchor=Sunday: Feb 6-8 is the OFF weekend — all MOM (weekday parent)" classname="AlternatingWeekendStrategy" time="0.000243" file="backend/src/core/domain/child/strategies/__tests__/AlternatingWeekendStrategy.test.ts" line="39" assertions="3" />
+      <testcase name="anchor=Sunday: Feb 13 (Fri) is the next DAD handover (on week 3)" classname="AlternatingWeekendStrategy" time="0.000159" file="backend/src/core/domain/child/strategies/__tests__/AlternatingWeekendStrategy.test.ts" line="48" assertions="2" />
+      <testcase name="anchor=Friday: first Friday is the on-weekend day (no offset)" classname="AlternatingWeekendStrategy" time="0.000099" file="backend/src/core/domain/child/strategies/__tests__/AlternatingWeekendStrategy.test.ts" line="57" assertions="3" />
+      <testcase name="returnOnMonday: anchor=Sunday, Sun stays, Mon is return day" classname="AlternatingWeekendStrategy" time="0.000207" file="backend/src/core/domain/child/strategies/__tests__/AlternatingWeekendStrategy.test.ts" line="76" assertions="4" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="backend/src/core/domain/child/strategies/__tests__/GapFillStrategy.test.ts" file="backend/src/core/domain/child/strategies/__tests__/GapFillStrategy.test.ts" tests="4" assertions="6" failures="0" skipped="0" time="0" hostname="polpc14765">
+    <testsuite name="GapFillStrategy" file="backend/src/core/domain/child/strategies/__tests__/GapFillStrategy.test.ts" line="12" tests="4" assertions="6" failures="0" skipped="0" time="0" hostname="polpc14765">
+      <testcase name="should generate entries for every day in the range" classname="GapFillStrategy" time="0.00021" file="backend/src/core/domain/child/strategies/__tests__/GapFillStrategy.test.ts" line="21" assertions="3" />
+      <testcase name="should assign all entries to startingParent" classname="GapFillStrategy" time="0.000171" file="backend/src/core/domain/child/strategies/__tests__/GapFillStrategy.test.ts" line="37" assertions="1" />
+      <testcase name="should set priority to -1" classname="GapFillStrategy" time="0" file="backend/src/core/domain/child/strategies/__tests__/GapFillStrategy.test.ts" line="50" assertions="1" />
+      <testcase name="should mark entries as recurring" classname="GapFillStrategy" time="0" file="backend/src/core/domain/child/strategies/__tests__/GapFillStrategy.test.ts" line="63" assertions="1" />
+    </testsuite>
+  </testsuite>
+</testsuites>

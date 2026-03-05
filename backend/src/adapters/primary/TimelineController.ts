@@ -16,9 +16,10 @@ function isParentRole(role?: string): role is "mom" | "dad" {
 
 function selectCiphertextForUser(items: any[], userId: string) {
     return items.map((item) => {
-        const typedItem = item as Record<string, any>;
+        const plainItem = item.toObject ? item.toObject() : item;
+        const typedItem = plainItem as Record<string, any>;
         const payload = typedItem.encryptedPayload as Record<string, string> | undefined;
-        if (!payload) return item;
+        if (!payload) return plainItem;
 
         // Return item with flattened ciphertext for the requesting user
         const { encryptedPayload, ...rest } = typedItem;
@@ -139,7 +140,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         createdBy: userId,
                         createdByName: userName
                     });
-                    return selectSingleCiphertextForUser(item, user.id);
+                    const plainItem = (item as any).toObject ? (item as any).toObject() : item;
+                    return selectSingleCiphertextForUser(plainItem, user.id);
                 } catch (error) {
                     set.status = 400;
                     return {
@@ -200,14 +202,15 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         },
                         userName
                     );
-                    return selectSingleCiphertextForUser(updated, user.id);
+                    const plainUpdated = (updated as any).toObject ? (updated as any).toObject() : updated;
+                    return selectSingleCiphertextForUser(plainUpdated, user.id);
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
                     if (message.includes("not found")) {
                         set.status = 404;
-                    } else if (message.includes("Unauthorized") || message.includes("modify your own")) {
+                    } else if (message.includes("Unauthorized") || message.includes("modify your own") || message.includes("does not belong")) {
                         set.status = 403;
-                    } else if (message.includes("invalid") || message.includes("required") || (error as any)?.name === "ZodError") {
+                    } else if (message.includes("invalid") || message.includes("required") || message.includes("Cannot encrypt") || (error as any)?.name === "ZodError") {
                         set.status = 400;
                     } else {
                         set.status = 500;

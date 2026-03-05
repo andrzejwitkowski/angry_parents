@@ -151,7 +151,7 @@ export const TimelineItemSchema = z.union([
         auditTrail: z.array(AuditEntrySchema).default([]),
         isDeleted: z.boolean().default(false),
         childIds: z.array(z.string()).default([]),
-        encryptedPayload: z.record(z.string()),
+        encryptedPayload: z.record(z.string(), z.string()),
         ciphertext: z.string().optional(),
     })
 ]);

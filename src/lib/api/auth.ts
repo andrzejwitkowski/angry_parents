@@ -1,3 +1,8 @@
+import type {
+    PublicKeyCredentialCreationOptionsJSON,
+    PublicKeyCredentialRequestOptionsJSON
+} from "@simplewebauthn/browser";
+
 const API_BASE = "/api/auth";
 
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -38,7 +43,12 @@ export const authApi = {
         ),
 
     registerOptions: (data: { email: string; name: string; username: string; gender: Gender }) =>
-        fetchApi<{ challenge: string; tempEmail: string; tempName: string; tempUsername: string; tempGender: Gender }>(
+        fetchApi<PublicKeyCredentialCreationOptionsJSON & {
+            tempEmail: string;
+            tempName: string;
+            tempUsername: string;
+            tempGender: Gender
+        }>(
             "/register/options",
             { method: "POST", body: JSON.stringify(data) }
         ),
@@ -50,7 +60,7 @@ export const authApi = {
         ),
 
     loginOptions: () =>
-        fetchApi<{ challenge: string }>("/login/options", { method: "POST" }),
+        fetchApi<PublicKeyCredentialRequestOptionsJSON>("/login/options", { method: "POST" }),
 
     loginVerify: (data: { authenticationResponse?: unknown; mockLogin?: boolean; userId?: string }) =>
         fetchApi<{ verified: boolean }>(

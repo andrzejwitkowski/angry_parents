@@ -51,7 +51,7 @@ export default function Dashboard() {
                     setTimeout(() => reject(new Error('Auth timeout')), 4000)
                 );
                 const me = await Promise.race([authApi.getMe(), timeout]) as Awaited<ReturnType<typeof authApi.getMe>>;
-                setUser(me.user as any);
+                setUser(me.user as unknown as User);
 
                 // In DEV mode skip the hardware key check so the app is usable without a YubiKey
                 if (!import.meta.env.DEV) {

@@ -68,7 +68,7 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
                     {item.encryption === "ENCRYPTED" && (
                         <div className="p-4 bg-slate-100 border border-slate-200 rounded-lg text-center space-y-3">
                             <p className="text-sm text-slate-600 italic">
-                                {t("daylog.cannotEditEncryptedNotice")}
+                                {t("daylog.cannotEditEncrypted")}
                             </p>
                         </div>
                     )}

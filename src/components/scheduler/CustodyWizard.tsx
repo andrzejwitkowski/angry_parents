@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Calendar as CalendarIcon, Loader2, ArrowRight, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,11 +58,7 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
         skippedRules: Array<{ ruleName: string; reason: 'ONE_TIME' | 'INVALID_DATE' }>;
     } | null>(null);
 
-    useEffect(() => {
-        fetchChildren();
-    }, []);
-
-    const fetchChildren = async () => {
+    const fetchChildren = React.useCallback(async () => {
         try {
             setChildrenLoading(true);
             const data = await childApi.getAll();
@@ -77,7 +73,11 @@ export function CustodyScheduler({ onSave }: CustodySchedulerProps) {
         } finally {
             setChildrenLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchChildren();
+    }, [fetchChildren]);
 
     const handleChildSelect = (childId: string) => {
         const child = children.find(c => c.id === childId) ?? null;

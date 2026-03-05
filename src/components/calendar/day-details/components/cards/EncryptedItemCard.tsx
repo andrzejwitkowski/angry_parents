@@ -10,6 +10,12 @@ interface EncryptedItemCardProps {
 
 export function EncryptedItemCard({ item }: EncryptedItemCardProps) {
     const { t } = useTranslation();
+    const hasPrivateKey = typeof window !== "undefined" && Boolean(
+        window.localStorage.getItem("zk_private_key")
+        || window.localStorage.getItem("zkPrivateKey")
+        || window.localStorage.getItem("privateKey")
+        || window.localStorage.getItem("rsaPrivateKey")
+    );
 
     return (
         <Card className="border-2 border-slate-200 bg-slate-50 shadow-sm opacity-80">
@@ -20,14 +26,16 @@ export function EncryptedItemCard({ item }: EncryptedItemCardProps) {
                     </div>
                     <div>
                         <h3 className="font-bold text-slate-700">{t("daylog.encryptedEntry")}</h3>
-                        <p className="text-xs text-slate-500 italic">{t("common.decryptionFailed")}</p>
+                        <p className="text-xs text-slate-500 italic">
+                            {hasPrivateKey ? t("common.decryptionFailed") : t("common.privateKeyMissing")}
+                        </p>
                     </div>
                 </div>
             </CardHeader>
             <CardContent>
                 <div className="bg-white/50 rounded-lg p-4 border border-dashed border-slate-300">
                     <p className="text-sm text-slate-500 text-center italic">
-                        {t("daylog.encryptedContentNotice")}
+                        {hasPrivateKey ? t("daylog.encryptedContentNotice") : t("daylog.privateKeyMissingNotice")}
                     </p>
                 </div>
                 <div className="flex justify-between items-center pt-3 mt-1 border-t border-slate-100">

@@ -438,9 +438,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         email: payload.userId + "@example.com",
                         name: "User",
                         gender: payload.gender,
-                        familyId: payload.familyId,
+                        familyId: payload.familyId ? payload.familyId.toString() : null,
                     },
-                    family: family ? { ...family, id: family._id.toString() } : null
+                    family: family ? { ...family, id: family._id.toString(), _id: family._id.toString() } : null
                 };
             } catch (err) {
                 console.error("[Me] error:", err);
@@ -502,7 +502,10 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 // Also ensure public key is set for this user if it was a token-based registration
                 const devKeyPair = await getDevKeyPair();
                 const devRsaPublicKey = devKeyPair.publicKey;
-                const existingKey = family.parentPublicKeys.find((k: any) => k.parentId === userId || k.role === finalGender);
+                const existingKey = family.parentPublicKeys.find(
+                    (k: { parentId: string; role: string; rsaPublicKeyBase64: string }) =>
+                        k.parentId === userId || k.role === finalGender
+                );
                 if (existingKey) {
                     existingKey.parentId = userId;
                     existingKey.rsaPublicKeyBase64 = devRsaPublicKey;
@@ -563,7 +566,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             }
 
             const mockBody = (body || {}) as { userId?: string };
-            const finalUserId = mockBody.userId || new mongoose.Types.ObjectId().toString();
+            const DEFAULT_DEV_DAD_ID = "mock-user-id-dev-test-stable";
+            const finalUserId = mockBody.userId || DEFAULT_DEV_DAD_ID;
             const DUMMY_MOM_ID = "dummy-mom-id-stable";
             let finalFamilyId = "";
 

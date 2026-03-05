@@ -28,7 +28,7 @@ class MockPointerEvent extends Event {
         this.pointerType = props.pointerType || 'mouse';
     }
 }
-window.PointerEvent = MockPointerEvent as any;
+window.PointerEvent = MockPointerEvent as unknown as typeof PointerEvent;
 window.HTMLElement.prototype.scrollIntoView = mock();
 window.HTMLElement.prototype.releasePointerCapture = mock();
 window.HTMLElement.prototype.hasPointerCapture = mock();

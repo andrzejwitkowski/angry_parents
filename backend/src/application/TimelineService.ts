@@ -311,22 +311,41 @@ export class TimelineServiceImpl {
         }
 
         // Sanitize createdAt: Mongoose might have stored it as a Date or a non-ISO string
-        // If it's not a valid ISO string, convert it.
-        const sanitizedCreatedAt = existing.createdAt.includes('T') && existing.createdAt.endsWith('Z')
-            ? existing.createdAt
-            : new Date(existing.createdAt).toISOString();
+        // If it's not a valid ISO string, convert it defensively.
+        let sanitizedCreatedAt: string;
+        try {
+            const existingCreatedAt = existing.createdAt as any;
+            if (typeof existingCreatedAt === 'string' && existingCreatedAt.includes('T') && existingCreatedAt.endsWith('Z')) {
+                sanitizedCreatedAt = existingCreatedAt;
+            } else {
+                const parsed = new Date(existingCreatedAt);
+                if (Number.isNaN(parsed.getTime())) {
+                    console.warn(`[TimelineService] Invalid createdAt timestamp for item ${id}, falling back to now`);
+                    sanitizedCreatedAt = this.dateProvider.getIsoString();
+                } else {
+                    sanitizedCreatedAt = parsed.toISOString();
+                }
+            }
+        } catch (e) {
+            console.warn(`[TimelineService] Failed to sanitize date for item ${id}:`, e);
+            sanitizedCreatedAt = this.dateProvider.getIsoString();
+        }
 
         // Validate the incoming full item while preserving immutable server-side fields.
-        const validated = TimelineItemSchema.parse({
-            ...fullPlaintextUpdate,
-            encryption: "PLAINTEXT",
+        // We handle encryption defaulting here for backward compatibility and tests.
+        const incomingEncryption = (fullPlaintextUpdate as any).encryption ||
+            ((fullPlaintextUpdate as any).encryptedPayload ? "ENCRYPTED" : "PLAINTEXT");
+
+        const validated: TimelineItem = TimelineItemSchema.parse({
+            ...(fullPlaintextUpdate as any),
+            encryption: incomingEncryption,
             id: existing.id,
             createdBy: existing.createdBy,
             createdAt: sanitizedCreatedAt,
             createdByName: existing.createdByName,
             childIds: existing.childIds,
             isDeleted: existing.isDeleted,
-        }) as PlainTimelineItem;
+        });
 
         // We cannot calculate precise field differences on the backend anymore 
         // because we can't read the existing ciphertext.
@@ -341,8 +360,13 @@ export class TimelineServiceImpl {
 
         validated.auditTrail = [...existing.auditTrail, auditEntry];
 
-        // Re-encrypt the full item
-        const encryptedUpdatedItem = await this.encryptItem(validated, childId);
+        // Re-encrypt if it was plaintext, otherwise use the provided encrypted payload
+        let encryptedUpdatedItem: EncryptedTimelineItem;
+        if (validated.encryption === "ENCRYPTED") {
+            encryptedUpdatedItem = validated as EncryptedTimelineItem;
+        } else {
+            encryptedUpdatedItem = await this.encryptItem(validated as PlainTimelineItem, childId);
+        }
         const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
         const intent: ForensicIntentRecord = {
