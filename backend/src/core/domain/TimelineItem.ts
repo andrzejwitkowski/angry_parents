@@ -197,8 +197,9 @@ export function acceptTimelineItemVisitor<R>(item: TimelineItem, visitor: Timeli
             return visitor.visitVacation(item);
         case "ATTACHMENT":
             return visitor.visitAttachment(item);
-        default:
+        default: {
             const _exhaustiveCheck: never = item;
             throw new Error(`Unhandled timeline item type: ${(item as any).type}`);
+        }
     }
 }
