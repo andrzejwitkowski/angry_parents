@@ -75,9 +75,19 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
         if (!ciphertext && item.encryptedPayload) {
             const now = Date.now();
             if (!cachedMeData || now - cachedMeTimestamp > ME_CACHE_TTL_MS) {
+                if (!cachedMePromise) {
+                    cachedMePromise = authApi.getMe().then(data => {
+                        cachedMeData = data;
+                        cachedMeTimestamp = Date.now();
+                        cachedMePromise = null;
+                        return data;
+                    }).catch(e => {
+                        cachedMePromise = null;
+                        throw e;
+                    });
+                }
                 try {
-                    cachedMeData = await authApi.getMe();
-                    cachedMeTimestamp = now;
+                    await cachedMePromise;
                 } catch (e) {
                     console.warn("[TimelineApi] Could not fetch user data for decryption fallback:", e);
                 }
@@ -131,6 +141,7 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
 // Browser-side cache for getMe() — safe as module-level variable since there's
 // only one authenticated user per browser tab (same pattern as cachedPrivateKey).
 let cachedMeData: Awaited<ReturnType<typeof authApi.getMe>> | null = null;
+let cachedMePromise: Promise<Awaited<ReturnType<typeof authApi.getMe>>> | null = null;
 let cachedMeTimestamp = 0;
 const ME_CACHE_TTL_MS = 30_000; // 30 seconds
 

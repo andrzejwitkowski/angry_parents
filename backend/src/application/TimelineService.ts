@@ -131,7 +131,7 @@ export class TimelineServiceImpl {
         }
 
         if (!family.parentPublicKeys || family.parentPublicKeys.length < 2) {
-            throw new Error(`Cannot encrypt: Both parents must have registered RSA public keys.`);
+            throw new Error(`Cannot encrypt: Missing parent public keys`);
         }
 
         const plaintextStr = this.extractContentForEncryption(item);
@@ -151,9 +151,10 @@ export class TimelineServiceImpl {
         }
 
         if (!momKeyEntry || !dadKeyEntry) {
-            throw new Error(
-                `Cannot encrypt: Missing RSA public keys for both parents. parentIds: ${family.parentIds || "undefined"}, keys present for: ${family.parentPublicKeys.map(k => k.role || k.parentId).join(', ')}`
+            console.error(
+                `[TimelineService] Cannot encrypt: Missing RSA public keys for both parents. parentIds: ${family.parentIds || "undefined"}, keys present for: ${family.parentPublicKeys.map(k => k.role || k.parentId).join(', ')}`
             );
+            throw new Error(`Cannot encrypt: Missing parent public keys`);
         }
 
         const momKey = momKeyEntry.rsaPublicKeyBase64;
@@ -352,13 +353,9 @@ export class TimelineServiceImpl {
 
         validated.auditTrail = [...existing.auditTrail, auditEntry];
 
-        // Re-encrypt if it was plaintext, otherwise use the provided encrypted payload
-        let encryptedUpdatedItem: EncryptedTimelineItem;
-        if (validated.encryption === "ENCRYPTED") {
-            encryptedUpdatedItem = validated as EncryptedTimelineItem;
-        } else {
-            encryptedUpdatedItem = await this.encryptItem(validated as PlainTimelineItem, childId);
-        }
+        // Always produce server-controlled ciphertext by calling encryptItem(...)
+        // ensuring recipient/key enforcement is applied rather than trusting client-provided ciphertext.
+        const encryptedUpdatedItem = await this.encryptItem(validated as PlainTimelineItem, childId);
         const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
         const intent: ForensicIntentRecord = {

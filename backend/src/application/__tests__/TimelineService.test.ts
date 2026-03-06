@@ -474,6 +474,65 @@ describe("TimelineService", () => {
             expect(updated).toBeDefined();
             expect(updated.type).toBe("MEDICAL_VISIT");
         });
+
+        it("should not leak public keys in error message when encryption fails", async () => {
+            // Setup family with missing dad key entry
+            mockFamilyModel.findById = vi.fn().mockResolvedValue({
+                parentIds: ["mom-1", "dad-1"],
+                parentPublicKeys: [
+                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" }
+                    // Missing dad key
+                ]
+            });
+
+            const dto = {
+                type: "NOTE",
+                date: "2026-01-27",
+                createdBy: "mom-1",
+                content: "Secret",
+                childId: "child-1"
+            } as any;
+
+            try {
+                await service.createItem({ ...dto, signatureBase64: "sig", timestamp: new Date().toISOString(), keyId: "key1" } as any);
+                expect.fail("Should have thrown");
+            } catch (error: any) {
+                expect(error.message).toBe("Cannot encrypt: Missing parent public keys");
+                expect(error.message).not.toContain("mom-pub-key");
+                expect(error.message).not.toContain("mom-1");
+            }
+        });
+
+        it("should enforce server-side encryption even if client provides ciphertext during update", async () => {
+            const dto = {
+                type: "NOTE",
+                date: "2026-01-27",
+                createdBy: "user-123",
+                content: "Original",
+                childId: "child-1",
+            } as any;
+
+            const created = await service.createItem({ ...dto, signatureBase64: "sig", timestamp: new Date().toISOString(), keyId: "key1" } as any);
+
+            const maliciousUpdate = {
+                ...dto,
+                id: created.id,
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "attacker-id": "malicious-ciphertext" }
+            } as any;
+
+            const updated = await service.updateItem(created.id, maliciousUpdate, "user-123", "child-1", {
+                signatureBase64: "sig",
+                timestamp: new Date().toISOString(),
+                keyId: "key1"
+            }, "user-123");
+
+            // Should have mom/dad keys, not attacker-id
+            expect(updated.encryptedPayload).toBeDefined();
+            expect(updated.encryptedPayload!["attacker-id"]).toBeUndefined();
+            expect(updated.encryptedPayload!["mom-1"]).toBeDefined();
+            expect(updated.encryptedPayload!["dad-1"]).toBeDefined();
+        });
     });
 
     describe("deleteItem", () => {
