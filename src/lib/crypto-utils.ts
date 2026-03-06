@@ -1,3 +1,19 @@
+export const PRIVATE_KEY_STORAGE_KEYS = [
+    "zk_private_key",
+    "zkPrivateKey",
+    "privateKey",
+    "rsaPrivateKey"
+];
+
+export function getPrivateKeyFromStorage(): string | null {
+    if (typeof window === "undefined" || !window.localStorage) return null;
+    for (const key of PRIVATE_KEY_STORAGE_KEYS) {
+        const value = window.localStorage.getItem(key)?.trim();
+        if (value) return value;
+    }
+    return null;
+}
+
 export async function importPublicKey(keyData: string): Promise<CryptoKey> {
     const keyBuffer = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
     return crypto.subtle.importKey(

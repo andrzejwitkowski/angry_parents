@@ -26,7 +26,7 @@ function selectCiphertextForUser(items: any[], userId: string) {
         let ciphertext = payload[userId];
 
         // DEV fallback: all parents share the same RSA key, so any ciphertext will do
-        if (!ciphertext && process.env.NODE_ENV !== "production") {
+        if (!ciphertext && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")) {
             const values = Object.values(payload);
             ciphertext = values.length > 0 ? values[0] : "";
         }

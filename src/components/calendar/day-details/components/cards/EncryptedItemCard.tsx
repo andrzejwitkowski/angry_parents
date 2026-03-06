@@ -2,6 +2,7 @@ import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import type { EncryptedTimelineItem } from "@/types/timeline.types";
+import { getPrivateKeyFromStorage } from "@/lib/crypto-utils";
 import { AuditIndicator } from "../AuditIndicator";
 
 interface EncryptedItemCardProps {
@@ -10,12 +11,9 @@ interface EncryptedItemCardProps {
 
 export function EncryptedItemCard({ item }: EncryptedItemCardProps) {
     const { t } = useTranslation();
-    const hasPrivateKey = typeof window !== "undefined" && Boolean(
-        window.localStorage.getItem("zk_private_key")
-        || window.localStorage.getItem("zkPrivateKey")
-        || window.localStorage.getItem("privateKey")
-        || window.localStorage.getItem("rsaPrivateKey")
-        || (import.meta as any).env.VITE_DEV_RSA_PRIVATE_KEY
+    const hasPrivateKey = Boolean(
+        getPrivateKeyFromStorage() ||
+        (import.meta as any).env.VITE_DEV_RSA_PRIVATE_KEY
     );
 
     return (

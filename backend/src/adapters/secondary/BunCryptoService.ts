@@ -95,13 +95,38 @@ export class BunCryptoService implements ICryptoService {
                 ["encrypt"]
             );
 
-            const data = new TextEncoder().encode(plaintext);
-            const encrypted = await crypto.subtle.encrypt(
+            const plaintextBuffer = new TextEncoder().encode(plaintext);
+
+            // Hybrid encryption: AES-GCM for data, RSA-OAEP for AES key
+            const aesKey = await crypto.subtle.generateKey(
+                { name: "AES-GCM", length: 256 },
+                true,
+                ["encrypt", "decrypt"]
+            );
+
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+
+            const encryptedData = await crypto.subtle.encrypt(
+                { name: "AES-GCM", iv },
+                aesKey,
+                plaintextBuffer
+            );
+
+            const rawAesKey = await crypto.subtle.exportKey("raw", aesKey);
+            const encryptedAesKey = await crypto.subtle.encrypt(
                 { name: "RSA-OAEP" },
                 key,
-                data
+                rawAesKey
             );
-            return Buffer.from(encrypted).toString("base64");
+
+            // Pack as JSON: { k: base64, iv: base64, d: base64 }
+            const envelope = {
+                k: Buffer.from(encryptedAesKey).toString("base64"),
+                iv: Buffer.from(iv).toString("base64"),
+                d: Buffer.from(encryptedData).toString("base64"),
+            };
+
+            return Buffer.from(JSON.stringify(envelope)).toString("base64");
         } catch (e) {
             console.error("[BunCryptoService] RSA encryption failed", e);
             throw new Error(`RSA encryption failed: ${e instanceof Error ? e.message : String(e)}`);

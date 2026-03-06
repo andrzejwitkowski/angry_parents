@@ -1,5 +1,5 @@
 import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types";
-import { decryptRSA, importPrivateKey } from "@/lib/crypto-utils";
+import { decryptRSA, importPrivateKey, getPrivateKeyFromStorage } from "@/lib/crypto-utils";
 import type { MutationSignature } from "@/lib/signature-provider";
 import { authApi } from "./auth";
 
@@ -41,24 +41,8 @@ const PROTECTED_FIELDS = new Set([
     "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload", "ciphertext"
 ]);
 
-const PRIVATE_KEY_STORAGE_KEYS = [
-    "zk_private_key",
-    "zkPrivateKey",
-    "privateKey",
-    "rsaPrivateKey"
-];
-
-function getPrivateKeyFromLocalStorage(): string | null {
-    if (typeof window === "undefined" || !window.localStorage) return null;
-    for (const key of PRIVATE_KEY_STORAGE_KEYS) {
-        const value = window.localStorage.getItem(key)?.trim();
-        if (value) return value;
-    }
-    return null;
-}
-
 function resolvePrivateKeyBase64(): string | null {
-    const storedKey = getPrivateKeyFromLocalStorage();
+    const storedKey = getPrivateKeyFromStorage();
     if (storedKey) return storedKey;
     if (import.meta.env.DEV) return import.meta.env.VITE_DEV_RSA_PRIVATE_KEY || null;
     return null;
