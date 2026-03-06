@@ -19,7 +19,8 @@ const mockItem: EncryptedTimelineItem = {
     isDeleted: false,
     childIds: ['child-1'],
     encryption: 'ENCRYPTED',
-    ciphertext: 'some-encrypted-string'
+    ciphertext: 'some-encrypted-string',
+    encryptedPayload: {},
 };
 
 describe('EncryptedItemCard', () => {
