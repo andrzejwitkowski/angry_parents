@@ -11,10 +11,7 @@ interface EncryptedItemCardProps {
 
 export function EncryptedItemCard({ item }: EncryptedItemCardProps) {
     const { t } = useTranslation();
-    const hasPrivateKey = Boolean(
-        getPrivateKeyFromStorage() ||
-        (import.meta as any).env.VITE_DEV_RSA_PRIVATE_KEY
-    );
+    const hasPrivateKey = Boolean(getPrivateKeyFromStorage());
 
     return (
         <Card className="border-2 border-slate-200 bg-slate-50 shadow-sm opacity-80">

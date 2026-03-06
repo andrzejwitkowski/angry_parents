@@ -38,7 +38,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 let cachedPrivateKey: CryptoKey | null = null;
 let cachedPrivateKeySource: string | null = null;
 const PROTECTED_FIELDS = new Set([
-    "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload", "ciphertext"
+    "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload", "ciphertext", "encryption"
 ]);
 
 function resolvePrivateKeyBase64(): string | null {

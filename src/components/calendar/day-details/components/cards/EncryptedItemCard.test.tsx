@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { I18nextProvider } from "react-i18next";
 import i18n from "@/i18n";
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
 import { EncryptedItemCard } from './EncryptedItemCard';
 import type { EncryptedTimelineItem } from '@/types/timeline.types';
 
@@ -23,6 +23,10 @@ const mockItem: EncryptedTimelineItem = {
 };
 
 describe('EncryptedItemCard', () => {
+    beforeEach(() => {
+        localStorage.clear();
+    });
+
     it('renders lock icon and encryption messages', () => {
         localStorage.setItem("zk_private_key", "dummy-key");
         render(
