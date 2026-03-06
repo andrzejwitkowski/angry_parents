@@ -47,6 +47,7 @@ describe("AttachmentCard", () => {
         auditTrail: [],
         isDeleted: false,
         childIds: [],
+        encryption: "PLAINTEXT" as const,
     };
 
     beforeEach(() => {

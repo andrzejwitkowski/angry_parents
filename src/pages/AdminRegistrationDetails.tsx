@@ -66,11 +66,7 @@ const AdminRegistrationDetails: React.FC = () => {
     const [note, setNote] = useState("");
     const [isSavingNote, setIsSavingNote] = useState(false);
 
-    useEffect(() => {
-        fetchDetails();
-    }, [id]);
-
-    const fetchDetails = async () => {
+    const fetchDetails = React.useCallback(async () => {
         try {
             const response = await fetch(`/api/admin/registrations/${id}`);
             if (response.ok) {
@@ -83,7 +79,11 @@ const AdminRegistrationDetails: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        fetchDetails();
+    }, [fetchDetails]);
 
     const handleSaveNote = async () => {
         setIsSavingNote(true);

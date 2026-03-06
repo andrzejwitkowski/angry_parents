@@ -72,4 +72,20 @@ describe("crypto-utils", () => {
         const otherPrivateKey = await importPrivateKey(otherPrivateKeyBase64);
         await expect(decryptRSA(ciphertext, otherPrivateKey)).rejects.toThrow();
     });
+
+    it("should decrypt legacy raw RSA ciphertext format", async () => {
+        const plaintext = JSON.stringify({ doctor: "Dr. House", diagnosis: "Recovered" });
+        const publicKey = await importPublicKey(publicKeyBase64);
+        const privateKey = await importPrivateKey(privateKeyBase64);
+
+        const encryptedBuffer = await globalThis.crypto.subtle.encrypt(
+            { name: "RSA-OAEP" },
+            publicKey,
+            new TextEncoder().encode(plaintext)
+        );
+        const legacyCiphertext = Buffer.from(encryptedBuffer).toString("base64");
+
+        const decrypted = await decryptRSA(legacyCiphertext, privateKey);
+        expect(JSON.parse(decrypted)).toEqual({ doctor: "Dr. House", diagnosis: "Recovered" });
+    });
 });

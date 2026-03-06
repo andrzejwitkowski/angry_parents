@@ -39,14 +39,20 @@ export function EventIndicator({ event, onViewDetails, childColor }: EventIndica
 
     const getTitle = () => {
         if (event.encryption === "ENCRYPTED") return "Encrypted Event";
-        const e = event as any;
-        switch (e.type) {
-            case "MEDICAL_VISIT": return `Visit: ${e.doctor}`;
-            case "MEDS": return `Meds: ${e.medicineName}`;
-            case "HANDOVER": return `Handover at ${e.location}`;
-            case "INCIDENT": return `Incident: ${e.severity}`;
-            case "NOTE": return "Note";
-            default: return e.type;
+
+        switch (event.type) {
+            case "MEDICAL_VISIT":
+                return `Visit: ${("doctor" in event ? event.doctor : "")}`;
+            case "MEDS":
+                return `Meds: ${("medicineName" in event ? event.medicineName : "")}`;
+            case "HANDOVER":
+                return `Handover at ${("location" in event ? event.location : "")}`;
+            case "INCIDENT":
+                return `Incident: ${("severity" in event ? event.severity : "")}`;
+            case "NOTE":
+                return "Note";
+            default:
+                return event.type;
         }
     };
 

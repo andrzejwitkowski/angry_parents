@@ -105,7 +105,14 @@ export type EncryptedTimelineItem = BaseTimelineItem & {
 // Discriminated union
 export type TimelineItem = PlainTimelineItem | EncryptedTimelineItem;
 
-// DTO for creating new items (without id, createdAt, auditTrail, isDeleted, and encryption)
-export type CreateTimelineItemDto = Omit<PlainTimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted" | "encryption">;
+// DTO for creating new items (now strictly requiring encryption field)
+export type CreateTimelineItemDto =
+    | (Omit<PlainTimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted" | "encryption"> & { encryption: "PLAINTEXT" })
+    | {
+        type: TimelineItemType;
+        date: string;
+        encryption: "ENCRYPTED";
+        encryptedPayload: Record<string, string>;
+    };
 
 export type UpdateTimelineItemDto = Partial<CreateTimelineItemDto>;

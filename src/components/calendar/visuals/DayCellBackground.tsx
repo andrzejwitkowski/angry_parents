@@ -32,7 +32,7 @@ function SingleChildBackground({ entries, containerStyle, showLabels, compact = 
 
     const effectiveEntries = useMemo(() => {
         if (!entries || entries.length === 0) return [];
-        let sorted = [...entries].sort((a, b) => a.startTime.localeCompare(b.startTime));
+        const sorted = [...entries].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
         if (sorted.length === 1) {
             const entry = sorted[0];
@@ -139,7 +139,7 @@ function SingleChildBackground({ entries, containerStyle, showLabels, compact = 
                 </div>
             </>
         );
-    }, [effectiveEntries, showLabels, t]);
+    }, [effectiveEntries, showLabels, t, compact]);
 
     const borderStyle = useMemo(() => {
         if (!childColor) return {};

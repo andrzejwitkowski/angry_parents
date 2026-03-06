@@ -80,4 +80,56 @@ export class BunCryptoService implements ICryptoService {
         hasher.update(publicKeyPem);
         return hasher.digest("hex");
     }
+
+    async encryptRSA(plaintext: string, publicKeyBase64: string): Promise<string> {
+        try {
+            const keyData = new Uint8Array(Buffer.from(publicKeyBase64, "base64"));
+            const key = await crypto.subtle.importKey(
+                "spki",
+                keyData,
+                {
+                    name: "RSA-OAEP",
+                    hash: "SHA-256",
+                },
+                false,
+                ["encrypt"]
+            );
+
+            const plaintextBuffer = new TextEncoder().encode(plaintext);
+
+            // Hybrid encryption: AES-GCM for data, RSA-OAEP for AES key
+            const aesKey = await crypto.subtle.generateKey(
+                { name: "AES-GCM", length: 256 },
+                true,
+                ["encrypt", "decrypt"]
+            );
+
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+
+            const encryptedData = await crypto.subtle.encrypt(
+                { name: "AES-GCM", iv },
+                aesKey,
+                plaintextBuffer
+            );
+
+            const rawAesKey = await crypto.subtle.exportKey("raw", aesKey);
+            const encryptedAesKey = await crypto.subtle.encrypt(
+                { name: "RSA-OAEP" },
+                key,
+                rawAesKey
+            );
+
+            // Pack as JSON: { k: base64, iv: base64, d: base64 }
+            const envelope = {
+                k: Buffer.from(encryptedAesKey).toString("base64"),
+                iv: Buffer.from(iv).toString("base64"),
+                d: Buffer.from(encryptedData).toString("base64"),
+            };
+
+            return Buffer.from(JSON.stringify(envelope)).toString("base64");
+        } catch (e) {
+            console.error("[BunCryptoService] RSA encryption failed", e);
+            throw new Error(`RSA encryption failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+    }
 }

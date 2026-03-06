@@ -7,4 +7,5 @@ export interface ICryptoService {
     ): Promise<boolean>;
 
     getFingerprint(publicKey: string): Promise<string>;
+    encryptRSA(plaintext: string, publicKeyBase64: string): Promise<string>;
 }

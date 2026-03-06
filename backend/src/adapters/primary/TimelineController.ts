@@ -10,21 +10,86 @@ function getJwtFromCookie(request: Request): string | null {
     return match ? match[1] : null;
 }
 
+function formatErrorResponse(error: unknown): string {
+    if (error && (error as any).name === "ZodError" && (error as any).issues) {
+        try {
+            return (error as any).issues.map((issue: any) => {
+                const path = issue.path.join(".");
+                return `${path ? path + ": " : ""}${issue.message}`;
+            }).join(", ");
+        } catch (e) {
+            // Fallback if parsing fails
+        }
+    }
+    return error instanceof Error ? error.message : String(error);
+}
+
 function isParentRole(role?: string): role is "mom" | "dad" {
     return role === "mom" || role === "dad";
 }
 
+export function mapErrorToStatus(error: unknown): number {
+    const message = error instanceof Error ? error.message : String(error);
+    const lower = message.toLowerCase();
+
+    // 404 Not Found mappings - specific to timeline item identity
+    if (lower.includes("timeline item with id") && lower.includes("not found")) {
+        return 404;
+    }
+
+    // 403 Forbidden mappings
+    const isForbidden = [
+        "unauthorized",
+        "modify your own",
+        "does not belong",
+        "parent role required"
+    ].some(term => lower.includes(term));
+
+    if (isForbidden) {
+        return 403;
+    }
+
+    // 400 Bad Request mappings
+    const isBadRequest = [
+        "invalid",
+        "required",
+        "cannot encrypt",
+        "must have registered",
+        "cannot be in the past",
+        "must include",
+        "cannot be"
+    ].some(term => lower.includes(term)) || (error as any)?.name === "ZodError";
+
+    if (isBadRequest) {
+        return 400;
+    }
+
+    // Default to 500 Internal Server Error
+    return 500;
+}
+
 function selectCiphertextForUser(items: any[], userId: string) {
     return items.map((item) => {
-        const typedItem = item as Record<string, any>;
+        const plainItem = item.toObject ? item.toObject() : item;
+        const typedItem = plainItem as Record<string, any>;
         const payload = typedItem.encryptedPayload as Record<string, string> | undefined;
-        if (!payload) return item;
+        if (!payload) return plainItem;
 
-        // Return item with flattened ciphertext for the requesting user
-        const { encryptedPayload, ...rest } = typedItem;
+        // Return item with flattened ciphertext for the requesting user, but STRIP encryptedPayload!
+        const ciphertext = payload[userId];
+        const { encryptedPayload: _, ...rest } = typedItem;
+
+        // DEV fallback: log a warning if ciphertext is missing for the user
+        if (!ciphertext && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")) {
+            console.warn(
+                `Missing ciphertext for userId: ${userId}. Available encryptedPayload keys:`,
+                Object.keys(payload)
+            );
+        }
+
         return {
             ...rest,
-            ciphertext: payload[userId] ?? ""
+            ciphertext: ciphertext ?? ""
         };
     });
 }
@@ -36,7 +101,6 @@ function selectSingleCiphertextForUser(item: any, userId: string) {
 /**
  * Timeline REST API Controller
  * Primary Adapter - handles HTTP requests and delegates to service layer
- * Redesigned for True End-to-End Encryption (E2EE)
  */
 export function createTimelineController(service: TimelineServiceImpl) {
     return new Elysia({ prefix: "/api" })
@@ -76,10 +140,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     const items = await service.getItemsByDate(params.date);
                     return { items: selectCiphertextForUser(items, user.id) };
                 } catch (error) {
-                    set.status = 400;
-                    return {
-                        error: error instanceof Error ? error.message : "Unknown error",
-                    };
+                    set.status = mapErrorToStatus(error);
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {
@@ -105,10 +167,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     const items = await service.getItemsByDateRange(query.from, query.to);
                     return { items: selectCiphertextForUser(items, user.id) };
                 } catch (error) {
-                    set.status = 400;
-                    return {
-                        error: error instanceof Error ? error.message : "Unknown error",
-                    };
+                    set.status = mapErrorToStatus(error);
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {
@@ -130,18 +190,28 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     }
                     const userId = user?.id || "anonymous";
                     const userName = user?.name || "Unknown";
+                    if (!body.signatureBase64 || !body.timestamp || !body.keyId) {
+                        set.status = 400;
+                        return { error: "signatureBase64, timestamp, and keyId are required for data integrity" };
+                    }
 
                     const item = await service.createItem({
-                        ...body as any,
+                        type: body.type,
+                        date: body.date,
+                        childId: body.childId,
+                        encryption: body.encryption,
+                        encryptedPayload: body.encryptedPayload,
+                        signatureBase64: body.signatureBase64,
+                        timestamp: body.timestamp,
+                        keyId: body.keyId,
                         createdBy: userId,
                         createdByName: userName
-                    });
-                    return selectSingleCiphertextForUser(item, user.id);
+                    } as any);
+                    const plainItem = (item as any).toObject ? (item as any).toObject() : item;
+                    return selectSingleCiphertextForUser(plainItem, user.id);
                 } catch (error) {
-                    set.status = 400;
-                    return {
-                        error: error instanceof Error ? error.message : "Unknown error",
-                    };
+                    set.status = mapErrorToStatus(error);
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {
@@ -156,7 +226,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         t.Literal("ATTACHMENT"),
                     ]),
                     date: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
-                    childIds: t.Array(t.String()),
+                    childId: t.String(),
+                    encryption: t.Literal("ENCRYPTED"),
                     encryptedPayload: t.Record(t.String(), t.String()),
                     signatureBase64: t.String(),
                     timestamp: t.String(),
@@ -180,18 +251,29 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     }
                     const userName = user.name || "Unknown";
 
+                    const payload = body as CreateTimelineItemDto & { childId: string; signatureBase64: string; timestamp: string; keyId: string };
+                    if (!payload.childId || !payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
+                        set.status = 400;
+                        return { error: "childId, signatureBase64, timestamp, and keyId are required" };
+                    }
+
                     const updated = await service.updateItem(
                         params.id,
-                        body as any,
+                        payload as any,
                         user.id,
+                        payload.childId,
+                        {
+                            signatureBase64: payload.signatureBase64,
+                            timestamp: payload.timestamp,
+                            keyId: payload.keyId
+                        },
                         userName
                     );
-                    return selectSingleCiphertextForUser(updated, user.id);
+                    const plainUpdated = (updated as any).toObject ? (updated as any).toObject() : updated;
+                    return selectSingleCiphertextForUser(plainUpdated, user.id);
                 } catch (error) {
-                    set.status = 404;
-                    return {
-                        error: error instanceof Error ? error.message : "Unknown error",
-                    };
+                    set.status = mapErrorToStatus(error);
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {
@@ -199,13 +281,13 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     id: t.String(),
                 }),
                 body: t.Object({
-                    date: t.Optional(t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" })),
-                    childIds: t.Optional(t.Array(t.String())),
-                    encryptedPayload: t.Optional(t.Record(t.String(), t.String())),
+                    childId: t.String(),
+                    encryption: t.Literal("ENCRYPTED"),
+                    encryptedPayload: t.Record(t.String(), t.String()),
                     signatureBase64: t.String(),
                     timestamp: t.String(),
                     keyId: t.String()
-                }),
+                }, { additionalProperties: true }),
             }
         )
 
@@ -224,8 +306,11 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     }
 
                     const payload = body as { signatureBase64: string; timestamp: string; keyId: string };
+                    if (!payload.signatureBase64 || !payload.timestamp || !payload.keyId) {
+                        set.status = 400;
+                        return { error: "signatureBase64, timestamp, and keyId are required" };
+                    }
                     const userName = user.name || "Unknown";
-
                     await service.deleteItem(params.id, user.id, {
                         signatureBase64: payload.signatureBase64,
                         timestamp: payload.timestamp,
@@ -234,10 +319,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     set.status = 204;
                     return null;
                 } catch (error) {
-                    set.status = 404;
-                    return {
-                        error: error instanceof Error ? error.message : "Unknown error",
-                    };
+                    set.status = mapErrorToStatus(error);
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {

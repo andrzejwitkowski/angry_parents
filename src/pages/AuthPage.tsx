@@ -77,7 +77,7 @@ export default function AuthPage() {
         setError(null);
         try {
             const options = await authApi.loginOptions();
-            const asseResp = await startAuthentication({ optionsJSON: options.challenge as any });
+            const asseResp = await startAuthentication({ optionsJSON: options });
             const result = await authApi.loginVerify({ authenticationResponse: asseResp });
             if (result.verified) {
                 navigate('/dashboard');
@@ -222,9 +222,9 @@ export default function AuthPage() {
                                                         onChange={() => setGender('dad')}
                                                         disabled={!!token}
                                                     />
-                                                    <span className={`font-medium ${gender === 'dad' ? 'text-indigo-600' : 'text-slate-500'} ${!!token ? 'opacity-70' : ''}`}>{t("auth.dad")}</span>
+                                                    <span className={`font-medium ${gender === 'dad' ? 'text-indigo-600' : 'text-slate-500'} ${token ? 'opacity-70' : ''}`}>{t("auth.dad")}</span>
                                                 </label>
-                                                <label className={`flex items-center gap-2 ${!!token ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                                <label className={`flex items-center gap-2 ${token ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                                                     <input
                                                         type="radio"
                                                         name="gender"
@@ -233,7 +233,7 @@ export default function AuthPage() {
                                                         onChange={() => setGender('mom')}
                                                         disabled={!!token}
                                                     />
-                                                    <span className={`font-medium ${gender === 'mom' ? 'text-pink-600' : 'text-slate-500'} ${!!token ? 'opacity-70' : ''}`}>{t("auth.mom")}</span>
+                                                    <span className={`font-medium ${gender === 'mom' ? 'text-pink-600' : 'text-slate-500'} ${token ? 'opacity-70' : ''}`}>{t("auth.mom")}</span>
                                                 </label>
                                             </div>
                                             {!!token && (

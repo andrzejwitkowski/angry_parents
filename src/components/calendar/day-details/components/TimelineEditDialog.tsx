@@ -30,9 +30,8 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
         const childId = item.childIds[0];
-        if (item.encryption === "ENCRYPTED" || !childId) {
-            console.warn("Cannot edit encrypted item");
-            alert(t("daylog.cannotEditEncrypted"));
+        if (!childId) {
+            console.warn("Cannot edit item: missing childId");
             return;
         }
 
@@ -52,29 +51,10 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
             onOpenChange(false);
         } catch (error) {
             console.error("Failed to update entry:", error);
-            const message = error instanceof Error ? error.message : String(error);
-            alert(formatErrorMessage(message, t("daylog.failedToUpdate")));
+            alert(error instanceof Error ? error.message : t("daylog.failedToUpdate"));
         } finally {
             setIsSubmitting(false);
         }
-    };
-
-    const formatErrorMessage = (message: string, defaultMessage: string) => {
-        try {
-            // Check if it's Zod JSON error
-            if (message.startsWith("[") && message.endsWith("]")) {
-                const parsed = JSON.parse(message);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    return parsed.map((err: any) => {
-                        const path = err.path?.join(".") || "";
-                        return `${path ? `${path}: ` : ""}${err.message || err.code}`;
-                    }).join("\n");
-                }
-            }
-        } catch (e) {
-            // Not JSON, fall back to raw message
-        }
-        return message || defaultMessage;
     };
 
     return (
@@ -84,42 +64,42 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
                     <DialogTitle>{t("daylog.editEntry")}</DialogTitle>
                 </DialogHeader>
                 <div className="py-4">
-                    {item.encryption === "PLAINTEXT" && item.type === "MEDICAL_VISIT" && (
+                    {item.type === "MEDICAL_VISIT" && (
                         <MedicalForm
                             initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.encryption === "PLAINTEXT" && item.type === "HANDOVER" && (
+                    {item.type === "HANDOVER" && (
                         <HandoverForm
                             initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.encryption === "PLAINTEXT" && item.type === "MEDS" && (
+                    {item.type === "MEDS" && (
                         <MedsForm
                             initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.encryption === "PLAINTEXT" && item.type === "INCIDENT" && (
+                    {item.type === "INCIDENT" && (
                         <IncidentForm
                             initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.encryption === "PLAINTEXT" && item.type === "NOTE" && (
+                    {item.type === "NOTE" && (
                         <NoteForm
                             initialData={item}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
                         />
                     )}
-                    {item.encryption === "PLAINTEXT" && item.type === "VACATION" && (
+                    {item.type === "VACATION" && (
                         <VacationForm
                             initialData={item}
                             onSubmit={handleFormSubmit}

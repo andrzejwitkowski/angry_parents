@@ -45,6 +45,7 @@ describe("HandoverCard", () => {
         auditTrail: [],
         isDeleted: false,
         childIds: [],
+        encryption: "PLAINTEXT" as const,
     };
 
     beforeEach(() => {

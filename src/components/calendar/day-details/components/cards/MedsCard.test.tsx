@@ -38,6 +38,7 @@ const mockItem: MedsItem = {
     auditTrail: [],
     isDeleted: false,
     childIds: ["child-1"],
+    encryption: 'PLAINTEXT',
 };
 
 const ownerUser = {

@@ -250,6 +250,24 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
                 if (!family.parentIds.includes(userId)) {
                     family.parentIds.push(userId);
+                    if (isDev) {
+                        const devKeyPair = await getDevKeyPair();
+                        const devRsaPublicKey = devKeyPair.publicKey;
+                        const existingKey = family.parentPublicKeys?.find(
+                            (k: any) => k.role === invitationRole
+                        );
+                        if (existingKey) {
+                            existingKey.parentId = userId;
+                            existingKey.rsaPublicKeyBase64 = devRsaPublicKey;
+                        } else {
+                            if (!family.parentPublicKeys) family.parentPublicKeys = [];
+                            family.parentPublicKeys.push({
+                                parentId: userId,
+                                role: invitationRole,
+                                rsaPublicKeyBase64: devRsaPublicKey
+                            });
+                        }
+                    }
                     await family.save();
                 }
 
@@ -438,9 +456,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         email: payload.userId + "@example.com",
                         name: "User",
                         gender: payload.gender,
-                        familyId: payload.familyId,
+                        familyId: payload.familyId ? payload.familyId.toString() : null,
                     },
-                    family: family ? { ...family, id: family._id.toString() } : null
+                    family: family ? { ...family, id: family._id.toString(), _id: family._id.toString() } : null
                 };
             } catch (err) {
                 console.error("[Me] error:", err);
@@ -466,6 +484,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             let familyIdToUse: string;
             let finalGender = gender;
             let finalEmail = email;
+            const userId = new mongoose.Types.ObjectId().toString();
 
             if (token) {
                 const invitation = await Invitation.findOne({ token, status: "pending" });
@@ -482,20 +501,35 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             } else {
                 const devKeyPair = await getDevKeyPair();
                 const devRsaPublicKey = devKeyPair.publicKey;
+                const dummyOtherId = finalGender === "dad" ? "dummy-mom-id-stable" : "dummy-dad-id-stable";
+                const otherRole = finalGender === "dad" ? "mom" : "dad";
+
                 const newFamily = await Family.create({
-                    parentIds: [],
+                    parentIds: [userId, dummyOtherId],
                     parentPublicKeys: [
-                        { parentId: "dummy-dad-id", role: "dad", rsaPublicKeyBase64: devRsaPublicKey },
-                        { parentId: "dummy-mom-id", role: "mom", rsaPublicKeyBase64: devRsaPublicKey }
+                        { parentId: userId, role: finalGender, rsaPublicKeyBase64: devRsaPublicKey },
+                        { parentId: dummyOtherId, role: otherRole, rsaPublicKeyBase64: devRsaPublicKey }
                     ]
                 });
                 familyIdToUse = newFamily._id.toString();
             }
 
-            const userId = new mongoose.Types.ObjectId().toString();
             const family = await Family.findById(familyIdToUse);
             if (family && !family.parentIds.includes(userId)) {
                 family.parentIds.push(userId);
+                // Also ensure public key is set for this user if it was a token-based registration
+                const devKeyPair = await getDevKeyPair();
+                const devRsaPublicKey = devKeyPair.publicKey;
+                const existingKey = family.parentPublicKeys.find(
+                    (k: { parentId: string; role: string; rsaPublicKeyBase64: string }) =>
+                        k.parentId === userId || k.role === finalGender
+                );
+                if (existingKey) {
+                    existingKey.parentId = userId;
+                    existingKey.rsaPublicKeyBase64 = devRsaPublicKey;
+                } else {
+                    family.parentPublicKeys.push({ parentId: userId, role: finalGender, rsaPublicKeyBase64: devRsaPublicKey });
+                }
                 await family.save();
             }
 
@@ -550,7 +584,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             }
 
             const mockBody = (body || {}) as { userId?: string };
-            const finalUserId = mockBody.userId || new mongoose.Types.ObjectId().toString();
+            const DEFAULT_DEV_DAD_ID = "mock-user-id-dev-test-stable";
+            const finalUserId = mockBody.userId || DEFAULT_DEV_DAD_ID;
             const DUMMY_MOM_ID = "dummy-mom-id-stable";
             let finalFamilyId = "";
 
@@ -617,7 +652,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 role: "dad",
                 gender: "dad",
             });
-            console.log(`[MockLogin] Mock login for userId: ${finalUserId}`);
+            console.log(`[MockLogin] Mock login for userId: ${finalUserId}, familyId: ${finalFamilyId}`);
             set.headers["Set-Cookie"] = setCookie(token);
             set.headers["Content-Type"] = "application/json";
             return { verified: true };

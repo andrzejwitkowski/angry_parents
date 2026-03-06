@@ -8,7 +8,7 @@ const AuditEntrySchema = z.object({
     changes: z.any().optional(), // Field name to new value mapping
 });
 
-// Base schema for all timeline items (metadata fields)
+// Base schema for all timeline items
 const BaseTimelineItemSchema = z.object({
     id: z.string().uuid(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
@@ -20,6 +20,94 @@ const BaseTimelineItemSchema = z.object({
     childIds: z.array(z.string()).default([]),
 });
 
+// NOTE: Standard text message
+export const NoteItemSchema = BaseTimelineItemSchema.extend({
+    type: z.literal("NOTE"),
+    encryption: z.literal("PLAINTEXT"),
+    content: z.string().min(1),
+});
+
+// HANDOVER: Child exchange logic
+export const HandoverItemSchema = BaseTimelineItemSchema.extend({
+    type: z.literal("HANDOVER"),
+    encryption: z.literal("PLAINTEXT"),
+    location: z.string().min(1),
+    time: z.string().regex(/^\d{2}:\d{2}$/), // HH:MM
+    status: z.enum(["PENDING", "COMPLETED"]),
+});
+
+// MEDS: Medicine tracker
+export const MedsItemSchema = BaseTimelineItemSchema.extend({
+    type: z.literal("MEDS"),
+    encryption: z.literal("PLAINTEXT"),
+    medicineName: z.string().min(1),
+    dosage: z.string().min(1),
+    administered: z.boolean().default(false),
+});
+
+// MEDICAL_VISIT: Critical medical event
+export const MedicalVisitItemSchema = BaseTimelineItemSchema.extend({
+    type: z.literal("MEDICAL_VISIT"),
+    encryption: z.literal("PLAINTEXT"),
+    doctor: z.string().min(1),
+    specialization: z.string().optional(),
+    diagnosis: z.string().min(3),
+    recommendations: z.string().optional(),
+    attachments: z.array(z.string()).default([]), // File URLs
+});
+
+// INCIDENT: Reports with severity
+export const IncidentItemSchema = BaseTimelineItemSchema.extend({
+    type: z.literal("INCIDENT"),
+    encryption: z.literal("PLAINTEXT"),
+    severity: z.enum(["LOW", "MEDIUM", "HIGH"]),
+    description: z.string().min(1),
+});
+
+// VACATION: Status indicator
+export const VacationItemSchema = BaseTimelineItemSchema.extend({
+    type: z.literal("VACATION"),
+    encryption: z.literal("PLAINTEXT"),
+    status: z.string(),
+});
+
+// ATTACHMENT: Files
+export const AttachmentItemSchema = BaseTimelineItemSchema.extend({
+    type: z.literal("ATTACHMENT"),
+    encryption: z.literal("PLAINTEXT"),
+    fileName: z.string(),
+    fileUrl: z.string().url(),
+    fileSize: z.number(),
+    mimeType: z.string(),
+});
+
+// Discriminated union for all plaintext timeline item types
+export const PlainTimelineItemSchema = z.discriminatedUnion("type", [
+    NoteItemSchema,
+    HandoverItemSchema,
+    MedsItemSchema,
+    MedicalVisitItemSchema,
+    IncidentItemSchema,
+    VacationItemSchema,
+    AttachmentItemSchema,
+]);
+
+// Discriminated union for ALL timeline item types (handled manually for better discrimination)
+// Note: Zod discriminatedUnion requires a shared literal field. 
+// We use 'encryption' as the primary discriminator for narrowing.
+
+// TypeScript types inferred from Zod schemas
+export type AuditEntry = z.infer<typeof AuditEntrySchema>;
+export type BaseTimelineItem = z.infer<typeof BaseTimelineItemSchema>;
+export type NoteItem = z.infer<typeof NoteItemSchema>;
+export type HandoverItem = z.infer<typeof HandoverItemSchema>;
+export type MedsItem = z.infer<typeof MedsItemSchema>;
+export type MedicalVisitItem = z.infer<typeof MedicalVisitItemSchema>;
+export type IncidentItem = z.infer<typeof IncidentItemSchema>;
+export type VacationItem = z.infer<typeof VacationItemSchema>;
+export type AttachmentItem = z.infer<typeof AttachmentItemSchema>;
+export type PlainTimelineItem = z.infer<typeof PlainTimelineItemSchema>;
+
 export const TimelineItemTypeSchema = z.enum([
     "NOTE",
     "HANDOVER",
@@ -30,48 +118,98 @@ export const TimelineItemTypeSchema = z.enum([
     "ATTACHMENT",
 ]);
 
-/**
- * Encrypted payload containing the dual ciphertext for content fields.
- * This is a mapping from userId to Base64 ciphertext.
- */
-export type EncryptedPayload = Record<string, string>;
+// Note: types and schemas are now defined together below
 
-/**
- * A TimelineItem as it exists in storage (with encrypted content).
- * All sensitive data is contained within `encryptedPayload`.
- */
-export type EncryptedTimelineItem = z.infer<typeof BaseTimelineItemSchema> & {
-    type: z.infer<typeof TimelineItemTypeSchema>;
-    encryption: "ENCRYPTED";
-    encryptedPayload: EncryptedPayload;
-    ciphertext?: string;
-};
+// Discriminated union for ALL timeline item types
+// We use 'encryption' as the primary discriminator for narrowing.
+export const TimelineItemSchema = z.discriminatedUnion("encryption", [
+    PlainTimelineItemSchema,
+    z.object({
+        encryption: z.literal("ENCRYPTED"),
+        id: z.string().uuid(),
+        type: TimelineItemTypeSchema,
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        createdAt: z.string().datetime(),
+        createdBy: z.string(),
+        createdByName: z.string().optional(),
+        auditTrail: z.array(AuditEntrySchema).default([]),
+        isDeleted: z.boolean().default(false),
+        childIds: z.array(z.string()).default([]),
+        encryptedPayload: z.record(z.string(), z.string()),
+        ciphertext: z.string().optional(),
+    })
+]);
 
-// Main type for the backend - only Encrypted items allowed
-export type TimelineItem = EncryptedTimelineItem;
+// Types inferred from Zod schemas
+export type TimelineItem = z.infer<typeof TimelineItemSchema>;
+export type EncryptedTimelineItem = Extract<TimelineItem, { encryption: "ENCRYPTED" }>;
 
-export const TimelineItemSchema = BaseTimelineItemSchema.extend({
-    encryption: z.literal("ENCRYPTED"),
+// DTO for creating new items. 
+// In a true E2EE system, the client SHOULD provide the encryption: "ENCRYPTED" and payload.
+export const CreatePlainTimelineItemDtoSchema = z.object({
     type: TimelineItemTypeSchema,
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    childId: z.string(),
+    encryption: z.literal("PLAINTEXT"),
+    content: z.string().optional(), // used temporarily during transition or for internal tools
+}).passthrough();
+
+export const CreateEncryptedTimelineItemDtoSchema = z.object({
+    type: TimelineItemTypeSchema,
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    childId: z.string(),
+    encryption: z.literal("ENCRYPTED"),
     encryptedPayload: z.record(z.string(), z.string()),
-    ciphertext: z.string().optional(),
 });
 
-/**
- * Helper type for creating new items on the server side.
- * The client sends unencrypted metadata and the client-side encryptedPayload.
- */
-export type CreateTimelineItemDto = {
-    type: z.infer<typeof TimelineItemTypeSchema>;
-    date: string;
-    encryptedPayload: EncryptedPayload;
-    childIds: string[];
-    createdBy: string;
-    createdByName?: string;
-};
+export const CreateTimelineItemDtoSchema = z.discriminatedUnion("encryption", [
+    CreatePlainTimelineItemDtoSchema,
+    CreateEncryptedTimelineItemDtoSchema,
+]);
 
-// Re-export types for backward compatibility where needed
-export type AuditEntry = z.infer<typeof AuditEntrySchema>;
-export type BaseTimelineItem = z.infer<typeof BaseTimelineItemSchema>;
-/** @deprecated PlainTimelineItem is no longer validated on the backend. Use EncryptedTimelineItem and explicitly cast if needed. */
-export type PlainTimelineItem = unknown;
+export type CreateTimelineItemDto = z.infer<typeof CreateTimelineItemDtoSchema>;
+
+/**
+ * Visitor pattern for TimelineItem.
+ * Allows operating on different timeline item types without large switch/if-else blocks.
+ */
+export interface TimelineItemVisitor<R> {
+    visitNote(item: NoteItem): R;
+    visitHandover(item: HandoverItem): R;
+    visitMeds(item: MedsItem): R;
+    visitMedicalVisit(item: MedicalVisitItem): R;
+    visitIncident(item: IncidentItem): R;
+    visitVacation(item: VacationItem): R;
+    visitAttachment(item: AttachmentItem): R;
+    visitEncrypted(item: EncryptedTimelineItem): R;
+}
+
+/**
+ * Dispatcher for the TimelineItem Visitor pattern.
+ */
+export function acceptTimelineItemVisitor<R>(item: TimelineItem, visitor: TimelineItemVisitor<R>): R {
+    if (item.encryption === "ENCRYPTED") {
+        return visitor.visitEncrypted(item);
+    }
+
+    switch (item.type) {
+        case "NOTE":
+            return visitor.visitNote(item);
+        case "HANDOVER":
+            return visitor.visitHandover(item);
+        case "MEDS":
+            return visitor.visitMeds(item);
+        case "MEDICAL_VISIT":
+            return visitor.visitMedicalVisit(item);
+        case "INCIDENT":
+            return visitor.visitIncident(item);
+        case "VACATION":
+            return visitor.visitVacation(item);
+        case "ATTACHMENT":
+            return visitor.visitAttachment(item);
+        default: {
+            const _exhaustiveCheck: never = item;
+            throw new Error(`Unhandled timeline item type: ${(item as any).type}`);
+        }
+    }
+}
