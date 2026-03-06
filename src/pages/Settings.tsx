@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -9,17 +10,63 @@ import {
     Home,
     Calendar,
     MessageSquare,
-    Settings as SettingsIcon
+    Settings as SettingsIcon,
+    ShieldCheck,
+    Key,
+    Lock
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { authApi } from "@/lib/api/auth";
+import { getPrivateKey } from "@/lib/idb-crypto";
+import { loginWithPasskey } from "@/lib/webauthn-client";
 
 export default function Settings() {
     const { t, i18n } = useTranslation();
+    const [localUnlocked, setLocalUnlocked] = useState(false);
+    const [parentStatuses, setParentStatuses] = useState({ mom: false, dad: false, current: false });
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchStatus = async () => {
+            try {
+                const { user: me, family } = await authApi.getMe();
+                setUser(me);
+                if (family) {
+                    const statuses = {
+                        mom: family.parentPublicKeys.some(k => k.role === 'mom'),
+                        dad: family.parentPublicKeys.some(k => k.role === 'dad'),
+                        current: family.parentPublicKeys.some(k => k.parentId === me.id)
+                    };
+                    setParentStatuses(statuses);
+
+                    const pk = await getPrivateKey(me.id);
+                    setLocalUnlocked(!!pk);
+                }
+            } catch (e) {
+                console.error("Failed to fetch settings status", e);
+            }
+        };
+        fetchStatus();
+    }, []);
 
     const handleLanguageChange = (value: string) => {
         i18n.changeLanguage(value);
         localStorage.setItem("i18nextLng", value);
+    };
+
+    const handleUnlock = async () => {
+        try {
+            // Re-trigger login with PRF to unlock
+            const success = await loginWithPasskey(user?.email);
+            if (success) {
+                const pk = await getPrivateKey(user?.id);
+                setLocalUnlocked(!!pk);
+            }
+        } catch (e) {
+            console.error("Unlock failed", e);
+        }
     };
 
     return (
@@ -60,6 +107,74 @@ export default function Settings() {
                                     <SelectItem value="pl">{t('settings.language.polish')}</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Encryption Settings Card */}
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <CardHeader className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center gap-4 space-y-0">
+                        <div className="w-12 h-12 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                            <ShieldCheck className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-base font-semibold">{t('settings.encryption.title')}</CardTitle>
+                            <CardDescription className="text-xs">{t('settings.encryption.description')}</CardDescription>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-5 space-y-4">
+                        <div className="flex flex-col gap-3">
+                            {/* Parent Statuses */}
+                            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${parentStatuses.mom ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                    <span className="text-sm font-medium">{t('settings.encryption.momStatus')}</span>
+                                </div>
+                                <span className="text-xs text-slate-500">{parentStatuses.mom ? t('settings.encryption.registered') : t('settings.encryption.unregistered')}</span>
+                            </div>
+
+                            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${parentStatuses.dad ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                    <span className="text-sm font-medium">{t('settings.encryption.dadStatus')}</span>
+                                </div>
+                                <span className="text-xs text-slate-500">{parentStatuses.dad ? t('settings.encryption.registered') : t('settings.encryption.unregistered')}</span>
+                            </div>
+
+                            {/* Local Device Status */}
+                            <div className="mt-2 p-4 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <Key className="w-4 h-4 text-indigo-500" />
+                                        <span className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">{t('settings.encryption.localStatus')}</span>
+                                    </div>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${localUnlocked ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                        {localUnlocked ? t('settings.encryption.unlocked') : t('settings.encryption.locked')}
+                                    </span>
+                                </div>
+                                {!localUnlocked && parentStatuses.current && (
+                                    <Button
+                                        size="sm"
+                                        className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700"
+                                        onClick={handleUnlock}
+                                    >
+                                        <Lock className="w-4 h-4 mr-2" />
+                                        {t('settings.encryption.unlockButton')}
+                                    </Button>
+                                )}
+                                {!parentStatuses.current && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full mt-2"
+                                        asChild
+                                    >
+                                        <Link to="/passkey-setup">
+                                            {t('settings.encryption.setupButton')}
+                                        </Link>
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

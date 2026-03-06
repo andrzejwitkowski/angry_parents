@@ -33,6 +33,8 @@ export interface Family {
         parentId: string;
         role: Gender;
         rsaPublicKeyBase64: string;
+        encryptedRsaPrivateKeyBase64?: string;
+        prfSaltBase64?: string;
     }[];
 }
 
@@ -53,17 +55,37 @@ export const authApi = {
             { method: "POST", body: JSON.stringify(data) }
         ),
 
-    registerVerify: (data: { registrationResponse: unknown; tempEmail: string; tempName?: string; tempUsername?: string; tempGender?: Gender; mock?: boolean; token?: string }) =>
-        fetchApi<{ verified: boolean; role: string }>(
+    registerVerify: (data: {
+        registrationResponse: any;
+        tempEmail: string;
+        tempName?: string;
+        tempUsername?: string;
+        tempGender?: Gender;
+        mock?: boolean;
+        token?: string;
+        rsaPublicKeyBase64?: string;
+        encryptedRsaPrivateKeyBase64?: string;
+        prfSaltBase64?: string;
+    }) =>
+        fetchApi<{ verified: boolean; role: string; userId?: string }>(
             "/register/verify",
             { method: "POST", body: JSON.stringify(data) }
         ),
 
-    loginOptions: () =>
-        fetchApi<PublicKeyCredentialRequestOptionsJSON>("/login/options", { method: "POST" }),
+    loginOptions: (data?: { email?: string }) =>
+        fetchApi<PublicKeyCredentialRequestOptionsJSON & { prfSaltBase64?: string }>("/login/options", {
+            method: "POST",
+            body: data ? JSON.stringify(data) : undefined
+        }),
 
-    loginVerify: (data: { authenticationResponse?: unknown; mockLogin?: boolean; userId?: string }) =>
-        fetchApi<{ verified: boolean }>(
+    loginVerify: (data: { authenticationResponse?: any; mockLogin?: boolean; userId?: string }) =>
+        fetchApi<{
+            verified: boolean;
+            token: string;
+            encryptedRsaPrivateKeyBase64?: string;
+            prfSaltBase64?: string;
+            userId?: string;
+        }>(
             "/login/verify",
             { method: "POST", body: JSON.stringify(data) }
         ),
@@ -76,6 +98,16 @@ export const authApi = {
 
     logout: () =>
         fetchApi<{ ok: boolean }>("/logout", { method: "POST" }),
+
+    updatePublicKey: (data: {
+        rsaPublicKeyBase64: string;
+        encryptedRsaPrivateKeyBase64: string;
+        prfSaltBase64: string
+    }) =>
+        fetchApi<{ success: boolean }>("/public-key", {
+            method: "POST",
+            body: JSON.stringify(data)
+        }),
 
     devMockRegister: (data: { email: string; name: string; gender: Gender; token?: string }) =>
         fetchApi<{ verified: boolean; role: string }>(

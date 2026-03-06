@@ -10,6 +10,8 @@ export interface IFamily extends Document {
         parentId: string; // Refers to user ID
         role: "mom" | "dad"; // Explicit role for encryption
         rsaPublicKeyBase64: string; // The parent's RSA-OAEP public key
+        encryptedRsaPrivateKeyBase64?: string; // PRF-wrapped private key
+        prfSaltBase64?: string; // The salt used for PRF derivation
     }[];
     children: {
         id: string;
@@ -35,6 +37,8 @@ const FamilySchema = new Schema<IFamily>({
             parentId: { type: String, required: true },
             role: { type: String, enum: ["mom", "dad"], required: true },
             rsaPublicKeyBase64: { type: String, required: true },
+            encryptedRsaPrivateKeyBase64: { type: String, required: false },
+            prfSaltBase64: { type: String, required: false },
         }
     ],
     children: [FamilyChildSchema],
