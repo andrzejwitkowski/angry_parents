@@ -20,8 +20,8 @@ describe("Timeline Audit System", () => {
             name: "Child",
             color: "#FFF",
             icon: "child",
-            momId: "dad-1", // Using IDs from the mock below
-            dadId: "user-1"
+            momId: "mom-1", // Using IDs from the mock below
+            dadId: "dad-1"
         });
 
         const mockCryptoService = {
@@ -33,14 +33,14 @@ describe("Timeline Audit System", () => {
         const mockFamilyModel = {
             findById: async () => ({
                 id: "family-1",
-                parentIds: ["dad-1", "user-1"],
+                parentIds: ["mom-1", "dad-1"],
                 parents: [
-                    { id: "dad-1", role: "ADMIN", publicKeyParams: { x: "x1", y: "y1" } },
-                    { id: "user-1", role: "USER", publicKeyParams: { x: "x2", y: "y2" } }
+                    { id: "mom-1", role: "ADMIN", publicKeyParams: { x: "x1", y: "y1" } },
+                    { id: "dad-1", role: "USER", publicKeyParams: { x: "x2", y: "y2" } }
                 ],
                 parentPublicKeys: [
-                    { parentId: "dad-1", role: "mom", rsaPublicKeyBase64: "mom-key" },
-                    { parentId: "user-1", role: "dad", rsaPublicKeyBase64: "dad-key" }
+                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-key" },
+                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-key" }
                 ]
             })
         } as any;
@@ -68,7 +68,7 @@ describe("Timeline Audit System", () => {
         const dto: CreateTimelineItemDto = {
             type: "NOTE",
             date: "2026-02-03",
-            createdBy: "user-1",
+            createdBy: "dad-1",
             createdByName: "Alice",
             content: "Hello",
             childIds: [],
@@ -78,7 +78,7 @@ describe("Timeline Audit System", () => {
 
         expect(item.auditTrail).toHaveLength(1);
         expect(item.auditTrail[0].action).toBe("CREATED");
-        expect(item.auditTrail[0].userId).toBe("user-1");
+        expect(item.auditTrail[0].userId).toBe("dad-1");
         expect(item.auditTrail[0].userName).toBe("Alice");
         expect(item.isDeleted).toBe(false);
     });
@@ -87,7 +87,7 @@ describe("Timeline Audit System", () => {
         const dto: CreateTimelineItemDto = {
             type: "NOTE",
             date: "2026-02-03",
-            createdBy: "user-1",
+            createdBy: "dad-1",
             createdByName: "Alice",
             content: "Initial content",
             childIds: [],
@@ -96,14 +96,14 @@ describe("Timeline Audit System", () => {
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // First update
-        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated once" } as any, "user-1", "child-1", {
+        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated once" } as any, "dad-1", "child-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
         }, "Alice");
 
         // Second update
-        const updated2 = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated twice" } as any, "user-1", "child-1", {
+        const updated2 = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated twice" } as any, "dad-1", "child-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
@@ -119,7 +119,7 @@ describe("Timeline Audit System", () => {
         const dto: CreateTimelineItemDto = {
             type: "NOTE",
             date: "2026-02-03",
-            createdBy: "user-1",
+            createdBy: "dad-1",
             createdByName: "Alice",
             content: "Initial content",
             childIds: [],
@@ -128,13 +128,13 @@ describe("Timeline Audit System", () => {
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // Update by the same user (owner)
-        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Changed" } as any, "user-1", "child-1", {
+        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Changed" } as any, "dad-1", "child-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
         }, "Alice");
 
-        expect(updated.auditTrail[1].userId).toBe("user-1");
+        expect(updated.auditTrail[1].userId).toBe("dad-1");
         expect(updated.auditTrail[1].userName).toBe("Alice");
     });
 
@@ -142,14 +142,14 @@ describe("Timeline Audit System", () => {
         const dto: CreateTimelineItemDto = {
             type: "NOTE",
             date: "2026-02-03",
-            createdBy: "user-1",
+            createdBy: "dad-1",
             createdByName: "Alice",
             content: "Delete me",
             childIds: [],
         } as CreateTimelineItemDto;
 
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
-        await service.deleteItem(created.id, "user-1", {
+        await service.deleteItem(created.id, "dad-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
@@ -172,7 +172,7 @@ describe("Timeline Audit System", () => {
         const dto: CreateTimelineItemDto = {
             type: "MEDS",
             date: "2026-02-03",
-            createdBy: "user-1",
+            createdBy: "dad-1",
             medicineName: "Advil",
             dosage: "200mg",
             administered: false,
@@ -182,7 +182,7 @@ describe("Timeline Audit System", () => {
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // Update with SAME values
-        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, administered: false } as any, "user-1", "child-1", {
+        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, administered: false } as any, "dad-1", "child-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"

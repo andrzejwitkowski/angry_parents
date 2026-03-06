@@ -148,6 +148,7 @@ const ME_CACHE_TTL_MS = 30_000; // 30 seconds
 export function invalidateMeCache() {
     cachedMeData = null;
     cachedMeTimestamp = 0;
+    cachedMePromise = null;
 }
 
 

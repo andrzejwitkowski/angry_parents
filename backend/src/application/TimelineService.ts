@@ -36,6 +36,8 @@ export class TimelineServiceImpl {
         "isDeleted",
         "childIds",
         "encryption",
+        "encryptedPayload",
+        "ciphertext",
     ]);
 
     constructor(

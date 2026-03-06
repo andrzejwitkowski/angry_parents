@@ -10,16 +10,30 @@ function getJwtFromCookie(request: Request): string | null {
     return match ? match[1] : null;
 }
 
+function formatErrorResponse(error: unknown): string {
+    if (error && (error as any).name === "ZodError" && (error as any).issues) {
+        try {
+            return (error as any).issues.map((issue: any) => {
+                const path = issue.path.join(".");
+                return `${path ? path + ": " : ""}${issue.message}`;
+            }).join(", ");
+        } catch (e) {
+            // Fallback if parsing fails
+        }
+    }
+    return error instanceof Error ? error.message : String(error);
+}
+
 function isParentRole(role?: string): role is "mom" | "dad" {
     return role === "mom" || role === "dad";
 }
 
-function mapErrorToStatus(error: unknown): number {
+export function mapErrorToStatus(error: unknown): number {
     const message = error instanceof Error ? error.message : String(error);
     const lower = message.toLowerCase();
 
-    // 404 Not Found mappings
-    if (lower.includes("not found")) {
+    // 404 Not Found mappings - specific to timeline item identity
+    if (lower.includes("timeline item with id") && lower.includes("not found")) {
         return 404;
     }
 
@@ -64,7 +78,10 @@ function selectCiphertextForUser(items: any[], userId: string) {
 
         // DEV fallback: log a warning if ciphertext is missing for the user
         if (!ciphertext && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")) {
-            console.warn(`Missing ciphertext for userId: ${userId} in payload:`, payload);
+            console.warn(
+                `Missing ciphertext for userId: ${userId}. Available encryptedPayload keys:`,
+                Object.keys(payload)
+            );
         }
 
         return {
@@ -121,7 +138,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     return { items: selectCiphertextForUser(items, user.id) };
                 } catch (error) {
                     set.status = mapErrorToStatus(error);
-                    return { error: error instanceof Error ? error.message : String(error) };
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {
@@ -148,7 +165,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     return { items: selectCiphertextForUser(items, user.id) };
                 } catch (error) {
                     set.status = mapErrorToStatus(error);
-                    return { error: error instanceof Error ? error.message : String(error) };
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {
@@ -184,7 +201,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     return selectSingleCiphertextForUser(plainItem, user.id);
                 } catch (error) {
                     set.status = mapErrorToStatus(error);
-                    return { error: error instanceof Error ? error.message : String(error) };
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {
@@ -244,7 +261,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     return selectSingleCiphertextForUser(plainUpdated, user.id);
                 } catch (error) {
                     set.status = mapErrorToStatus(error);
-                    return { error: error instanceof Error ? error.message : String(error) };
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {
@@ -289,7 +306,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     return null;
                 } catch (error) {
                     set.status = mapErrorToStatus(error);
-                    return { error: error instanceof Error ? error.message : String(error) };
+                    return { error: formatErrorResponse(error) };
                 }
             },
             {

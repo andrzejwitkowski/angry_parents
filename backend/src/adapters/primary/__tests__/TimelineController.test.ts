@@ -115,8 +115,8 @@ describe("TimelineController Ciphertext Selection", () => {
         expect(data.items[0].ciphertext).toBe("");
         expect(data.items[0].encryptedPayload).toBeUndefined();
         expect(warnSpy).toHaveBeenCalledWith(
-            expect.stringContaining(`Missing ciphertext for userId: ${MOCK_USER_ID}`),
-            mockItem.encryptedPayload
+            expect.stringContaining(`Missing ciphertext for userId: ${MOCK_USER_ID}. Available encryptedPayload keys:`),
+            Object.keys(mockItem.encryptedPayload)
         );
         warnSpy.mockRestore();
     });

@@ -1,0 +1,38 @@
+[
+  {
+    "path": "backend/src/application/TimelineService.ts",
+    "line": 38,
+    "url": "https://github.com/andrzejwitkowski/angry_parents/pull/22#discussion_r2895159475",
+    "body": "`UNENCRYPTED_ITEM_FIELDS` is missing `\"encryptedPayload\"` and `\"ciphertext\"`. In the `updateItem` flow, when `incomingEncryption` resolves to `\"ENCRYPTED\"` (e.g., a malicious or legacy client sends `encryptedPayload`), the Zod schema parses the item as an encrypted variant that includes `encryptedPayload`. When `extractContentForEncryption` is then called on this object (line 358 casts `validated as PlainTimelineItem`), the `encryptedPayload` and `ciphertext` fields will be included as \"content fields\" in the encrypted blob, since they're not in the exclusion set. This adds garbage data to the encrypted content that will be present after decryption on the client.\n\nThe frontend's equivalent `PROTECTED_FIELDS` set (in `src/lib/api/timeline.ts:40-42`) already includes both `\"encryptedPayload\"` and `\"ciphertext\"` but is missing `\"encryption\"`. Both sets should be kept in sync. Add `\"encryptedPayload\"` and `\"ciphertext\"` to the backend's `UNENCRYPTED_ITEM_FIELDS`.\n```suggestion\n        \"encryption\",\n        \"encryptedPayload\",\n        \"ciphertext\",\n```"
+  },
+  {
+    "path": "src/lib/api/timeline.ts",
+    "line": 151,
+    "url": "https://github.com/andrzejwitkowski/angry_parents/pull/22#discussion_r2895159495",
+    "body": "`invalidateMeCache()` doesn't clear `cachedMePromise`. If an in-flight `getMe()` request is pending when the cache is invalidated (e.g., on logout), the pending promise will still resolve and repopulate `cachedMeData` with stale data. Set `cachedMePromise = null` here alongside the other cache fields."
+  },
+  {
+    "path": "backend/src/adapters/primary/TimelineController.ts",
+    "line": 67,
+    "url": "https://github.com/andrzejwitkowski/angry_parents/pull/22#discussion_r2895159507",
+    "body": "The warning log on line 67 prints the full `encryptedPayload` (containing ciphertext for all parent users). Even though this is guarded by a dev/test check, logging other users' ciphertexts to the console is unnecessary and could be a concern in shared dev environments. Consider logging only the available keys (e.g., `Object.keys(payload)`) rather than the full payload values.\n```suggestion\n            console.warn(\n                `Missing ciphertext for userId: ${userId}. Available encryptedPayload keys:`,\n                Object.keys(payload)\n            );\n```"
+  },
+  {
+    "path": "backend/src/application/__tests__/TimelineAudit.test.ts",
+    "line": 25,
+    "url": "https://github.com/andrzejwitkowski/angry_parents/pull/22#discussion_r2895159530",
+    "body": "The mock child data has `momId: \"dad-1\"` and `dadId: \"user-1\"`, and correspondingly the family mock has `parentId: \"dad-1\", role: \"mom\"` and `parentId: \"user-1\", role: \"dad\"`. While the data is internally consistent (so the test works), the naming is confusing: a variable named `dad-1` is assigned the \"mom\" role. Consider renaming the IDs to match their roles (e.g., `\"mom-1\"` for the mom role) to improve test readability."
+  },
+  {
+    "path": "backend/src/adapters/primary/TimelineController.ts",
+    "line": 24,
+    "url": "https://github.com/andrzejwitkowski/angry_parents/pull/22#discussion_r2895159558",
+    "body": "The string-matching approach for `mapErrorToStatus` has an ordering issue: errors like `\"Child not found\"` or `\"Family not found for child\"` (thrown from `TimelineService.encryptItem()` at lines 125, 130) will map to 404 because `\"not found\"` is checked first. These are internal server errors (the timeline resource itself exists, but an internal dependency lookup failed) and should return 500, not 404. Consider matching on more specific strings (e.g., `\"timeline item with id\"`) for the 404 case, or adding the internal \"not found\" patterns to a 500 allowlist checked before the 404 block."
+  },
+  {
+    "path": "src/components/calendar/day-details/components/TimelineEditDialog.tsx",
+    "line": 55,
+    "url": "https://github.com/andrzejwitkowski/angry_parents/pull/22#discussion_r2895159570",
+    "body": "The removed `formatErrorMessage` helper previously parsed Zod validation JSON arrays into readable error messages for the `alert()`. ZodError `.message` property is a JSON string of validation issues (e.g., `[{\"code\":\"too_small\",\"path\":[\"diagnosis\"],...}]`). If the backend returns a ZodError message (e.g., from `TimelineItemSchema.parse()` failing), the user will now see a raw JSON blob in the alert dialog. Consider either keeping a simplified formatter on the frontend, or formatting ZodError messages on the backend before returning them in the response."
+  }
+]
