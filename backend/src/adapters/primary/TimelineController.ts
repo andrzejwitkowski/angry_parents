@@ -25,10 +25,9 @@ function selectCiphertextForUser(items: any[], userId: string) {
         const { encryptedPayload, ...rest } = typedItem;
         let ciphertext = payload[userId];
 
-        // DEV fallback: all parents share the same RSA key, so any ciphertext will do
+        // DEV fallback: log a warning if ciphertext is missing for the user
         if (!ciphertext && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")) {
-            const values = Object.values(payload);
-            ciphertext = values.length > 0 ? values[0] : "";
+            console.warn(`Missing ciphertext for userId: ${userId} in payload:`, payload);
         }
 
         return {

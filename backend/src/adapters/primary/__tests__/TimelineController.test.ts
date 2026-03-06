@@ -91,7 +91,8 @@ describe("TimelineController Ciphertext Selection", () => {
         }
     });
 
-    it("should return fallback ciphertext if user ID not in payload and NOT production (DEV FALLBACK)", async () => {
+    it("should return empty ciphertext and log a warning if user ID not in payload and NOT production (DEV FALLBACK)", async () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => { });
         const mockItem = {
             id: "item-1",
             type: "NOTE",
@@ -111,7 +112,12 @@ describe("TimelineController Ciphertext Selection", () => {
         );
 
         const data = await response.json();
-        expect(data.items[0].ciphertext).toBe("ciphertext-fallback");
+        expect(data.items[0].ciphertext).toBe("");
         expect(data.items[0].encryptedPayload).toBeUndefined();
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining(`Missing ciphertext for userId: ${MOCK_USER_ID}`),
+            mockItem.encryptedPayload
+        );
+        warnSpy.mockRestore();
     });
 });
