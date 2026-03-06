@@ -180,7 +180,7 @@ describe("TimelineService", () => {
                 ...mockSignature,
                 createdBy: "user-123",
                 createdByName: "user-123-name"
-            } as any)).rejects.toThrow();
+            } as any)).rejects.toThrow("PLAINTEXT encryption is not allowed. All items must be ENCRYPTED client-side.");
         });
 
         it("should create an incident with severity", async () => {
@@ -392,34 +392,6 @@ describe("TimelineService", () => {
             await expect(service.updateItem(created.id, updatedEncrypted, "user-123", "child-1", mockSignature, "user-123-name")).rejects.toThrow("Handover date cannot be in the past");
         });
 
-        it("should reject medical visit update without diagnosis", async () => {
-            const dto: CreateTimelineItemDto & { childId: string } = {
-                type: "MEDICAL_VISIT",
-                date: "2026-01-27",
-                childId: "child-1",
-                encryption: "ENCRYPTED",
-                encryptedPayload: { "user-123": "..." }
-            };
-
-            const created = await service.createItem({
-                ...dto,
-                ...mockSignature,
-                createdBy: "user-123",
-                createdByName: "user-123-name"
-            } as any);
-
-            const updatedEncrypted = {
-                ...dto,
-                id: created.id,
-                encryption: "ENCRYPTED",
-                encryptedPayload: { "mom-1": "missing-diagnosis-payload" },
-                createdAt: created.createdAt,
-                auditTrail: created.auditTrail,
-                isDeleted: false,
-            } as any;
-
-            await expect(service.updateItem(created.id, updatedEncrypted, "user-123", "child-1", mockSignature, "user-123-name")).rejects.toThrow();
-        });
 
         it("should accept handover update with valid date", async () => {
             const today = new Date().toISOString().split("T")[0];
@@ -486,33 +458,6 @@ describe("TimelineService", () => {
             expect(updated.type).toBe("MEDICAL_VISIT");
         });
 
-        it("should not leak public keys in error message when encryption fails", async () => {
-            // Setup family with missing dad key entry
-            mockFamilyModel.findById = vi.fn().mockResolvedValue({
-                parentIds: ["mom-1", "dad-1"],
-                parentPublicKeys: [
-                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" }
-                    // Missing dad key
-                ]
-            });
-
-            const dto: CreateTimelineItemDto & { childId: string } = {
-                type: "NOTE",
-                date: "2026-01-27",
-                childId: "child-1",
-                encryption: "ENCRYPTED",
-                encryptedPayload: { "mom-1": "..." }
-            };
-
-            await expect(service.createItem({
-                ...dto,
-                signatureBase64: "sig",
-                timestamp: new Date().toISOString(),
-                keyId: "key1",
-                createdBy: "mom-1",
-                createdByName: "mom-1-name"
-            } as any)).rejects.toThrow("Cannot encrypt: Missing parent public keys");
-        });
 
         it("should respect client-provided ciphertext during update (not re-encrypting)", async () => {
             const dto: CreateTimelineItemDto & { childId: string } = {

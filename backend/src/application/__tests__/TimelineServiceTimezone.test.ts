@@ -69,16 +69,14 @@ describe("TimelineService - Timezone Regression", () => {
         const mockedNow = new Date(2026, 2, 6, 23, 59, 59); // March 6, 2026, 23:59:59 (Local)
         (mockDateProvider.getNow as any).mockReturnValue(new Date(mockedNow));
 
-        const dto: CreateTimelineItemDto & { childId: string } = {
+        const dto = {
             type: "HANDOVER",
             date: "2026-03-06", // Same day
             createdBy: "user-1",
             createdByName: "User 1",
-            location: "Exchange Point",
-            time: "20:00",
-            status: "PENDING",
-            childIds: ["child-1"],
             childId: "child-1",
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "user-1": "encrypted-handover" },
         } as any;
 
         const result = await service.createItem({
@@ -96,16 +94,14 @@ describe("TimelineService - Timezone Regression", () => {
         const mockedNow = new Date(2026, 2, 6, 12, 0, 0); // March 6, 2026, Noon
         (mockDateProvider.getNow as any).mockReturnValue(new Date(mockedNow));
 
-        const dto: CreateTimelineItemDto & { childId: string } = {
+        const dto = {
             type: "HANDOVER",
             date: "2026-03-05", // Yesterday
             createdBy: "user-1",
             createdByName: "User 1",
-            location: "Exchange Point",
-            time: "20:00",
-            status: "PENDING",
-            childIds: ["child-1"],
             childId: "child-1",
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "user-1": "encrypted-handover" },
         } as any;
 
         await expect(service.createItem({

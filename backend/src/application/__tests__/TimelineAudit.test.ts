@@ -20,9 +20,7 @@ describe("Timeline Audit System", () => {
             name: "Child",
             color: "#FFF",
             icon: "child",
-            momId: "mom-1", // Using IDs from the mock below
-            dadId: "dad-1"
-        });
+        } as any);
 
         const mockCryptoService = {
             encrypt: async (text: string) => `encrypted_${text}`,
@@ -70,9 +68,9 @@ describe("Timeline Audit System", () => {
             date: "2026-02-03",
             createdBy: "dad-1",
             createdByName: "Alice",
-            content: "Hello",
-            childIds: [],
-        } as CreateTimelineItemDto;
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "encrypted-hello" },
+        } as any;
 
         const item = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
@@ -84,26 +82,26 @@ describe("Timeline Audit System", () => {
     });
 
     it("should track multiple updates in the audit trail", async () => {
-        const dto: CreateTimelineItemDto = {
+        const dto = {
             type: "NOTE",
             date: "2026-02-03",
             createdBy: "dad-1",
             createdByName: "Alice",
-            content: "Initial content",
-            childIds: [],
-        } as CreateTimelineItemDto;
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "initial-encrypted" },
+        } as any;
 
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // First update
-        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated once" } as any, "dad-1", "child-1", {
+        await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, encryptedPayload: { "dad-1": "updated-encrypted-1" } } as any, "dad-1", "child-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
         }, "Alice");
 
         // Second update
-        const updated2 = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Updated twice" } as any, "dad-1", "child-1", {
+        const updated2 = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, encryptedPayload: { "dad-1": "updated-encrypted-2" } } as any, "dad-1", "child-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
@@ -116,19 +114,19 @@ describe("Timeline Audit System", () => {
     });
 
     it("should track who made the update", async () => {
-        const dto: CreateTimelineItemDto = {
+        const dto = {
             type: "NOTE",
             date: "2026-02-03",
             createdBy: "dad-1",
             createdByName: "Alice",
-            content: "Initial content",
-            childIds: [],
-        } as CreateTimelineItemDto;
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "initial-encrypted" },
+        } as any;
 
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // Update by the same user (owner)
-        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, content: "Changed" } as any, "dad-1", "child-1", {
+        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, encryptedPayload: { "dad-1": "changed-encrypted" } } as any, "dad-1", "child-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"
@@ -144,9 +142,9 @@ describe("Timeline Audit System", () => {
             date: "2026-02-03",
             createdBy: "dad-1",
             createdByName: "Alice",
-            content: "Delete me",
-            childIds: [],
-        } as CreateTimelineItemDto;
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "delete-me-encrypted" },
+        } as any;
 
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
         await service.deleteItem(created.id, "dad-1", {
@@ -173,16 +171,14 @@ describe("Timeline Audit System", () => {
             type: "MEDS",
             date: "2026-02-03",
             createdBy: "dad-1",
-            medicineName: "Advil",
-            dosage: "200mg",
-            administered: false,
-            childIds: [],
-        } as CreateTimelineItemDto;
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "encrypted-meds" },
+        } as any;
 
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         // Update with SAME values
-        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, administered: false } as any, "dad-1", "child-1", {
+        const updated = await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: created.isDeleted, encryptedPayload: { "dad-1": "encrypted-meds" } } as any, "dad-1", "child-1", {
             signatureBase64: "mock-sig",
             timestamp: "2024-01-01T12:00:00.000Z",
             keyId: "key1"

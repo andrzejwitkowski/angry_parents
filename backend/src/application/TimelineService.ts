@@ -125,6 +125,11 @@ export class TimelineServiceImpl {
         // Validate using Zod schema
         const validated = TimelineItemSchema.parse(rawItem) as EncryptedTimelineItem;
 
+        // Strict E2EE enforcement: reject PLAINTEXT at the service level
+        if (validated.encryption !== "ENCRYPTED") {
+            throw new Error("PLAINTEXT encryption is not allowed. All items must be ENCRYPTED client-side.");
+        }
+
         // Apply domain business rules
         this.validateDomainRules(validated);
 
@@ -226,11 +231,6 @@ export class TimelineServiceImpl {
             console.warn(`[TimelineService] Failed to sanitize date for item ${id}:`, e);
             sanitizedCreatedAt = this.dateProvider.getIsoString();
         }
-
-        // Validate the incoming full item while preserving immutable server-side fields.
-        // We handle encryption defaulting here for backward compatibility and tests.
-        const incomingEncryption = (fullPlaintextUpdate as any).encryption ||
-            ((fullPlaintextUpdate as any).encryptedPayload ? "ENCRYPTED" : "PLAINTEXT");
 
         const validated = TimelineItemSchema.parse({
             ...(fullPlaintextUpdate as any),

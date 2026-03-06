@@ -69,10 +69,10 @@ describe("Timeline Forensic Integration", () => {
             type: "NOTE",
             date: "2026-01-27",
             createdBy: "user-123",
-            content: "Initial note",
-            childIds: ["child-1"],
             childId: "child-1",
-        } as unknown as CreateTimelineItemDto & { childId: string };
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "user-123": "encrypted-note" },
+        } as any;
 
         await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
@@ -85,10 +85,10 @@ describe("Timeline Forensic Integration", () => {
             type: "NOTE",
             date: "2026-01-27",
             createdBy: "user-123",
-            content: "Initial note",
-            childIds: ["child-1"],
             childId: "child-1",
-        } as unknown as CreateTimelineItemDto & { childId: string };
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "user-123": "encrypted-note" },
+        } as any;
 
         const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
         await service.updateItem(created.id, { ...dto, id: created.id, createdAt: created.createdAt, auditTrail: created.auditTrail, isDeleted: false, content: "Updated note" } as any, "user-123", "child-1", {
@@ -106,10 +106,10 @@ describe("Timeline Forensic Integration", () => {
             type: "NOTE",
             date: "2026-01-27",
             createdBy: "user-123",
-            content: "Initial note",
-            childIds: ["child-1"],
             childId: "child-1",
-        } as unknown as CreateTimelineItemDto & { childId: string };
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "user-123": "encrypted-note" },
+        } as any;
 
         const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
         await service.deleteItem(created.id, "user-123", {

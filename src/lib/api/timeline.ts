@@ -1,8 +1,7 @@
 import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types";
-import { decryptRSA, importPrivateKey, getPrivateKeyFromStorage } from "@/lib/crypto-utils";
+import { decryptRSA, importPrivateKey, getPrivateKeyFromStorage, importPublicKey, encryptRSA } from "@/lib/crypto-utils";
 import type { MutationSignature } from "@/lib/signature-provider";
 import { authApi } from "./auth";
-import { importPublicKey, encryptRSA } from "../crypto-utils";
 
 const API_BASE_URL = "http://localhost:3000/api";
 

@@ -75,8 +75,9 @@ function selectCiphertextForUser(items: any[], userId: string) {
         const payload = typedItem.encryptedPayload as Record<string, string> | undefined;
         if (!payload) return plainItem;
 
-        // Return item with flattened ciphertext for the requesting user, but KEEP encryptedPayload!
+        // Return item with flattened ciphertext for the requesting user, but STRIP encryptedPayload!
         const ciphertext = payload[userId];
+        const { encryptedPayload: _, ...rest } = typedItem;
 
         // DEV fallback: log a warning if ciphertext is missing for the user
         if (!ciphertext && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")) {
@@ -87,7 +88,7 @@ function selectCiphertextForUser(items: any[], userId: string) {
         }
 
         return {
-            ...typedItem,
+            ...rest,
             ciphertext: ciphertext ?? ""
         };
     });
