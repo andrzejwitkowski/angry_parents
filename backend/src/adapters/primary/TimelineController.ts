@@ -218,7 +218,7 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         t.Literal("VACATION"),
                         t.Literal("ATTACHMENT"),
                     ]),
-                    date: t.String(),
+                    date: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
                     childId: t.String(), // Require childId for encryption Context (Family lookup)
                     signatureBase64: t.String(),
                     timestamp: t.String(),
