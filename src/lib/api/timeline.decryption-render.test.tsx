@@ -8,6 +8,7 @@ import { TimelineItemFactory } from "@/components/calendar/day-details/component
 mock.module("@/lib/crypto-utils", () => ({
     importPrivateKey: jest.fn(),
     decryptRSA: jest.fn(),
+    getPrivateKeyFromStorage: jest.fn(),
 }));
 
 mock.module("@/lib/api/auth", () => ({
@@ -39,6 +40,8 @@ describe("timelineApi decryption rendering", () => {
         jest.clearAllMocks();
         localStorage.clear();
         (global.fetch as jest.Mock) = jest.fn();
+        const { getPrivateKeyFromStorage } = require("@/lib/crypto-utils");
+        (getPrivateKeyFromStorage as jest.Mock).mockImplementation(() => localStorage.getItem("zk_private_key"));
     });
 
     it("renders decrypted MEDICAL_VISIT fields in DOM when decryption succeeds", async () => {

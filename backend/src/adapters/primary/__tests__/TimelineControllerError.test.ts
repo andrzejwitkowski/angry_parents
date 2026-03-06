@@ -24,6 +24,8 @@ describe("TimelineController - mapErrorToStatus", () => {
 
     it("should return 400 for validation or encryption errors", () => {
         expect(mapErrorToStatus(new Error("Invalid date format"))).toBe(400);
+        expect(mapErrorToStatus(new Error("Handover date cannot be in the past"))).toBe(400);
+        expect(mapErrorToStatus(new Error("Medical visit must include a diagnosis"))).toBe(400);
         expect(mapErrorToStatus(new Error("Cannot encrypt: Missing parent public keys"))).toBe(400);
         expect(mapErrorToStatus(new Error("Both mom and dad must have registered RSA public keys"))).toBe(400);
 

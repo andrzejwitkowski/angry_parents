@@ -54,7 +54,10 @@ export function mapErrorToStatus(error: unknown): number {
         "invalid",
         "required",
         "cannot encrypt",
-        "must have registered"
+        "must have registered",
+        "cannot be in the past",
+        "must include",
+        "cannot be"
     ].some(term => lower.includes(term)) || (error as any)?.name === "ZodError";
 
     if (isBadRequest) {
