@@ -70,27 +70,6 @@ export class TimelineServiceImpl {
         return persisted;
     }
 
-    /**
-     * Helper to extract content fields from a TimelineItem for encryption.
-     * Returns a JSON string of all sensitive fields.
-     */
-    private extractContentForEncryption(item: TimelineItem): string {
-        const plainItem = item as Record<string, unknown>;
-        const contentFields: Record<string, unknown> = {};
-
-        for (const [key, value] of Object.entries(plainItem)) {
-            if (TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key)) {
-                continue;
-            }
-            if (value === undefined) {
-                continue;
-            }
-            contentFields[key] = value;
-        }
-
-        return JSON.stringify(contentFields);
-    }
-
     private assertSignatureMetadata(signatureBase64: string, timestamp: string, keyId: string): void {
         if (process.env.NODE_ENV === "test" || process.env.VITEST) {
             return;
@@ -118,82 +97,6 @@ export class TimelineServiceImpl {
         return Buffer.from(passkey.credentialPublicKey).toString("base64url");
     }
 
-    /**
-     * Helper to build the EncryptedTimelineItem from a validated plaintext TimelineItem
-     */
-    private async encryptItem(item: PlainTimelineItem, childId: string): Promise<EncryptedTimelineItem> {
-        const child = await this.childRepository.findById(childId);
-        if (!child) {
-            throw new Error(`Child not found: ${childId}`);
-        }
-
-        const family = await this.familyModel.findById(child.familyId);
-        if (!family) {
-            throw new Error(`Family not found for child: ${childId} (familyId: ${child.familyId})`);
-        }
-
-        if (!family.parentPublicKeys || family.parentPublicKeys.length < 2) {
-            throw new Error(`Cannot encrypt: Missing parent public keys`);
-        }
-
-        const plaintextStr = this.extractContentForEncryption(item);
-
-        // Prefer selecting recipients directly from parentPublicKeys by role.
-        let momKeyEntry = family.parentPublicKeys.find((k) => k.role === "mom");
-        let dadKeyEntry = family.parentPublicKeys.find((k) => k.role === "dad");
-
-        // Fallback: if role metadata is incomplete, resolve by parentIds ordering.
-        const momIdFromFamily = family.parentIds && family.parentIds[0];
-        const dadIdFromFamily = family.parentIds && family.parentIds[1];
-        if (!momKeyEntry && momIdFromFamily) {
-            momKeyEntry = family.parentPublicKeys.find((k) => k.parentId === momIdFromFamily);
-        }
-        if (!dadKeyEntry && dadIdFromFamily) {
-            dadKeyEntry = family.parentPublicKeys.find((k) => k.parentId === dadIdFromFamily);
-        }
-
-        if (!momKeyEntry || !dadKeyEntry) {
-            console.error(
-                `[TimelineService] Cannot encrypt: Missing RSA public keys for both parents. parentIds: ${family.parentIds || "undefined"}, keys present for: ${family.parentPublicKeys.map(k => k.role || k.parentId).join(', ')}`
-            );
-            throw new Error(`Cannot encrypt: Missing parent public keys`);
-        }
-
-        const momKey = momKeyEntry.rsaPublicKeyBase64;
-        const dadKey = dadKeyEntry.rsaPublicKeyBase64;
-
-        if (!momKey || !dadKey) {
-            throw new Error("Cannot encrypt: Both mom and dad must have registered RSA public keys (base64).");
-        }
-
-        // Use the actual parentIds for the payload keys
-        const finalMomId = momKeyEntry.parentId || momIdFromFamily;
-        const finalDadId = dadKeyEntry.parentId || dadIdFromFamily;
-
-        if (!finalMomId || !finalDadId) {
-            throw new Error(`Cannot encrypt: Unable to resolve parent IDs for payload. Mom: ${finalMomId}, Dad: ${finalDadId}`);
-        }
-
-        const encryptedForMom = await this.cryptoService.encryptRSA(plaintextStr, momKey);
-        const encryptedForDad = await this.cryptoService.encryptRSA(plaintextStr, dadKey);
-
-        const payload: EncryptedPayload = {
-            [finalMomId]: encryptedForMom,
-            [finalDadId]: encryptedForDad
-        };
-
-        const unencryptedFields = Object.fromEntries(
-            Object.entries(item as Record<string, unknown>).filter(([key]) => TimelineServiceImpl.UNENCRYPTED_ITEM_FIELDS.has(key))
-        );
-
-        return {
-            ...unencryptedFields,
-            type: item.type,
-            encryption: "ENCRYPTED",
-            encryptedPayload: payload
-        } as EncryptedTimelineItem;
-    }
-
     async createItem(dto: CreateTimelineItemDto & { childId: string } & SignatureData): Promise<EncryptedTimelineItem> {
         this.assertSignatureMetadata(dto.signatureBase64, dto.timestamp, dto.keyId);
         const timestamp = this.dateProvider.getIsoString();
@@ -208,23 +111,24 @@ export class TimelineServiceImpl {
 
         // Generate ID and timestamp
         // Map childId (singular from controller) to childIds (plural array expected by domain)
-        const item = {
+        const rawItem = {
             ...dto,
-            encryption: "PLAINTEXT",
-            childIds: [dto.childId],
             id: this.uuidProvider.generate(),
             createdAt: timestamp,
             auditTrail: [initialAudit],
             isDeleted: false,
-        } as unknown as PlainTimelineItem;
+            childIds: [dto.childId],
+            createdBy: (dto as any).createdBy, // These will be assigned by service if missing, but typically come from DTO in controller
+            createdByName: (dto as any).createdByName,
+        };
 
         // Validate using Zod schema
-        const validated = TimelineItemSchema.parse(item) as PlainTimelineItem;
+        const validated = TimelineItemSchema.parse(rawItem) as EncryptedTimelineItem;
 
         // Apply domain business rules
         this.validateDomainRules(validated);
 
-        const encryptedItem = await this.encryptItem(validated, dto.childId);
+        const encryptedItem = validated;
         const signerPublicKey = await this.resolveSignerPublicKey(dto.createdBy, dto.keyId);
 
         const intent: ForensicIntentRecord = {
@@ -328,23 +232,19 @@ export class TimelineServiceImpl {
         const incomingEncryption = (fullPlaintextUpdate as any).encryption ||
             ((fullPlaintextUpdate as any).encryptedPayload ? "ENCRYPTED" : "PLAINTEXT");
 
-        const validated: TimelineItem = TimelineItemSchema.parse({
+        const validated = TimelineItemSchema.parse({
             ...(fullPlaintextUpdate as any),
-            encryption: incomingEncryption,
             id: existing.id,
             createdBy: existing.createdBy,
             createdAt: sanitizedCreatedAt,
             createdByName: existing.createdByName,
             childIds: existing.childIds,
             isDeleted: existing.isDeleted,
-        });
+        }) as EncryptedTimelineItem;
 
         // Apply domain business rules
         this.validateDomainRules(validated);
 
-        // We cannot calculate precise field differences on the backend anymore 
-        // because we can't read the existing ciphertext.
-        // The audit trail just records an "UPDATED" action.
         const auditEntry: AuditEntry = {
             timestamp: this.dateProvider.getIsoString(),
             userId,
@@ -355,9 +255,8 @@ export class TimelineServiceImpl {
 
         validated.auditTrail = [...existing.auditTrail, auditEntry];
 
-        // Always produce server-controlled ciphertext by calling encryptItem(...)
-        // ensuring recipient/key enforcement is applied rather than trusting client-provided ciphertext.
-        const encryptedUpdatedItem = await this.encryptItem(validated as PlainTimelineItem, childId);
+        const encryptedUpdatedItem = validated;
+
         const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
         const intent: ForensicIntentRecord = {
@@ -453,7 +352,19 @@ export class TimelineServiceImpl {
             visitIncident() { },
             visitVacation() { },
             visitAttachment() { },
-            visitEncrypted() { }
+            visitEncrypted(encryptedItem) {
+                // Even if the content is encrypted, some fields (like date) are unencrypted 
+                // and must still follow domain rules.
+                if (encryptedItem.type === "HANDOVER") {
+                    const [year, month, day] = encryptedItem.date.split('-').map(Number);
+                    const itemDate = new Date(year, month - 1, day);
+                    const today = self.dateProvider.getNow();
+                    today.setHours(0, 0, 0, 0);
+                    if (itemDate < today) {
+                        throw new Error("Handover date cannot be in the past");
+                    }
+                }
+            }
         };
 
         acceptTimelineItemVisitor(item, validationVisitor);

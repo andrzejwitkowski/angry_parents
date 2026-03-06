@@ -75,9 +75,8 @@ function selectCiphertextForUser(items: any[], userId: string) {
         const payload = typedItem.encryptedPayload as Record<string, string> | undefined;
         if (!payload) return plainItem;
 
-        // Return item with flattened ciphertext for the requesting user
-        const { encryptedPayload, ...rest } = typedItem;
-        let ciphertext = payload[userId];
+        // Return item with flattened ciphertext for the requesting user, but KEEP encryptedPayload!
+        const ciphertext = payload[userId];
 
         // DEV fallback: log a warning if ciphertext is missing for the user
         if (!ciphertext && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")) {
@@ -88,7 +87,7 @@ function selectCiphertextForUser(items: any[], userId: string) {
         }
 
         return {
-            ...rest,
+            ...typedItem,
             ciphertext: ciphertext ?? ""
         };
     });
@@ -196,10 +195,17 @@ export function createTimelineController(service: TimelineServiceImpl) {
                     }
 
                     const item = await service.createItem({
-                        ...body as CreateTimelineItemDto & { childId: string, signatureBase64: string, timestamp: string, keyId: string },
+                        type: body.type,
+                        date: body.date,
+                        childId: body.childId,
+                        encryption: body.encryption,
+                        encryptedPayload: body.encryptedPayload,
+                        signatureBase64: body.signatureBase64,
+                        timestamp: body.timestamp,
+                        keyId: body.keyId,
                         createdBy: userId,
                         createdByName: userName
-                    });
+                    } as any);
                     const plainItem = (item as any).toObject ? (item as any).toObject() : item;
                     return selectSingleCiphertextForUser(plainItem, user.id);
                 } catch (error) {
@@ -219,11 +225,13 @@ export function createTimelineController(service: TimelineServiceImpl) {
                         t.Literal("ATTACHMENT"),
                     ]),
                     date: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
-                    childId: t.String(), // Require childId for encryption Context (Family lookup)
+                    childId: t.String(),
+                    encryption: t.Literal("ENCRYPTED"),
+                    encryptedPayload: t.Record(t.String(), t.String()),
                     signatureBase64: t.String(),
                     timestamp: t.String(),
                     keyId: t.String()
-                }, { additionalProperties: true }),
+                }),
             }
         )
 
@@ -273,6 +281,8 @@ export function createTimelineController(service: TimelineServiceImpl) {
                 }),
                 body: t.Object({
                     childId: t.String(),
+                    encryption: t.Literal("ENCRYPTED"),
+                    encryptedPayload: t.Record(t.String(), t.String()),
                     signatureBase64: t.String(),
                     timestamp: t.String(),
                     keyId: t.String()

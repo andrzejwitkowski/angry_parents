@@ -30,9 +30,8 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
         const childId = item.childIds[0];
-        if (item.encryption === "ENCRYPTED" || !childId) {
-            console.warn("Cannot edit encrypted item");
-            alert(t("daylog.cannotEditEncrypted"));
+        if (!childId) {
+            console.warn("Cannot edit item: missing childId");
             return;
         }
 
@@ -65,59 +64,47 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
                     <DialogTitle>{t("daylog.editEntry")}</DialogTitle>
                 </DialogHeader>
                 <div className="py-4">
-                    {item.encryption === "ENCRYPTED" && (
-                        <div className="p-4 bg-slate-100 border border-slate-200 rounded-lg text-center space-y-3">
-                            <p className="text-sm text-slate-600 italic">
-                                {t("daylog.cannotEditEncrypted")}
-                            </p>
-                        </div>
+                    {item.type === "MEDICAL_VISIT" && (
+                        <MedicalForm
+                            initialData={item}
+                            onSubmit={handleFormSubmit}
+                            isSubmitting={isSubmitting}
+                        />
                     )}
-
-                    {item.encryption === "PLAINTEXT" && (
-                        <>
-                            {item.type === "MEDICAL_VISIT" && (
-                                <MedicalForm
-                                    initialData={item}
-                                    onSubmit={handleFormSubmit}
-                                    isSubmitting={isSubmitting}
-                                />
-                            )}
-                            {item.type === "HANDOVER" && (
-                                <HandoverForm
-                                    initialData={item}
-                                    onSubmit={handleFormSubmit}
-                                    isSubmitting={isSubmitting}
-                                />
-                            )}
-                            {item.type === "MEDS" && (
-                                <MedsForm
-                                    initialData={item}
-                                    onSubmit={handleFormSubmit}
-                                    isSubmitting={isSubmitting}
-                                />
-                            )}
-                            {item.type === "INCIDENT" && (
-                                <IncidentForm
-                                    initialData={item}
-                                    onSubmit={handleFormSubmit}
-                                    isSubmitting={isSubmitting}
-                                />
-                            )}
-                            {item.type === "NOTE" && (
-                                <NoteForm
-                                    initialData={item}
-                                    onSubmit={handleFormSubmit}
-                                    isSubmitting={isSubmitting}
-                                />
-                            )}
-                            {item.type === "VACATION" && (
-                                <VacationForm
-                                    initialData={item}
-                                    onSubmit={handleFormSubmit}
-                                    isSubmitting={isSubmitting}
-                                />
-                            )}
-                        </>
+                    {item.type === "HANDOVER" && (
+                        <HandoverForm
+                            initialData={item}
+                            onSubmit={handleFormSubmit}
+                            isSubmitting={isSubmitting}
+                        />
+                    )}
+                    {item.type === "MEDS" && (
+                        <MedsForm
+                            initialData={item}
+                            onSubmit={handleFormSubmit}
+                            isSubmitting={isSubmitting}
+                        />
+                    )}
+                    {item.type === "INCIDENT" && (
+                        <IncidentForm
+                            initialData={item}
+                            onSubmit={handleFormSubmit}
+                            isSubmitting={isSubmitting}
+                        />
+                    )}
+                    {item.type === "NOTE" && (
+                        <NoteForm
+                            initialData={item}
+                            onSubmit={handleFormSubmit}
+                            isSubmitting={isSubmitting}
+                        />
+                    )}
+                    {item.type === "VACATION" && (
+                        <VacationForm
+                            initialData={item}
+                            onSubmit={handleFormSubmit}
+                            isSubmitting={isSubmitting}
+                        />
                     )}
                 </div>
             </DialogContent>

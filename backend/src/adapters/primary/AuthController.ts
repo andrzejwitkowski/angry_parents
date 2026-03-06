@@ -250,6 +250,24 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
                 if (!family.parentIds.includes(userId)) {
                     family.parentIds.push(userId);
+                    if (isDev) {
+                        const devKeyPair = await getDevKeyPair();
+                        const devRsaPublicKey = devKeyPair.publicKey;
+                        const existingKey = family.parentPublicKeys?.find(
+                            (k: any) => k.role === invitationRole
+                        );
+                        if (existingKey) {
+                            existingKey.parentId = userId;
+                            existingKey.rsaPublicKeyBase64 = devRsaPublicKey;
+                        } else {
+                            if (!family.parentPublicKeys) family.parentPublicKeys = [];
+                            family.parentPublicKeys.push({
+                                parentId: userId,
+                                role: invitationRole,
+                                rsaPublicKeyBase64: devRsaPublicKey
+                            });
+                        }
+                    }
                     await family.save();
                 }
 

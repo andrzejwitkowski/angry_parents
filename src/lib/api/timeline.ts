@@ -2,6 +2,7 @@ import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types
 import { decryptRSA, importPrivateKey, getPrivateKeyFromStorage } from "@/lib/crypto-utils";
 import type { MutationSignature } from "@/lib/signature-provider";
 import { authApi } from "./auth";
+import { importPublicKey, encryptRSA } from "../crypto-utils";
 
 const API_BASE_URL = "http://localhost:3000/api";
 
@@ -152,6 +153,34 @@ export function invalidateMeCache() {
 }
 
 
+/**
+ * Encrypts a timeline item's sensitive fields for all parents in the family.
+ */
+async function encryptTimelineItem(
+    type: string,
+    contentFields: Record<string, any>
+): Promise<Record<string, string>> {
+    const { family } = await authApi.getMe();
+    if (!family || !family.parentPublicKeys || family.parentPublicKeys.length === 0) {
+        throw new Error("No family public keys found for encryption");
+    }
+
+    const encryptedPayload: Record<string, string> = {};
+    const plaintext = JSON.stringify(contentFields);
+
+    for (const parentKey of family.parentPublicKeys) {
+        try {
+            const publicKey = await importPublicKey(parentKey.rsaPublicKeyBase64);
+            encryptedPayload[parentKey.parentId] = await encryptRSA(plaintext, publicKey);
+        } catch (error) {
+            console.error(`Failed to encrypt for parent ${parentKey.parentId}:`, error);
+            throw new Error(`Encryption failed for parent ${parentKey.parentId}`);
+        }
+    }
+
+    return encryptedPayload;
+}
+
 export const timelineApi = {
     async getByDate(date: string): Promise<TimelineItem[]> {
         const response = await fetch(`${API_BASE_URL}/calendar/${date}/timeline`, {
@@ -189,8 +218,17 @@ export const timelineApi = {
         dto: CreateTimelineItemDto & { childId: string },
         signatureData: MutationSignature
     ): Promise<TimelineItem> {
+        // Perform client-side encryption of all sensitive fields
+        const { type, date, childId, encryption, ...contentFields } = dto as any;
+
+        const encryptedPayload = await encryptTimelineItem(type, contentFields);
+
         const payload = {
-            ...dto,
+            type,
+            date,
+            childId,
+            encryption: "ENCRYPTED",
+            encryptedPayload,
             ...signatureData
         };
 
@@ -223,11 +261,24 @@ export const timelineApi = {
             throw new TimelineApiError("Cannot update timeline item: missing childId");
         }
 
+        const { type, date, encryption, ...otherFields } = fullItem as any;
+        // Strip sensitive fields that should be in the encrypted payload
+        const contentFields: Record<string, any> = {};
+        for (const [key, value] of Object.entries(otherFields)) {
+            if (!PROTECTED_FIELDS.has(key)) {
+                contentFields[key] = value;
+            }
+        }
+
+        // Always re-encrypt on update if fields are provided
+        const encryptedPayload = await encryptTimelineItem(type, contentFields);
+
         const payload = {
-            ...fullItem,
-            id,
-            childId: resolvedChildId, // Re-add childId for backend validation
-            childIds: [resolvedChildId],
+            type,
+            date,
+            childId: resolvedChildId,
+            encryption: "ENCRYPTED",
+            encryptedPayload,
             ...signatureData
         };
 

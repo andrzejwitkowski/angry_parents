@@ -118,30 +118,14 @@ export const TimelineItemTypeSchema = z.enum([
     "ATTACHMENT",
 ]);
 
-/**
- * Encrypted payload containing the dual ciphertext for content fields.
- * This replaces the plaintext content fields when saving to MongoDB.
- */
-export type EncryptedPayload = Record<string, string>; // userId -> Base64 ciphertext
+// Note: types and schemas are now defined together below
 
-/**
- * A TimelineItem as it exists in storage (with encrypted content).
- * Plaintext content fields are removed and replaced by `encryptedPayload`.
- */
-export type EncryptedTimelineItem = BaseTimelineItem & {
-    type: z.infer<typeof TimelineItemTypeSchema>;
-    encryption: "ENCRYPTED";
-    encryptedPayload: EncryptedPayload;
-    ciphertext?: string;
-};
-
-export type TimelineItem = PlainTimelineItem | EncryptedTimelineItem;
-
-export const TimelineItemSchema = z.union([
+// Discriminated union for ALL timeline item types
+// We use 'encryption' as the primary discriminator for narrowing.
+export const TimelineItemSchema = z.discriminatedUnion("encryption", [
     PlainTimelineItemSchema,
     z.object({
         encryption: z.literal("ENCRYPTED"),
-        // Basic fields for validation before narrowing by type
         id: z.string().uuid(),
         type: TimelineItemTypeSchema,
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -156,8 +140,34 @@ export const TimelineItemSchema = z.union([
     })
 ]);
 
-// Helper type for creating new items (without id, createdAt, auditTrail, isDeleted, and encryption)
-export type CreateTimelineItemDto = Omit<PlainTimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted" | "encryption">;
+// Types inferred from Zod schemas
+export type TimelineItem = z.infer<typeof TimelineItemSchema>;
+export type EncryptedTimelineItem = Extract<TimelineItem, { encryption: "ENCRYPTED" }>;
+
+// DTO for creating new items. 
+// In a true E2EE system, the client SHOULD provide the encryption: "ENCRYPTED" and payload.
+export const CreatePlainTimelineItemDtoSchema = z.object({
+    type: TimelineItemTypeSchema,
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    childId: z.string(),
+    encryption: z.literal("PLAINTEXT"),
+    content: z.string().optional(), // used temporarily during transition or for internal tools
+}).passthrough();
+
+export const CreateEncryptedTimelineItemDtoSchema = z.object({
+    type: TimelineItemTypeSchema,
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    childId: z.string(),
+    encryption: z.literal("ENCRYPTED"),
+    encryptedPayload: z.record(z.string(), z.string()),
+});
+
+export const CreateTimelineItemDtoSchema = z.discriminatedUnion("encryption", [
+    CreatePlainTimelineItemDtoSchema,
+    CreateEncryptedTimelineItemDtoSchema,
+]);
+
+export type CreateTimelineItemDto = z.infer<typeof CreateTimelineItemDtoSchema>;
 
 /**
  * Visitor pattern for TimelineItem.
