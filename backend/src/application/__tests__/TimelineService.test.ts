@@ -340,6 +340,140 @@ describe("TimelineService", () => {
             expect(saved?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
             expect(saved?.createdAt).toContain('Z');
         });
+
+        it("should reject handover update with past date", async () => {
+            const today = new Date().toISOString().split("T")[0];
+            const dto = {
+                type: "HANDOVER",
+                date: today,
+                createdBy: "user-123",
+                location: "School",
+                time: "15:00",
+                status: "PENDING",
+                childIds: ["child-1"],
+                childId: "child-1",
+            } as CreateTimelineItemDto & { childId: string };
+
+            const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const pastDate = yesterday.toISOString().split("T")[0];
+
+            const updatedPlaintext = {
+                ...dto,
+                id: created.id,
+                date: pastDate,
+                createdAt: created.createdAt,
+                auditTrail: created.auditTrail,
+                isDeleted: false,
+            } as any;
+
+            await expect(service.updateItem(created.id, updatedPlaintext, "user-123", "child-1", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user123-name")).rejects.toThrow("Handover date cannot be in the past");
+        });
+
+        it("should reject medical visit update without diagnosis", async () => {
+            const dto: CreateTimelineItemDto & { childId: string } = {
+                type: "MEDICAL_VISIT",
+                date: "2026-01-27",
+                createdBy: "user-123",
+                doctor: "Dr. Smith",
+                diagnosis: "Common cold",
+                recommendations: "Rest and fluids",
+                attachments: [],
+                childIds: ["child-1"],
+                childId: "child-1",
+            } as CreateTimelineItemDto & { childId: string };
+
+            const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+
+            const updatedPlaintext = {
+                ...dto,
+                id: created.id,
+                diagnosis: "", // Empty diagnosis
+                createdAt: created.createdAt,
+                auditTrail: created.auditTrail,
+                isDeleted: false,
+            } as any;
+
+            await expect(service.updateItem(created.id, updatedPlaintext, "user-123", "child-1", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user123-name")).rejects.toThrow();
+        });
+
+        it("should accept handover update with valid date", async () => {
+            const today = new Date().toISOString().split("T")[0];
+            const dto = {
+                type: "HANDOVER",
+                date: today,
+                createdBy: "user-123",
+                location: "School",
+                time: "15:00",
+                status: "PENDING",
+                childIds: ["child-1"],
+                childId: "child-1",
+            } as CreateTimelineItemDto & { childId: string };
+
+            const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+
+            const updatedPlaintext = {
+                ...dto,
+                id: created.id,
+                location: "Park",
+                createdAt: created.createdAt,
+                auditTrail: created.auditTrail,
+                isDeleted: false,
+            } as any;
+
+            const updated = await service.updateItem(created.id, updatedPlaintext, "user-123", "child-1", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user123-name");
+
+            expect(updated).toBeDefined();
+            expect(updated.type).toBe("HANDOVER");
+        });
+
+        it("should accept medical visit update with valid diagnosis", async () => {
+            const dto: CreateTimelineItemDto & { childId: string } = {
+                type: "MEDICAL_VISIT",
+                date: "2026-01-27",
+                createdBy: "user-123",
+                doctor: "Dr. Smith",
+                diagnosis: "Common cold",
+                recommendations: "Rest and fluids",
+                attachments: [],
+                childIds: ["child-1"],
+                childId: "child-1",
+            } as CreateTimelineItemDto & { childId: string };
+
+            const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+
+            const updatedPlaintext = {
+                ...dto,
+                id: created.id,
+                diagnosis: "Flu", // Valid diagnosis update
+                createdAt: created.createdAt,
+                auditTrail: created.auditTrail,
+                isDeleted: false,
+            } as any;
+
+            const updated = await service.updateItem(created.id, updatedPlaintext, "user-123", "child-1", {
+                signatureBase64: "mock-sig",
+                timestamp: "2024-01-01T12:00:00.000Z",
+                keyId: "key1"
+            }, "user123-name");
+
+            expect(updated).toBeDefined();
+            expect(updated.type).toBe("MEDICAL_VISIT");
+        });
     });
 
     describe("deleteItem", () => {

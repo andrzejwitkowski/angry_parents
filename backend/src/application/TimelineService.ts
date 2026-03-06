@@ -1,7 +1,7 @@
 import type { TimelineRepository } from "../core/ports/TimelineRepository";
 import type { ChildRepository } from "../core/ports/ChildRepository";
-import type { TimelineItem, PlainTimelineItem, CreateTimelineItemDto, AuditEntry, EncryptedTimelineItem, EncryptedPayload } from "../core/domain/TimelineItem";
-import { TimelineItemSchema } from "../core/domain/TimelineItem";
+import type { TimelineItem, PlainTimelineItem, CreateTimelineItemDto, AuditEntry, EncryptedTimelineItem, EncryptedPayload, TimelineItemVisitor } from "../core/domain/TimelineItem";
+import { TimelineItemSchema, acceptTimelineItemVisitor } from "../core/domain/TimelineItem";
 import { DateProvider } from "../core/ports/DateProvider";
 import { UuidProvider } from "../core/ports/UuidProvider";
 import type { ICryptoService } from "../core/ports/ICryptoService";
@@ -218,21 +218,8 @@ export class TimelineServiceImpl {
         // Validate using Zod schema
         const validated = TimelineItemSchema.parse(item) as PlainTimelineItem;
 
-        // Business rule: Validate handover dates
-        if (validated.type === "HANDOVER") {
-            const [year, month, day] = validated.date.split('-').map(Number);
-            const itemDate = new Date(year, month - 1, day);
-            const today = this.dateProvider.getNow();
-            today.setHours(0, 0, 0, 0);
-            if (itemDate < today) {
-                throw new Error("Handover date cannot be in the past");
-            }
-        }
-
-        // Business rule: Medical visits must have diagnosis
-        if (validated.type === "MEDICAL_VISIT" && !validated.diagnosis) {
-            throw new Error("Medical visit must include a diagnosis");
-        }
+        // Apply domain business rules
+        this.validateDomainRules(validated);
 
         const encryptedItem = await this.encryptItem(validated, dto.childId);
         const signerPublicKey = await this.resolveSignerPublicKey(dto.createdBy, dto.keyId);
@@ -349,6 +336,9 @@ export class TimelineServiceImpl {
             isDeleted: existing.isDeleted,
         });
 
+        // Apply domain business rules
+        this.validateDomainRules(validated);
+
         // We cannot calculate precise field differences on the backend anymore 
         // because we can't read the existing ciphertext.
         // The audit trail just records an "UPDATED" action.
@@ -437,5 +427,36 @@ export class TimelineServiceImpl {
             (session?: unknown) => this.repository.update(id, updated as EncryptedTimelineItem, session),
             intent
         );
+    }
+
+    /**
+     * Reusable business rule validation for both create and update.
+     */
+    private validateDomainRules(item: TimelineItem): void {
+        const self = this;
+        const validationVisitor: TimelineItemVisitor<void> = {
+            visitHandover(handover) {
+                const [year, month, day] = handover.date.split('-').map(Number);
+                const itemDate = new Date(year, month - 1, day);
+                const today = self.dateProvider.getNow();
+                today.setHours(0, 0, 0, 0);
+                if (itemDate < today) {
+                    throw new Error("Handover date cannot be in the past");
+                }
+            },
+            visitMedicalVisit(medicalVisit) {
+                if (!medicalVisit.diagnosis) {
+                    throw new Error("Medical visit must include a diagnosis");
+                }
+            },
+            visitNote() { },
+            visitMeds() { },
+            visitIncident() { },
+            visitVacation() { },
+            visitAttachment() { },
+            visitEncrypted() { }
+        };
+
+        acceptTimelineItemVisitor(item, validationVisitor);
     }
 }

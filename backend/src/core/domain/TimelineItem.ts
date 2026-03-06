@@ -158,3 +158,47 @@ export const TimelineItemSchema = z.union([
 
 // Helper type for creating new items (without id, createdAt, auditTrail, isDeleted, and encryption)
 export type CreateTimelineItemDto = Omit<PlainTimelineItem, "id" | "createdAt" | "auditTrail" | "isDeleted" | "encryption">;
+
+/**
+ * Visitor pattern for TimelineItem.
+ * Allows operating on different timeline item types without large switch/if-else blocks.
+ */
+export interface TimelineItemVisitor<R> {
+    visitNote(item: NoteItem): R;
+    visitHandover(item: HandoverItem): R;
+    visitMeds(item: MedsItem): R;
+    visitMedicalVisit(item: MedicalVisitItem): R;
+    visitIncident(item: IncidentItem): R;
+    visitVacation(item: VacationItem): R;
+    visitAttachment(item: AttachmentItem): R;
+    visitEncrypted(item: EncryptedTimelineItem): R;
+}
+
+/**
+ * Dispatcher for the TimelineItem Visitor pattern.
+ */
+export function acceptTimelineItemVisitor<R>(item: TimelineItem, visitor: TimelineItemVisitor<R>): R {
+    if (item.encryption === "ENCRYPTED") {
+        return visitor.visitEncrypted(item);
+    }
+
+    switch (item.type) {
+        case "NOTE":
+            return visitor.visitNote(item);
+        case "HANDOVER":
+            return visitor.visitHandover(item);
+        case "MEDS":
+            return visitor.visitMeds(item);
+        case "MEDICAL_VISIT":
+            return visitor.visitMedicalVisit(item);
+        case "INCIDENT":
+            return visitor.visitIncident(item);
+        case "VACATION":
+            return visitor.visitVacation(item);
+        case "ATTACHMENT":
+            return visitor.visitAttachment(item);
+        default:
+            const _exhaustiveCheck: never = item;
+            throw new Error(`Unhandled timeline item type: ${(item as any).type}`);
+    }
+}
