@@ -220,7 +220,8 @@ export class TimelineServiceImpl {
 
         // Business rule: Validate handover dates
         if (validated.type === "HANDOVER") {
-            const itemDate = new Date(validated.date);
+            const [year, month, day] = validated.date.split('-').map(Number);
+            const itemDate = new Date(year, month - 1, day);
             const today = this.dateProvider.getNow();
             today.setHours(0, 0, 0, 0);
             if (itemDate < today) {
