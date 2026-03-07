@@ -19,15 +19,24 @@ const SecurityContext = createContext<SecurityContextType | undefined>(undefined
 
 const DEFAULT_TIMEOUT = 600; // 10 minutes
 
+const getInitialTimeout = (): number => {
+    const saved = localStorage.getItem('session_timeout');
+    if (!saved) {
+        return DEFAULT_TIMEOUT;
+    }
+    const parsed = Number.parseInt(saved, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return DEFAULT_TIMEOUT;
+    }
+    return parsed;
+};
+
 export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { toast } = useToast();
     const { t } = useTranslation();
 
     // Load config from localStorage
-    const [configTimeout, setConfigTimeout] = useState(() => {
-        const saved = localStorage.getItem('session_timeout');
-        return saved ? parseInt(saved, 10) : DEFAULT_TIMEOUT;
-    });
+    const [configTimeout, setConfigTimeout] = useState(getInitialTimeout);
 
     const [timeRemaining, setTimeRemaining] = useState(configTimeout);
     const [isLocked, setIsLocked] = useState(false);
