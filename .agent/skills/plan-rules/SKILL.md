@@ -1,5 +1,5 @@
 ---
-name: React & TS Project Rules
+name: React and TS Project Rules
 description: Core rules for development including environment, testing strategy, observability, security, CI/CD, and Definition of Done.
 ---
 
