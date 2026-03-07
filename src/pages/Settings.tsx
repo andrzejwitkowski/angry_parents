@@ -191,7 +191,7 @@ export default function Settings() {
                                         className="w-full mt-2"
                                         asChild
                                     >
-                                        <Link to="/passkey-setup">
+                                        <Link to="/setup-passkey">
                                             {t('settings.encryption.setupButton')}
                                         </Link>
                                     </Button>

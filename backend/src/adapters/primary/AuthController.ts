@@ -20,8 +20,90 @@ const rpName = "Angry Parents Co-Parenting";
 const rpID = "localhost";
 const origin = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
 
-const registrationChallenges = new Map<string, string>();
-const loginChallenges = new Map<string, string>();
+const AUTH_CHALLENGE_COLLECTION = "auth_challenges";
+const AUTH_CHALLENGE_TTL_MS = 10 * 60 * 1000;
+
+type AuthChallengeKind = "registration" | "login";
+
+let challengeIndexesEnsured = false;
+const fallbackChallenges = new Map<string, string>();
+
+function challengeCacheKey(kind: AuthChallengeKind, key: string): string {
+    return `${kind}:${key}`;
+}
+
+async function ensureChallengeIndexes() {
+    if (challengeIndexesEnsured) return;
+    const db = mongoose.connection.db;
+    if (!db) return;
+
+    const collection = db.collection(AUTH_CHALLENGE_COLLECTION);
+    await collection.createIndex({ kind: 1, key: 1 }, { unique: true });
+    await collection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    challengeIndexesEnsured = true;
+}
+
+async function upsertAuthChallenge(kind: AuthChallengeKind, key: string, challenge: string): Promise<void> {
+    const db = mongoose.connection.db;
+    if (!db) {
+        fallbackChallenges.set(challengeCacheKey(kind, key), challenge);
+        return;
+    }
+
+    try {
+        await ensureChallengeIndexes();
+        await db.collection(AUTH_CHALLENGE_COLLECTION).updateOne(
+            { kind, key },
+            {
+                $set: {
+                    kind,
+                    key,
+                    challenge,
+                    createdAt: new Date(),
+                    expiresAt: new Date(Date.now() + AUTH_CHALLENGE_TTL_MS),
+                }
+            },
+            { upsert: true }
+        );
+        fallbackChallenges.delete(challengeCacheKey(kind, key));
+    } catch (error) {
+        fallbackChallenges.set(challengeCacheKey(kind, key), challenge);
+        console.warn("[AuthChallenge] Falling back to in-memory challenge store:", error);
+    }
+}
+
+async function consumeAuthChallenge(kind: AuthChallengeKind, key: string): Promise<string | null> {
+    const db = mongoose.connection.db;
+    if (!db) {
+        const fallbackKey = challengeCacheKey(kind, key);
+        const fallback = fallbackChallenges.get(fallbackKey) ?? null;
+        fallbackChallenges.delete(fallbackKey);
+        return fallback;
+    }
+
+    try {
+        await ensureChallengeIndexes();
+        const result = await db.collection(AUTH_CHALLENGE_COLLECTION).findOneAndDelete({
+            kind,
+            key,
+            expiresAt: { $gt: new Date() }
+        });
+
+        if (result?.challenge) {
+            fallbackChallenges.delete(challengeCacheKey(kind, key));
+            return result.challenge;
+        }
+
+        return null;
+    } catch (error) {
+        const fallbackKey = challengeCacheKey(kind, key);
+        const fallback = fallbackChallenges.get(fallbackKey) ?? null;
+        fallbackChallenges.delete(fallbackKey);
+        console.warn("[AuthChallenge] Falling back to in-memory challenge read:", error);
+        return fallback;
+    }
+}
+
 let cachedDevKeyPair: { publicKey: string; privateKey: string } | null = null;
 
 async function getDevKeyPair() {
@@ -137,7 +219,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 }
             });
 
-            registrationChallenges.set(email, options.challenge);
+            await upsertAuthChallenge("registration", email, options.challenge);
 
             set.headers["Content-Type"] = "application/json";
             return {
@@ -213,7 +295,6 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     return { message: "Registration token is required" };
                 }
 
-                let userId: string;
                 let credentialId = "mock-credential";
                 let credentialPublicKey = "";
                 let credentialCounter = 0;
@@ -246,8 +327,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 }
 
                 if (isDev && isMock) {
-                    userId = new mongoose.Types.ObjectId().toString();
-                    console.log("[Register] Mock mode, generated userId:", userId);
+                    console.log("[Register] Mock mode registration path");
                 } else {
                     console.log("[Register] WebAuthn mode for", tempEmail);
                     const emailToVerify = tempEmail || invitation.email;
@@ -256,7 +336,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         set.status = 400;
                         return { message: "Missing email for verification" };
                     }
-                    const expectedChallenge = registrationChallenges.get(emailToVerify);
+                    const expectedChallenge = await consumeAuthChallenge("registration", emailToVerify);
                     if (!expectedChallenge) {
                         console.error("[Register] Challenge not found or expired for", emailToVerify);
                         set.status = 400;
@@ -279,7 +359,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         }
                         console.log("[Register] Registration response verified successfully.");
 
-                        const info = verification.registrationInfo!;
+                        const info = verification.registrationInfo as any;
                         credentialId = typeof info.credential.id === 'string'
                             ? info.credential.id
                             : isoBase64URL.fromBuffer(info.credential.id);
@@ -342,11 +422,6 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         throw new Error("RSA public key is required for registration.");
                     }
                     await family.save();
-                }
-
-                if (!isMock && finalEmail) {
-                    registrationChallenges.delete(finalEmail);
-                    console.log(`[Register] Deleted challenge for ${finalEmail}`);
                 }
 
                 // Update Registration Process
@@ -414,6 +489,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             console.log("[Login] options hit");
             const { email } = (body || {}) as { email?: string };
             let prfSalt: string | undefined;
+            let sessionUserIdForChallenge: string | undefined;
 
             if (mongoose.connection.readyState === 1) {
                 const token = getJwtFromCookie(request);
@@ -422,6 +498,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         const payload = await verifyJwt(token);
                         const sessionUserId = payload?.userId ? String(payload.userId).trim() : "";
                         const sessionFamilyId = payload?.familyId ? String(payload.familyId).trim() : "";
+                        sessionUserIdForChallenge = sessionUserId || undefined;
 
                         if (sessionUserId && sessionFamilyId) {
                             const family = await Family.findById(sessionFamilyId);
@@ -463,7 +540,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             console.log("[Login] Generated authentication options. PRF Salt present:", !!prfSalt);
 
             if (email) {
-                loginChallenges.set(email, options.challenge);
+                await upsertAuthChallenge("login", `email:${email}`, options.challenge);
+            } else if (sessionUserIdForChallenge) {
+                await upsertAuthChallenge("login", `session:${sessionUserIdForChallenge}`, options.challenge);
             }
 
             set.headers["Content-Type"] = "application/json";
@@ -472,7 +551,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 prfSaltBase64: prfSalt // Pass back to client so they know which salt was used for the eval challenge
             };
         })
-        .post("/login/verify", async ({ body, set }) => {
+        .post("/login/verify", async ({ body, set, request }) => {
             console.log("[Login] verify hit", JSON.stringify(body));
             const { email, authenticationResponse, mockLogin, userId } = (body || {}) as {
                 email?: string;
@@ -503,7 +582,22 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     if (!user) {
                         throw new Error("User not found for credential");
                     }
-                    const expectedChallenge = email ? loginChallenges.get(email) : null;
+                    let challengeKey: string | undefined;
+                    if (email) {
+                        challengeKey = `email:${email}`;
+                    } else {
+                        const sessionToken = getJwtFromCookie(request);
+                        if (sessionToken) {
+                            const payload = await verifyJwt(sessionToken);
+                            if (payload?.userId) {
+                                challengeKey = `session:${String(payload.userId)}`;
+                            }
+                        }
+                    }
+
+                    const expectedChallenge = challengeKey
+                        ? await consumeAuthChallenge("login", challengeKey)
+                        : null;
 
                     if (!isDev && !expectedChallenge) {
                         throw new Error("Login challenge not found or expired");
@@ -511,7 +605,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
                     if (authenticationResponse && !isDev) {
                         // REAL VERIFICATION
-                        const verification = await verifyAuthenticationResponse({
+                        const verification = await (verifyAuthenticationResponse as any)({
                             response: authenticationResponse,
                             expectedChallenge: expectedChallenge || "",
                             expectedOrigin: origin,
@@ -552,7 +646,6 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         }
                     }
 
-                    if (email) loginChallenges.delete(email);
                 } catch (e) {
                     verified = false;
                     finalUserId = undefined;
@@ -595,7 +688,6 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 set.headers["Content-Type"] = "application/json";
                 return {
                     verified: true,
-                    token,
                     userId: finalUserId,
                     familyId: finalFamilyId,
                     encryptedRsaPrivateKeyBase64,
@@ -717,6 +809,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 }
 
                 set.headers["Content-Type"] = "application/json";
+                const familyWithId = family as any;
                 return {
                     user: {
                         id: payload.userId,
@@ -725,7 +818,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         gender: payload.gender,
                         familyId: payload.familyId ? payload.familyId.toString() : null,
                     },
-                    family: family ? { ...family, id: family._id.toString(), _id: family._id.toString() } : null
+                    family: familyWithId
+                        ? { ...familyWithId, id: familyWithId._id.toString(), _id: familyWithId._id.toString() }
+                        : null
                 };
             } catch (err) {
                 console.error("[Me] error:", err);

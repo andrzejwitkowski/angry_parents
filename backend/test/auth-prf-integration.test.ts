@@ -174,5 +174,6 @@ describe("Auth PRF Integration Flow", () => {
         expect(loginVerifyRes.status).toBe(200);
         expect(loginVerifyData.encryptedRsaPrivateKeyBase64).toBe("mock-encrypted-private-key");
         expect(loginVerifyData.prfSaltBase64).toBe("c2FsdC0xMjM0");
+        expect(loginVerifyData.token).toBeUndefined();
     });
 });

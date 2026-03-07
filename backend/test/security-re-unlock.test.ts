@@ -102,5 +102,6 @@ describe("Security Re-Unlock Integration", () => {
         expect(loginVerifyData.encryptedRsaPrivateKeyBase64).toBe("stored-encrypted-priv-key");
         expect(loginVerifyData.prfSaltBase64).toBe("c2FsdC0xMjM0");
         expect(loginVerifyData.userId).toBe(userId);
+        expect(loginVerifyData.token).toBeUndefined();
     });
 });

@@ -3,8 +3,6 @@ import { generateRSAKeyPair, deriveMasterKey, wrapPrivateKey, unwrapPrivateKey, 
 import { savePrivateKey } from "./idb-crypto";
 import { authApi, type Gender } from "./api/auth";
 
-const API_BASE = "http://localhost:3000/api/auth";
-
 export const isPrfSupported = async () => {
     if (!window.PublicKeyCredential) return false;
     try {
@@ -35,16 +33,16 @@ export const registerPasskey = async (params: {
 
     // Generate random salt for PRF during registration
     const salt = window.crypto.getRandomValues(new Uint8Array(32));
-    // @ts-ignore
-    options.extensions = {
-        ...options.extensions,
+    const optionsWithPrf = options as any;
+    optionsWithPrf.extensions = {
+        ...(optionsWithPrf.extensions || {}),
         prf: { eval: { first: salt } }
     };
 
     // 2. Start registration (Browser prompts user)
     let registrationResponse;
     try {
-        registrationResponse = await startRegistration({ optionsJSON: options });
+        registrationResponse = await startRegistration({ optionsJSON: optionsWithPrf });
     } catch (error: unknown) {
         if (error instanceof Error && error.name === 'InvalidStateError') {
             throw new Error('Authenticator was probably already registered by this user');
@@ -108,9 +106,9 @@ export const registerPasskey = async (params: {
 
 export const checkHasPasskey = async () => {
     try {
-        let resp = await fetch(`${API_BASE}/webauthn/status`, { credentials: 'include' });
+        let resp = await fetch(`/api/auth/webauthn/status`, { credentials: 'include' });
         if (!resp.ok && resp.status === 404) {
-            resp = await fetch(`${API_BASE}/status`, { credentials: 'include' });
+            resp = await fetch(`/api/auth/status`, { credentials: 'include' });
         }
         if (!resp.ok) return false;
         const data = await resp.json();
@@ -122,7 +120,7 @@ export const checkHasPasskey = async () => {
 }
 
 export const mockRegisterPasskey = async () => {
-    const verifyResp = await fetch(`${API_BASE}/webauthn/register/verify`, {
+    const verifyResp = await fetch(`/api/auth/webauthn/register/verify`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -141,7 +139,7 @@ export const mockRegisterPasskey = async () => {
 }
 
 export const registerPasskeyForLoggedInUser = async () => {
-    const optionsResp = await fetch(`${API_BASE}/webauthn/register/options`, { credentials: 'include' });
+    const optionsResp = await fetch(`/api/auth/webauthn/register/options`, { credentials: 'include' });
     if (!optionsResp.ok) {
         const err = await optionsResp.json().catch(() => ({ message: "Failed to get registration options" }));
         throw new Error(err.message || "Failed to get registration options");
@@ -158,7 +156,7 @@ export const registerPasskeyForLoggedInUser = async () => {
         throw error;
     }
 
-    const verifyResp = await fetch(`${API_BASE}/webauthn/register/verify`, {
+    const verifyResp = await fetch(`/api/auth/webauthn/register/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(registrationResponse),
@@ -181,11 +179,12 @@ export const registerPasskeyForLoggedInUser = async () => {
 export const loginWithPasskey = async (email?: string) => {
     // 1. Get options
     const options = await authApi.loginOptions({ email });
+    const { prfSaltBase64: _ignoredPrfSaltBase64, ...authenticationOptions } = options as any;
 
     // 2. Start authentication
     let authenticationResponse;
     try {
-        authenticationResponse = await startAuthentication({ optionsJSON: options });
+        authenticationResponse = await startAuthentication({ optionsJSON: authenticationOptions });
     } catch (error: unknown) {
         if (error instanceof Error) {
             throw new Error(`Authentication failed: ${error.message}`);

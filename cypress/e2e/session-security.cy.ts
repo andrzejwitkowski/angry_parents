@@ -42,6 +42,7 @@ describe('Session Security & Auto-Lock', () => {
             }
         });
         cy.wait('@getMe');
+        cy.tick(2500);
 
         // Check for locked state via data-testid
         cy.get('[data-testid="locked-status"]', { timeout: 10000 }).should('exist');
@@ -55,6 +56,7 @@ describe('Session Security & Auto-Lock', () => {
             }
         });
         cy.wait('@getMe');
+        cy.tick(2500);
 
         cy.get('[data-testid="locked-status"]', { timeout: 10000 }).should('exist');
 
@@ -72,6 +74,7 @@ describe('Session Security & Auto-Lock', () => {
             }
         });
         cy.wait('@getMe');
+        cy.tick(2500);
 
         // Stub navigator.credentials.get for WebAuthn
         cy.window().then((win) => {

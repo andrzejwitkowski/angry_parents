@@ -81,7 +81,6 @@ export const authApi = {
     loginVerify: (data: { email?: string; authenticationResponse?: any; mockLogin?: boolean; userId?: string }) =>
         fetchApi<{
             verified: boolean;
-            token: string;
             encryptedRsaPrivateKeyBase64?: string;
             prfSaltBase64?: string;
             userId: string;

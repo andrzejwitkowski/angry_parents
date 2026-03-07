@@ -28,7 +28,7 @@ export default function PasskeySetup() {
         checkHasPasskey().then(has => {
             if (has) navigate('/dashboard');
         });
-    }, [navigate, token]);
+    }, [navigate, token, t]);
 
     const handleRegister = async () => {
         setLoading(true);
