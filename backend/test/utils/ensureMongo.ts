@@ -1,7 +1,8 @@
 import { MongoClient } from "mongodb";
 import { spawn } from "bun";
+import path from "path";
 
-const ROOT_DIR = new URL("../../../", import.meta.url).pathname;
+const ROOT_DIR = path.resolve(import.meta.dir, "../../../");
 
 async function canPingMongo(uri: string): Promise<boolean> {
     const client = new MongoClient(uri, { serverSelectionTimeoutMS: 1000 });
@@ -28,10 +29,24 @@ async function runDockerMongoUp(): Promise<void> {
             continue;
         }
         try {
-            const proc = spawn([cmd, ...args], { cwd: ROOT_DIR, stdout: "ignore", stderr: "ignore" });
+            const stderrLines: string[] = [];
+            const proc = spawn([cmd, ...args], {
+                cwd: ROOT_DIR,
+                stdout: "ignore",
+                stderr: "pipe"
+            });
+
+            const reader = proc.stderr.getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                stderrLines.push(new TextDecoder().decode(value));
+            }
+
             const exitCode = await proc.exited;
             if (exitCode === 0) return;
-            lastError = new Error(`${cmd} exited with code ${exitCode}`);
+            const errorMsg = stderrLines.join("").trim();
+            lastError = new Error(`${cmd} exited with code ${exitCode}${errorMsg ? `: ${errorMsg}` : ""}`);
         } catch (error) {
             lastError = error;
         }

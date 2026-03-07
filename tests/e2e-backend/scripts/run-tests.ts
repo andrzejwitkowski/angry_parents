@@ -1,8 +1,9 @@
 import { spawn } from "bun";
 import { MongoClient } from "mongodb";
 import fs from "fs";
+import { join, resolve } from "path";
 
-const ROOT_DIR = new URL("../../", import.meta.url).pathname;
+const ROOT_DIR = resolve(import.meta.dir, "../../");
 const TEST_MONGO_URI = "mongodb://127.0.0.1:27017/angry_parents_test_e2e_isolated";
 const TEST_PORT = 3002;
 const TEST_API_URL = `http://127.0.0.1:${TEST_PORT}`;
@@ -68,8 +69,13 @@ async function startMongo() {
     }
 
     console.log("🚀 Starting MongoDB via Docker...");
-    const proc = spawn(["docker-compose", "up", "-d", "mongodb"], {
-        cwd: "../../",
+    const cmd = Bun.which("docker-compose") || Bun.which("docker");
+    if (!cmd) throw new Error("Could not find 'docker-compose' or 'docker' executable");
+
+    const args = cmd.includes("docker-compose") ? ["up", "-d", "mongodb"] : ["compose", "up", "-d", "mongodb"];
+
+    const proc = spawn([cmd, ...args], {
+        cwd: ROOT_DIR,
         stdout: "inherit",
         stderr: "inherit",
     });
@@ -122,7 +128,10 @@ async function startBackend(): Promise<any> {
     }
 
     console.log("🚀 Starting Test Backend...");
-    const proc = spawn(["bun", "run", "dev:backend"], {
+    const bunBin = Bun.which("bun");
+    if (!bunBin) throw new Error("Could not find 'bun' executable");
+
+    const proc = spawn([bunBin, "run", "dev:backend"], {
         cwd: ROOT_DIR,
         stdout: "inherit",
         stderr: "inherit",
@@ -153,7 +162,10 @@ async function runTests(): Promise<any> {
 
     // Run tests
     console.log("🧪 Running Tests...");
-    const proc = spawn(["bun", "test", import.meta.dir.replace(/\/scripts$/, "")], {
+    const bunBin = Bun.which("bun");
+    if (!bunBin) throw new Error("Could not find 'bun' executable");
+
+    const proc = spawn([bunBin, "test", resolve(import.meta.dir, "..")], {
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",
