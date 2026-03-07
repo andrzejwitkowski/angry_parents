@@ -28,10 +28,10 @@ mock.module("@simplewebauthn/server", () => ({
             counter: 0,
         }
     }),
-    generateAuthenticationOptions: async () => ({
+    generateAuthenticationOptions: async (options: any) => ({
         challenge: "mock-challenge",
         allowCredentials: [],
-        extensions: { prf: { eval: { first: "mock-salt" } } }
+        extensions: options.extensions?.prf ? { prf: { eval: options.extensions.prf.eval } } : undefined
     }),
     verifyAuthenticationResponse: async () => ({
         verified: true,
@@ -54,7 +54,7 @@ describe("Auth PRF Integration Flow", () => {
         // Clear user collection if it exists
         try { await mongoose.connection.db?.collection("user").deleteMany({}); } catch (e) { }
 
-        const registrationRepo = new MongoRegistrationProcessRepository();
+        const registrationRepo = new MongoRegistrationProcessRepository(mongoose.connection.db as any);
         app = new Elysia().use(createAuthController(registrationRepo));
     });
 
@@ -69,7 +69,7 @@ describe("Auth PRF Integration Flow", () => {
 
         // 1. Create Family and Invitation
         const family = await Family.create({
-            familyName: "Test Family",
+            name: "Test Family",
             parentPublicKeys: []
         });
 
@@ -103,7 +103,7 @@ describe("Auth PRF Integration Flow", () => {
                     registrationResponse: { id: "mock-credential-id" }, // Mocked response
                     rsaPublicKeyBase64: "mock-public-key",
                     encryptedRsaPrivateKeyBase64: "mock-encrypted-private-key",
-                    prfSaltBase64: "mock-salt"
+                    prfSaltBase64: "c2FsdC0xMjM0" // Valid base64
                 })
             })
         );
@@ -115,7 +115,7 @@ describe("Auth PRF Integration Flow", () => {
         const parent = updatedFamily?.parentPublicKeys.find((p: any) => p.role === "mom");
         expect(parent?.rsaPublicKeyBase64).toBe("mock-public-key");
         expect(parent?.encryptedRsaPrivateKeyBase64).toBe("mock-encrypted-private-key");
-        expect(parent?.prfSaltBase64).toBe("mock-salt");
+        expect(parent?.prfSaltBase64).toBe("c2FsdC0xMjM0");
 
         const actualUserId = updatedFamily?.parentIds[0];
         expect(actualUserId).toBeDefined();
@@ -128,7 +128,10 @@ describe("Auth PRF Integration Flow", () => {
             id: actualUserId,
             email,
             name: "Mom",
-            webauthnCredentialId: "mock-credential-id"
+            familyId: family._id.toString(),
+            webauthnCredentialId: "mock-credential-id",
+            webauthnPublicKey: "mock-pubkey-b64",
+            webauthnCounter: 0
         });
 
         // 4. Login Options
@@ -141,7 +144,8 @@ describe("Auth PRF Integration Flow", () => {
         );
         const loginOptsData = await loginOptsRes.json();
         expect(loginOptsRes.status).toBe(200);
-        expect(loginOptsData.extensions?.prf?.eval?.first).toBe("mock-salt");
+        // Backend transforms "c2FsdC0xMjM0" (base64) to base64url "c2FsdC0xMjM0"
+        expect(loginOptsData.extensions?.prf?.eval?.first).toBe("c2FsdC0xMjM0");
 
         // 5. Login Verify
         const loginVerifyRes = await app.handle(
@@ -162,6 +166,6 @@ describe("Auth PRF Integration Flow", () => {
         const loginVerifyData = await loginVerifyRes.json();
         expect(loginVerifyRes.status).toBe(200);
         expect(loginVerifyData.encryptedRsaPrivateKeyBase64).toBe("mock-encrypted-private-key");
-        expect(loginVerifyData.prfSaltBase64).toBe("mock-salt");
+        expect(loginVerifyData.prfSaltBase64).toBe("c2FsdC0xMjM0");
     });
 });

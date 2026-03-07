@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { registerPasskey, checkHasPasskey, mockRegisterPasskey } from '@/lib/webauthn-client';
+import { authApi, type Gender } from '@/lib/api/auth';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 
 export default function PasskeySetup() {
@@ -12,18 +13,39 @@ export default function PasskeySetup() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const [invitationInfo, setInvitationInfo] = useState<{ email: string; gender: Gender } | null>(null);
+    const token = new URLSearchParams(window.location.search).get('token');
+
     useEffect(() => {
+        // If we have a token, fetch invitation info
+        if (token) {
+            authApi.getInvitation(token)
+                .then(info => setInvitationInfo(info))
+                .catch(e => setError("Invalid or expired invitation link"));
+        }
+
         // If user already has key, redirect (sanity check)
         checkHasPasskey().then(has => {
             if (has) navigate('/dashboard');
         });
-    }, [navigate]);
+    }, [navigate, token]);
 
     const handleRegister = async () => {
+        if (!invitationInfo || !token) {
+            setError("Missing invitation information");
+            return;
+        }
+
         setLoading(true);
         setError(null);
         try {
-            await registerPasskey();
+            await registerPasskey({
+                email: invitationInfo.email,
+                gender: invitationInfo.gender,
+                name: invitationInfo.email.split('@')[0], // Default name
+                username: invitationInfo.email.split('@')[0], // Default username
+                token,
+            });
             // Success
             navigate('/dashboard');
         } catch (e: unknown) {

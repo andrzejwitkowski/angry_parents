@@ -46,3 +46,12 @@ This workflow outlines the strict End-to-End Encryption (E2EE) rules that MUST b
 - When a user registers (whether via mock flows or the actual `/register/verify` flow), their `rsaPublicKeyBase64` MUST be generated and added to their family's `parentPublicKeys` array.
 - If a user lacks a public key in the family record, other users (and the user themselves) will not be able to encrypt payload for their `userId`.
 - This leads to silent failures where their own `ciphertext` is missing from the `encryptedPayload`, causing decryption to fail and the UI to show `Encrypted Entry`.
+
+## 8. Non-Extractable Private Keys
+- Once the E2EE private key is decrypted on the client side, it MUST be imported into `window.crypto.subtle` with the `extractable: false` flag before caching in memory or `IndexedDB`.
+- This ensures that even if local execution context is compromised (e.g., via XSS), malicious scripts cannot export or exfiltrate the raw private key material.
+
+## 9. Secure Session Lifecycle (Auto-Lock & PRF)
+- **Key Eviction:** E2EE private keys MUST be actively cleared from RAM and `IndexedDB` when the user locks their session or when the session timer expires (`clearPrivateKey`).
+- **Session Timer:** An automatic session timeout mechanism MUST be active to guard the decrypted key while the user is away.
+- **Re-Authentication (Unlock):** Unlocking the session MUST require hardware re-authentication (via WebAuthn `navigator.credentials.get`). This allows the system to utilize the WebAuthn PRF (Pseudo-Random Function) extension to re-derive the master key from the salt and unwrap the encrypted private key locally, without server intervention.

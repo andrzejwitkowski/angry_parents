@@ -62,12 +62,12 @@ export const authApi = {
         tempUsername?: string;
         tempGender?: Gender;
         mock?: boolean;
-        token?: string;
+        token: string;
         rsaPublicKeyBase64?: string;
         encryptedRsaPrivateKeyBase64?: string;
         prfSaltBase64?: string;
     }) =>
-        fetchApi<{ verified: boolean; role: string; userId?: string }>(
+        fetchApi<{ verified: boolean; role: string; userId: string; familyId: string }>(
             "/register/verify",
             { method: "POST", body: JSON.stringify(data) }
         ),
@@ -78,13 +78,14 @@ export const authApi = {
             body: data ? JSON.stringify(data) : undefined
         }),
 
-    loginVerify: (data: { authenticationResponse?: any; mockLogin?: boolean; userId?: string }) =>
+    loginVerify: (data: { email?: string; authenticationResponse?: any; mockLogin?: boolean; userId?: string }) =>
         fetchApi<{
             verified: boolean;
             token: string;
             encryptedRsaPrivateKeyBase64?: string;
             prfSaltBase64?: string;
-            userId?: string;
+            userId: string;
+            familyId: string;
         }>(
             "/login/verify",
             { method: "POST", body: JSON.stringify(data) }

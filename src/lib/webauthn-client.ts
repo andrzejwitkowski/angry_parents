@@ -1,32 +1,37 @@
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
 import { generateRSAKeyPair, deriveMasterKey, wrapPrivateKey, unwrapPrivateKey } from "./crypto-utils";
 import { savePrivateKey } from "./idb-crypto";
+import { authApi, type Gender } from "./api/auth";
 
 const API_BASE = "http://localhost:3000/api/auth";
 
-export const isPrfSupported = () => {
-    return !!(window.PublicKeyCredential && (window as any).PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable);
+export const isPrfSupported = async () => {
+    if (!window.PublicKeyCredential) return false;
+    try {
+        // @ts-ignore
+        const caps = await window.PublicKeyCredential.getClientCapabilities?.();
+        return !!caps?.["prf"] || !!caps?.["extension:prf"];
+    } catch (e) {
+        // Fallback to basic check if getClientCapabilities is not supported
+        return !!(window as any).PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable;
+    }
 };
 
-export const registerPasskey = async (email?: string) => {
+export const registerPasskey = async (params: {
+    email: string;
+    name: string;
+    username: string;
+    gender: Gender;
+    token: string;
+}) => {
+    const { email, name, username, gender, token } = params;
+
     // 1. Get options
-    const url = email ? `${API_BASE}/register/options?email=${encodeURIComponent(email)}` : `${API_BASE}/register/options`;
-    const resp = await fetch(url, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        credentials: 'include'
-    });
-
-    if (!resp.ok) {
-        throw new Error(`Failed to get registration options: ${resp.statusText}`);
-    }
-
-    const options = await resp.json();
+    const options = await authApi.registerOptions({ email, name, username, gender });
 
     // Generate random salt for PRF during registration
     const salt = window.crypto.getRandomValues(new Uint8Array(32));
+    // @ts-ignore
     options.extensions = {
         ...options.extensions,
         prf: { eval: { first: salt } }
@@ -35,7 +40,7 @@ export const registerPasskey = async (email?: string) => {
     // 2. Start registration (Browser prompts user)
     let registrationResponse;
     try {
-        registrationResponse = await startRegistration(options);
+        registrationResponse = await startRegistration({ optionsJSON: options });
     } catch (error: unknown) {
         if (error instanceof Error && error.name === 'InvalidStateError') {
             throw new Error('Authenticator was probably already registered by this user');
@@ -44,44 +49,46 @@ export const registerPasskey = async (email?: string) => {
     }
 
     // 3. Generate RSA Keypair
-    const { publicKeyBase64, privateKey } = await generateRSAKeyPair();
+    const { publicKeyBase64, privateKey: extractablePrivateKey } = await generateRSAKeyPair();
 
     // 4. Derive Master Key from PRF results
     const prfResults = (registrationResponse as any).clientExtensionResults?.prf;
     if (!prfResults || !prfResults.results?.first) {
         console.warn("PRF extension not returned by authenticator - device might not support PRF. Proceeding without wrapping.");
-        // Should we fail or fallback? Based on user rule, we should fail for maximum security.
         throw new Error("Your YubiKey/Browser does not support the required PRF encryption extension.");
     }
 
     const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
 
     // 5. Wrap (Encrypt) RSA Private Key
+    // Re-import the key as non-extractable before saving
+    const privateKeyArrayBuffer = await window.crypto.subtle.exportKey("pkcs8", extractablePrivateKey);
+    const privateKey = await window.crypto.subtle.importKey(
+        "pkcs8",
+        privateKeyArrayBuffer,
+        {
+            name: "RSA-OAEP",
+            hash: "SHA-256",
+        },
+        false, // non-extractable
+        ["decrypt", "unwrapKey"]
+    );
+
     const encryptedRsaPrivateKeyBase64 = await wrapPrivateKey(privateKey, masterKey);
     const prfSaltBase64 = btoa(String.fromCharCode(...salt));
 
     // 6. Verify with server
-    const verifyResp = await fetch(`${API_BASE}/register/verify`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            registrationResponse,
-            rsaPublicKeyBase64: publicKeyBase64,
-            encryptedRsaPrivateKeyBase64,
-            prfSaltBase64,
-            tempEmail: email
-        }),
-        credentials: 'include'
+    const verificationJSON = await authApi.registerVerify({
+        registrationResponse,
+        rsaPublicKeyBase64: publicKeyBase64,
+        encryptedRsaPrivateKeyBase64,
+        prfSaltBase64,
+        tempEmail: email,
+        tempName: name,
+        tempUsername: username,
+        tempGender: gender,
+        token
     });
-
-    if (!verifyResp.ok) {
-        const err = await verifyResp.json().catch(() => ({ message: verifyResp.statusText }));
-        throw new Error(err.message || "Verification failed");
-    }
-
-    const verificationJSON = await verifyResp.json();
 
     if (verificationJSON && verificationJSON.verified) {
         // Also save the private key locally for immediate use
@@ -130,25 +137,13 @@ export const mockRegisterPasskey = async () => {
 }
 
 export const loginWithPasskey = async (email?: string) => {
-    // 1. Get options (provide email if known to get PRF salt)
-    const optionsResp = await fetch(`${API_BASE}/login/options`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-        credentials: "include",
-    });
-
-    if (!optionsResp.ok) {
-        throw new Error("Failed to get login options");
-    }
-
-    const options = await optionsResp.json();
-    const prfSaltBase64 = options.prfSaltBase64;
+    // 1. Get options
+    const options = await authApi.loginOptions({ email });
 
     // 2. Start authentication
     let authenticationResponse;
     try {
-        authenticationResponse = await startAuthentication(options);
+        authenticationResponse = await startAuthentication({ optionsJSON: options });
     } catch (error: unknown) {
         if (error instanceof Error) {
             throw new Error(`Authentication failed: ${error.message}`);
@@ -156,34 +151,24 @@ export const loginWithPasskey = async (email?: string) => {
         throw error;
     }
 
-    // 3. Verify on server
-    const verifyResp = await fetch(`${API_BASE}/login/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ authenticationResponse }),
-        credentials: "include",
+    // 3. Verify on backend
+    const result = await authApi.loginVerify({
+        email: email || "",
+        authenticationResponse
     });
 
-    if (!verifyResp.ok) {
-        const err = await verifyResp.json().catch(() => ({ message: verifyResp.statusText }));
-        throw new Error(err.message || "Login verification failed");
-    }
-
-    const result = await verifyResp.json();
-
     // 4. If login successful and we have PRF material, decrypt the private key
-    if (result.verified && result.encryptedRsaPrivateKeyBase64 && prfSaltBase64) {
+    if (result.verified && result.encryptedRsaPrivateKeyBase64 && result.prfSaltBase64) {
         try {
             const prfResults = (authenticationResponse as any).clientExtensionResults?.prf;
             if (prfResults?.results?.first) {
                 const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
                 const privateKey = await unwrapPrivateKey(result.encryptedRsaPrivateKeyBase64, masterKey, false);
 
-                // Fetch me to get userId if it's not in result (though result.token might be sufficient if we decode it, or just use getMe)
-                // For now assuming result.userId is present (need to update backend to include it)
-                const userId = result.userId || "current"; // Will be fixed in next step
+                // result.userId is now returned by backend
+                const userId = result.userId;
                 await savePrivateKey(userId, privateKey);
-                console.log("[Auth] Successfully decrypted and stored RSA private key from YubiKey PRF.");
+                console.log(`[Auth] Successfully decrypted and stored RSA private key for ${userId} from YubiKey PRF.`);
             }
         } catch (e) {
             console.error("[Auth] Failed to decrypt RSA private key during login:", e);

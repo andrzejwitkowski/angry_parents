@@ -23,6 +23,7 @@ const rpID = "localhost";
 const origin = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
 
 const registrationChallenges = new Map<string, string>();
+const loginChallenges = new Map<string, string>();
 let cachedDevKeyPair: { publicKey: string; privateKey: string } | null = null;
 
 async function getDevKeyPair() {
@@ -53,7 +54,16 @@ function clearCookie(): string {
     return `token=; HttpOnly${secure}; SameSite=${sameSite}; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }
 
-async function createBetterAuthUser(email: string, name: string, username: string, gender?: Gender, familyId?: string, webauthnCredentialId?: string) {
+async function createBetterAuthUser(
+    email: string,
+    name: string,
+    username: string,
+    gender?: Gender,
+    familyId?: string,
+    webauthnCredentialId?: string,
+    webauthnPublicKey?: string,
+    webauthnCounter?: number
+) {
     const password = "webauthn-" + Date.now();
 
     const signupResult = await auth.api.signUpEmail({
@@ -71,6 +81,8 @@ async function createBetterAuthUser(email: string, name: string, username: strin
     if (gender) updateData.gender = gender;
     if (familyId) updateData.familyId = familyId;
     if (webauthnCredentialId) updateData.webauthnCredentialId = webauthnCredentialId;
+    if (webauthnPublicKey) updateData.webauthnPublicKey = webauthnPublicKey;
+    if (webauthnCounter !== undefined) updateData.webauthnCounter = webauthnCounter;
 
     if (Object.keys(updateData).length > 0) {
         // @ts-ignore - BetterAuth type mismatch in some versions
@@ -198,6 +210,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
                 let userId: string;
                 let credentialId = "mock-credential";
+                let credentialPublicKey = "";
+                let credentialCounter = 0;
                 let familyIdToUse: string | undefined;
 
                 // Invitation must exist for the given token
@@ -252,6 +266,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         credentialId = typeof info.credential.id === 'string'
                             ? info.credential.id
                             : isoBase64URL.fromBuffer(info.credential.id);
+                        credentialPublicKey = isoBase64URL.fromBuffer(info.credentialPublicKey);
+                        credentialCounter = info.counter;
                     } catch (e) {
                         console.error("[Register] Verification error", e);
                         set.status = 400;
@@ -272,7 +288,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     tempUsername || finalEmail!.split("@")[0],
                     tempGender || invitationRole,
                     family._id.toString(),
-                    credentialId
+                    credentialId,
+                    credentialPublicKey,
+                    credentialCounter
                 );
                 const actualUserId = baUser.userId;
                 console.log(`[Register] BetterAuth user created for ${finalEmail}, actualUserId: ${actualUserId}`);
@@ -285,7 +303,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     if (finalRsaPublicKey) {
                         if (!family.parentPublicKeys) family.parentPublicKeys = [];
                         const existingKey = family.parentPublicKeys.find(
-                            (k: any) => k.role === invitationRole
+                            (k: any) => k.parentId === actualUserId
                         );
 
                         if (existingKey) {
@@ -302,6 +320,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                                 prfSaltBase64
                             } as any);
                         }
+                    } else if (!isMock && !isDev) {
+                        // Crucial: throw if no public key provided for non-dev/mock
+                        throw new Error("RSA public key is required for registration.");
                     }
                     await family.save();
                 }
@@ -374,7 +395,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     const user = await mongoose.connection.db?.collection("user").findOne({ email });
                     if (user && user.familyId) {
                         const family = await Family.findById(user.familyId);
-                        const parentKey = family?.parentPublicKeys.find((k: any) => k.parentId === user.id || k.parentId === user._id.toString());
+                        const parentKey = family?.parentPublicKeys.find((k: any) => {
+                            const pkId = String(k.parentId || "").trim();
+                            const uId = String(user.id || "").trim();
+                            const u_Id = String(user._id || "").trim();
+                            return (uId && pkId === uId) || (u_Id && pkId === u_Id);
+                        });
                         prfSalt = parentKey?.prfSaltBase64;
                     }
                 } catch (e) {
@@ -391,6 +417,10 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 } : undefined
             });
             console.log("[Login] Generated authentication options. PRF Salt present:", !!prfSalt);
+
+            if (email) {
+                loginChallenges.set(email, options.challenge);
+            }
 
             set.headers["Content-Type"] = "application/json";
             return {
@@ -431,6 +461,37 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     }
 
                     verified = true;
+                    const expectedChallenge = email ? loginChallenges.get(email) : null;
+
+                    if (!isDev && !expectedChallenge && email) {
+                        throw new Error("Login challenge not found or expired");
+                    }
+
+                    if (authenticationResponse && !isDev) {
+                        // REAL VERIFICATION
+                        const verification = await verifyAuthenticationResponse({
+                            response: authenticationResponse,
+                            expectedChallenge: expectedChallenge || "",
+                            expectedOrigin: origin,
+                            expectedRPID: rpID,
+                            authenticator: {
+                                counter: user.webauthnCounter || 0,
+                                credentialID: isoBase64URL.toBuffer(user.webauthnCredentialId),
+                                credentialPublicKey: isoBase64URL.toBuffer(user.webauthnPublicKey),
+                            },
+                        });
+
+                        if (!verification.verified) {
+                            throw new Error("WebAuthn cryptographic verification failed");
+                        }
+
+                        // Update counter in DB
+                        await mongoose.connection.db?.collection("user").updateOne(
+                            { _id: user._id },
+                            { $set: { webauthnCounter: verification.authenticationInfo.newCounter } }
+                        );
+                    }
+
                     finalUserId = user.id || user._id.toString();
                     finalFamilyId = user.familyId;
 
@@ -446,17 +507,29 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                             prfSaltBase64 = parent.prfSaltBase64;
                         }
                     }
+
+                    if (email) loginChallenges.delete(email);
                 } catch (e) {
                     console.error("[Login] Verification error:", e);
                 }
             }
 
             if (verified && finalUserId) {
+                // Determine actual role/gender from user record
+                const dbUser = await mongoose.connection.db?.collection("user").findOne({
+                    $or: [
+                        { id: finalUserId },
+                        ...(mongoose.Types.ObjectId.isValid(finalUserId) ? [{ _id: new mongoose.Types.ObjectId(finalUserId) }] : [])
+                    ]
+                });
+
+                const userRole = (dbUser?.gender || dbUser?.role || "dad") as string;
+
                 const token = await signJwt({
                     userId: finalUserId,
                     familyId: finalFamilyId,
-                    role: "dad",
-                    gender: "dad",
+                    role: userRole,
+                    gender: userRole,
                 });
 
                 // Fallback for mock login if needed
@@ -476,6 +549,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 return {
                     verified: true,
                     token,
+                    userId: finalUserId,
+                    familyId: finalFamilyId,
                     encryptedRsaPrivateKeyBase64,
                     prfSaltBase64
                 };
@@ -515,8 +590,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     parentKey.encryptedRsaPrivateKeyBase64 = encryptedRsaPrivateKeyBase64;
                     parentKey.prfSaltBase64 = prfSaltBase64;
                 } else {
+                    const orConditions: any[] = [{ id: payload.userId }];
+                    if (mongoose.Types.ObjectId.isValid(payload.userId)) {
+                        orConditions.push({ _id: new mongoose.Types.ObjectId(payload.userId) });
+                    }
                     const user = await mongoose.connection.db?.collection("user").findOne({
-                        $or: [{ id: payload.userId }, { _id: new mongoose.Types.ObjectId(payload.userId) }]
+                        $or: orConditions
                     });
                     const role = (user?.gender === "mom" || user?.role === "mom") ? "mom" : "dad";
 

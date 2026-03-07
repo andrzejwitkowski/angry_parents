@@ -21,12 +21,23 @@ import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
 import { getPrivateKey } from "@/lib/idb-crypto";
 import { loginWithPasskey } from "@/lib/webauthn-client";
+import { useSecurity } from "@/context/SecurityContext";
+
+interface UserProfile {
+    id: string;
+    email: string;
+    name: string;
+    gender: "mom" | "dad";
+}
 
 export default function Settings() {
     const { t, i18n } = useTranslation();
     const [localUnlocked, setLocalUnlocked] = useState(false);
+    const [isUnlocking, setIsUnlocking] = useState(false);
     const [parentStatuses, setParentStatuses] = useState({ mom: false, dad: false, current: false });
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<UserProfile | null>(null);
+
+    const { configTimeout, updateConfig, isLocked, resetTimer, clearExpiryFlag } = useSecurity();
 
     useEffect(() => {
         const fetchStatus = async () => {
@@ -49,7 +60,7 @@ export default function Settings() {
             }
         };
         fetchStatus();
-    }, []);
+    }, [isLocked]); // Re-fetch when lock state changes
 
     const handleLanguageChange = (value: string) => {
         i18n.changeLanguage(value);
@@ -57,15 +68,22 @@ export default function Settings() {
     };
 
     const handleUnlock = async () => {
+        if (!user) return;
+        setIsUnlocking(true);
         try {
             // Re-trigger login with PRF to unlock
-            const success = await loginWithPasskey(user?.email);
+            const success = await loginWithPasskey(user.email);
             if (success) {
-                const pk = await getPrivateKey(user?.id);
+                const pk = await getPrivateKey(user.id);
                 setLocalUnlocked(!!pk);
+                // Reset the timer and clear the locked state
+                resetTimer();
+                clearExpiryFlag();
             }
         } catch (e) {
             console.error("Unlock failed", e);
+        } finally {
+            setIsUnlocking(false);
         }
     };
 
@@ -148,18 +166,22 @@ export default function Settings() {
                                         <Key className="w-4 h-4 text-indigo-500" />
                                         <span className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">{t('settings.encryption.localStatus')}</span>
                                     </div>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${localUnlocked ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    <span
+                                        className={`text-xs px-2 py-0.5 rounded-full ${localUnlocked ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
+                                    >
                                         {localUnlocked ? t('settings.encryption.unlocked') : t('settings.encryption.locked')}
                                     </span>
                                 </div>
                                 {!localUnlocked && parentStatuses.current && (
                                     <Button
+                                        data-testid="unlock-button"
                                         size="sm"
                                         className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700"
                                         onClick={handleUnlock}
+                                        disabled={isUnlocking}
                                     >
                                         <Lock className="w-4 h-4 mr-2" />
-                                        {t('settings.encryption.unlockButton')}
+                                        {isUnlocking ? t("settings.encryption.unlocking") || "Unlocking..." : t('settings.encryption.unlockButton')}
                                     </Button>
                                 )}
                                 {!parentStatuses.current && (
@@ -175,6 +197,46 @@ export default function Settings() {
                                     </Button>
                                 )}
                             </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Session Security Card */}
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <CardHeader className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center gap-4 space-y-0">
+                        <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+                                    <Lock className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-base font-semibold">{t('settings.security.title')}</CardTitle>
+                                    <CardDescription className="text-xs">{t('settings.security.timeoutDesc')}</CardDescription>
+                                </div>
+                            </div>
+                            <div
+                                data-testid="session-lock-status"
+                                className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${isLocked ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}
+                            >
+                                {isLocked ? 'Locked' : 'Unlocked'}
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-5 space-y-5">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('settings.security.timeout')}</label>
+                            <Select value={configTimeout.toString()} onValueChange={(v) => updateConfig(parseInt(v, 10))}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Timeout" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="120">{t('settings.security.2m')}</SelectItem>
+                                    <SelectItem value="300">{t('settings.security.5m')}</SelectItem>
+                                    <SelectItem value="600">{t('settings.security.10m')}</SelectItem>
+                                    <SelectItem value="1800">{t('settings.security.30m')}</SelectItem>
+                                    <SelectItem value="3600">{t('settings.security.1h')}</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </CardContent>
                 </Card>

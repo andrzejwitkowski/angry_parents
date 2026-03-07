@@ -21,8 +21,8 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogTrigger,
 } from "@/components/ui/dialog";
+import { useSecurity } from '@/context/SecurityContext';
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -31,6 +31,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+    const { ensureUnlocked } = useSecurity();
 
     const { children, refresh: refreshChildren } = useChildren();
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -39,6 +40,7 @@ export default function Dashboard() {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     const handleAddEventClick = () => {
+        if (!ensureUnlocked()) return;
         setSelectedDateForSheet(currentDate);
         setIsSheetOpen(true);
     };
@@ -72,7 +74,7 @@ export default function Dashboard() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div data-testid="loading-spinner" className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
                     <div className="h-12 w-12 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
                     <p className="text-slate-500 font-medium animate-pulse">{t('dashboard.loading')}</p>
@@ -129,21 +131,27 @@ export default function Dashboard() {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Generate Schedule Card */}
                             <div className="lg:col-span-1">
-                                <Dialog open={isWizardOpen} onOpenChange={setIsWizardOpen}>
-                                    <DialogTrigger asChild>
-                                        <button className="w-full h-[120px] p-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-500/20 flex flex-col justify-between group transition-all duration-200 active:scale-[0.98]">
-                                            <div className="flex justify-between items-start w-full">
-                                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
-                                                    <Gavel className="w-5 h-5 text-white" />
-                                                </div>
-                                                <ChevronRight className="w-5 h-5 opacity-60 group-hover:translate-x-1 transition-transform" />
-                                            </div>
-                                            <div className="text-left space-y-0.5">
-                                                <h3 className="font-bold text-base">{t('dashboard.inputCourtSchedule')}</h3>
-                                                <p className="text-indigo-100 text-xs font-medium">{t('dashboard.inputCourtScheduleDesc')}</p>
-                                            </div>
-                                        </button>
-                                    </DialogTrigger>
+                                <button
+                                    onClick={() => {
+                                        if (ensureUnlocked()) setIsWizardOpen(true);
+                                    }}
+                                    className="w-full h-[120px] p-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-500/20 flex flex-col justify-between group transition-all duration-200 active:scale-[0.98]"
+                                >
+                                    <div className="flex justify-between items-start w-full">
+                                        <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
+                                            <Gavel className="w-5 h-5 text-white" />
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 opacity-60 group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                    <div className="text-left space-y-0.5">
+                                        <h3 className="font-bold text-base">{t('dashboard.inputCourtSchedule')}</h3>
+                                        <p className="text-indigo-100 text-xs font-medium">{t('dashboard.inputCourtScheduleDesc')}</p>
+                                    </div>
+                                </button>
+                                <Dialog open={isWizardOpen} onOpenChange={(open) => {
+                                    if (open && !ensureUnlocked()) return;
+                                    setIsWizardOpen(open);
+                                }}>
                                     <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                                         <CustodyScheduler onSave={handleScheduleSaved} />
                                     </DialogContent>
