@@ -1,7 +1,7 @@
 import { spawn } from "bun";
 import { MongoClient } from "mongodb";
 import fs from "fs";
-import { join, resolve } from "path";
+import { resolve } from "path";
 
 const ROOT_DIR = resolve(import.meta.dir, "../../../");
 const TEST_MONGO_URI = "mongodb://127.0.0.1:27017/angry_parents_test_e2e_isolated";
