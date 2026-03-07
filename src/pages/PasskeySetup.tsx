@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from "react-i18next";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { registerPasskey, checkHasPasskey, mockRegisterPasskey } from '@/lib/webauthn-client';
+import { registerPasskey, checkHasPasskey, mockRegisterPasskey, registerPasskeyForLoggedInUser } from '@/lib/webauthn-client';
 import { authApi, type Gender } from '@/lib/api/auth';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 
@@ -21,7 +21,7 @@ export default function PasskeySetup() {
         if (token) {
             authApi.getInvitation(token)
                 .then(info => setInvitationInfo(info))
-                .catch(e => setError("Invalid or expired invitation link"));
+                .catch(() => setError("Invalid or expired invitation link"));
         }
 
         // If user already has key, redirect (sanity check)
@@ -31,21 +31,24 @@ export default function PasskeySetup() {
     }, [navigate, token]);
 
     const handleRegister = async () => {
-        if (!invitationInfo || !token) {
-            setError("Missing invitation information");
-            return;
-        }
-
         setLoading(true);
         setError(null);
         try {
-            await registerPasskey({
-                email: invitationInfo.email,
-                gender: invitationInfo.gender,
-                name: invitationInfo.email.split('@')[0], // Default name
-                username: invitationInfo.email.split('@')[0], // Default username
-                token,
-            });
+            if (token) {
+                if (!invitationInfo) {
+                    setError("Missing invitation information");
+                    return;
+                }
+                await registerPasskey({
+                    email: invitationInfo.email,
+                    gender: invitationInfo.gender,
+                    name: invitationInfo.email.split('@')[0], // Default name
+                    username: invitationInfo.email.split('@')[0], // Default username
+                    token,
+                });
+            } else {
+                await registerPasskeyForLoggedInUser();
+            }
             // Success
             navigate('/dashboard');
         } catch (e: unknown) {

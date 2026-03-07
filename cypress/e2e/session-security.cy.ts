@@ -6,17 +6,18 @@ describe('Session Security & Auto-Lock', () => {
             statusCode: 200
         }).as('getMe');
 
-        // Set a short timeout in localStorage
-        localStorage.setItem('session_timeout', '120');
-
-        cy.visit('/dashboard');
+        cy.clock();
+        cy.visit('/dashboard', {
+            onBeforeLoad(win) {
+                win.localStorage.setItem('session_timeout', '120');
+            }
+        });
         cy.get('[data-testid="loading-spinner"]').should('be.visible');
         cy.wait('@getMe');
         cy.get('[data-testid="loading-spinner"]').should('not.exist');
     });
 
     it('should show the session timer and decrement time', () => {
-        cy.clock();
         cy.get('[data-testid="security-timer"]').should('be.visible');
         cy.get('[data-testid="timer-countdown"]').then(($el) => {
             const initialTime = $el.text();
@@ -26,7 +27,6 @@ describe('Session Security & Auto-Lock', () => {
     });
 
     it('should reset timer when refresh button is clicked', () => {
-        cy.clock();
         cy.tick(15000); // Wait 15s
         cy.get('[data-testid="timer-countdown"]').should('not.contain', '2:00');
 
@@ -36,9 +36,11 @@ describe('Session Security & Auto-Lock', () => {
     });
 
     it('should auto-lock session when timer expires', () => {
-        // Use a 2s timeout for this individual test
-        localStorage.setItem('session_timeout', '2');
-        cy.visit('/dashboard');
+        cy.visit('/dashboard', {
+            onBeforeLoad(win) {
+                win.localStorage.setItem('session_timeout', '2');
+            }
+        });
         cy.wait('@getMe');
 
         // Check for locked state via data-testid
@@ -47,8 +49,11 @@ describe('Session Security & Auto-Lock', () => {
     });
 
     it('should show access denied toast when trying to perform action while locked', () => {
-        localStorage.setItem('session_timeout', '2');
-        cy.visit('/dashboard');
+        cy.visit('/dashboard', {
+            onBeforeLoad(win) {
+                win.localStorage.setItem('session_timeout', '2');
+            }
+        });
         cy.wait('@getMe');
 
         cy.get('[data-testid="locked-status"]', { timeout: 10000 }).should('exist');
@@ -61,8 +66,11 @@ describe('Session Security & Auto-Lock', () => {
     });
 
     it('should allow unlocking from settings', () => {
-        localStorage.setItem('session_timeout', '2');
-        cy.visit('/settings');
+        cy.visit('/settings', {
+            onBeforeLoad(win) {
+                win.localStorage.setItem('session_timeout', '2');
+            }
+        });
         cy.wait('@getMe');
 
         // Stub navigator.credentials.get for WebAuthn

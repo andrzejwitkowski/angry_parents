@@ -41,6 +41,7 @@ export const SecurityTimer: React.FC<SecurityTimerProps> = ({ isCollapsed }) => 
     }
 
     const isUrgent = timeRemaining < 60;
+    const collapsedTimerLabel = isUrgent ? "<1m" : formatTime(timeRemaining).split(':')[0];
 
     return (
         <TooltipProvider>
@@ -61,11 +62,11 @@ export const SecurityTimer: React.FC<SecurityTimerProps> = ({ isCollapsed }) => 
                                 isUrgent ? "text-amber-400 animate-pulse" : "text-slate-300"
                             )}
                         >
-                            {!isCollapsed ? formatTime(timeRemaining) : formatTime(timeRemaining).split(':')[0]}
+                            {!isCollapsed ? formatTime(timeRemaining) : collapsedTimerLabel}
                         </div>
                     </TooltipTrigger>
                     <TooltipContent side="right">
-                        Session timeout in {formatTime(timeRemaining)}
+                        {t('security.timer.timeoutIn', { time: formatTime(timeRemaining) })}
                     </TooltipContent>
                 </Tooltip>
 
@@ -78,6 +79,8 @@ export const SecurityTimer: React.FC<SecurityTimerProps> = ({ isCollapsed }) => 
                         isUrgent && "text-amber-400 hover:bg-amber-900/40"
                     )}
                     onClick={resetTimer}
+                    aria-label={t('security.timer.reset')}
+                    title={t('security.timer.reset')}
                 >
                     <RotateCcw className="w-3.5 h-3.5" />
                 </Button>

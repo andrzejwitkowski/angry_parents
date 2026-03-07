@@ -52,6 +52,13 @@ function clearCookie(): string {
     return `token=; HttpOnly${secure}; SameSite=${sameSite}; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }
 
+const BASE64_VALUE_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+function isValidBase64Value(value: string): boolean {
+    const normalized = value.trim();
+    if (!normalized || normalized.length % 4 !== 0) return false;
+    return BASE64_VALUE_RE.test(normalized);
+}
+
 async function createBetterAuthUser(
     email: string,
     name: string,
@@ -300,7 +307,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     finalEmail!,
                     tempName || "Parent",
                     tempUsername || finalEmail!.split("@")[0],
-                    tempGender || invitationRole,
+                    invitationRole,
                     family._id.toString(),
                     credentialId,
                     credentialPublicKey,
@@ -604,6 +611,32 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 prfSaltBase64: string;
             };
 
+            const keyFields: Array<[string, string]> = [
+                ["rsaPublicKeyBase64", rsaPublicKeyBase64],
+                ["encryptedRsaPrivateKeyBase64", encryptedRsaPrivateKeyBase64],
+                ["prfSaltBase64", prfSaltBase64],
+            ];
+
+            for (const [name, value] of keyFields) {
+                if (!value?.trim()) {
+                    set.status = 400;
+                    return { message: `Missing or empty ${name}` };
+                }
+                if (value.length > 16384) {
+                    set.status = 400;
+                    return { message: `${name} exceeds maximum length` };
+                }
+            }
+
+            if (
+                !isValidBase64Value(rsaPublicKeyBase64) ||
+                !isValidBase64Value(encryptedRsaPrivateKeyBase64) ||
+                !isValidBase64Value(prfSaltBase64)
+            ) {
+                set.status = 400;
+                return { message: "Key material must be valid base64" };
+            }
+
             const token = getJwtFromCookie(request);
             if (!token) {
                 set.status = 401;
@@ -650,6 +683,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 set.status = 500;
                 return { message: "Internal error" };
             }
+        }, {
+            body: t.Object({
+                rsaPublicKeyBase64: t.String({ minLength: 1, maxLength: 16384 }),
+                encryptedRsaPrivateKeyBase64: t.String({ minLength: 1, maxLength: 16384 }),
+                prfSaltBase64: t.String({ minLength: 1, maxLength: 16384 }),
+            }),
         })
         .get("/me", async ({ request, set }) => {
             console.log("[Me] hit");

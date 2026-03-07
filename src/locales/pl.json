@@ -298,6 +298,8 @@
         "settings.security.30m": "30 Minut",
         "settings.security.1h": "1 Godzina",
         "security.timer.locked": "Sesja Zablokowana",
+        "security.timer.timeoutIn": "Automatyczna blokada za {{time}}",
+        "security.timer.reset": "Resetuj licznik sesji",
         "security.notification.expired.title": "Sesja Wygasła",
         "security.notification.expired.desc": "Twoja sesja E2EE wygasła. Wrażliwe dane zostały zablokowane.",
         "security.notification.actionLocked.title": "Odmowa Dostępu",

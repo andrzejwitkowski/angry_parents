@@ -43,9 +43,9 @@ Fields: timestamp, level, msg, context (userId, traceId).
 Constraint: No raw console.log. Use a structured logger helper.
 
 4. Security & Encryption
-Auth: RBAC (Role-Based Access Control) with USER and ADMIN.
+Auth: RBAC (Role-Based Access Control) with the application's actual role names; keep this document aligned with backend authorization checks (e.g., admin/developer access currently uses role `developer`).
 
-Encryption: Sensitive data (e.g., PII) must be encrypted asynchronously using RSA-OAEP (Web Crypto API) before saving to MongoDB.
+Encryption: Sensitive data (e.g., PII) must use the project's hybrid envelope format: encrypt payload with AES-GCM, wrap the AES key with RSA-OAEP/SHA-256, and store the base64 JSON envelope `{ k, iv, d }`.
 
 Hashing: Bun.password.hash() for credentials.
 

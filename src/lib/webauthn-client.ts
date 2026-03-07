@@ -60,10 +60,12 @@ export const registerPasskey = async (params: {
 
     const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
 
-    // 5. Wrap (Encrypt) RSA Private Key
-    // Re-import the key as non-extractable before saving
+    // 5. Wrap (Encrypt) RSA Private Key while the source key is still extractable.
+    const encryptedRsaPrivateKeyBase64 = await wrapPrivateKey(extractablePrivateKey, masterKey);
+
+    // Re-import the key as non-extractable before saving it locally.
     const privateKeyArrayBuffer = await window.crypto.subtle.exportKey("pkcs8", extractablePrivateKey);
-    const privateKey = await window.crypto.subtle.importKey(
+    const nonExtractablePrivateKey = await window.crypto.subtle.importKey(
         "pkcs8",
         privateKeyArrayBuffer,
         {
@@ -74,7 +76,6 @@ export const registerPasskey = async (params: {
         ["decrypt", "unwrapKey"]
     );
 
-    const encryptedRsaPrivateKeyBase64 = await wrapPrivateKey(privateKey, masterKey);
     const prfSaltBase64 = btoa(String.fromCharCode(...salt));
 
     // 6. Verify with server
@@ -93,7 +94,7 @@ export const registerPasskey = async (params: {
     if (verificationJSON && verificationJSON.verified) {
         // Also save the private key locally for immediate use
         if (verificationJSON.userId) {
-            await savePrivateKey(verificationJSON.userId, privateKey);
+            await savePrivateKey(verificationJSON.userId, nonExtractablePrivateKey);
         }
         return true;
     } else {
@@ -103,7 +104,10 @@ export const registerPasskey = async (params: {
 
 export const checkHasPasskey = async () => {
     try {
-        const resp = await fetch(`${API_BASE}/status`, { credentials: 'include' });
+        let resp = await fetch(`${API_BASE}/webauthn/status`, { credentials: 'include' });
+        if (!resp.ok && resp.status === 404) {
+            resp = await fetch(`${API_BASE}/status`, { credentials: 'include' });
+        }
         if (!resp.ok) return false;
         const data = await resp.json();
         return !!data.hasPasskey;
@@ -114,17 +118,13 @@ export const checkHasPasskey = async () => {
 }
 
 export const mockRegisterPasskey = async () => {
-    // Generate mock keys for consistency in dev
-    const { publicKeyBase64 } = await generateRSAKeyPair();
-
-    const verifyResp = await fetch(`${API_BASE}/register/verify`, {
+    const verifyResp = await fetch(`${API_BASE}/webauthn/register/verify`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
             mock: true,
-            rsaPublicKeyBase64: publicKeyBase64
         }),
         credentials: 'include'
     });
@@ -135,6 +135,44 @@ export const mockRegisterPasskey = async () => {
 
     return true;
 }
+
+export const registerPasskeyForLoggedInUser = async () => {
+    const optionsResp = await fetch(`${API_BASE}/webauthn/register/options`, { credentials: 'include' });
+    if (!optionsResp.ok) {
+        const err = await optionsResp.json().catch(() => ({ message: "Failed to get registration options" }));
+        throw new Error(err.message || "Failed to get registration options");
+    }
+    const options = await optionsResp.json();
+
+    let registrationResponse;
+    try {
+        registrationResponse = await startRegistration({ optionsJSON: options });
+    } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'InvalidStateError') {
+            throw new Error('Authenticator was probably already registered by this user');
+        }
+        throw error;
+    }
+
+    const verifyResp = await fetch(`${API_BASE}/webauthn/register/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registrationResponse),
+        credentials: "include",
+    });
+
+    if (!verifyResp.ok) {
+        const err = await verifyResp.json().catch(() => ({ message: "Registration verify failed" }));
+        throw new Error(err.message || "Registration verify failed");
+    }
+
+    const verifyJson = await verifyResp.json();
+    if (!verifyJson?.verified) {
+        throw new Error("Verification failed on server");
+    }
+
+    return true;
+};
 
 export const loginWithPasskey = async (email?: string) => {
     // 1. Get options

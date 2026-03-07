@@ -3,7 +3,7 @@ import { MongoClient } from "mongodb";
 import fs from "fs";
 import { join, resolve } from "path";
 
-const ROOT_DIR = resolve(import.meta.dir, "../../");
+const ROOT_DIR = resolve(import.meta.dir, "../../../");
 const TEST_MONGO_URI = "mongodb://127.0.0.1:27017/angry_parents_test_e2e_isolated";
 const TEST_PORT = 3002;
 const TEST_API_URL = `http://127.0.0.1:${TEST_PORT}`;

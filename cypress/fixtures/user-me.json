@@ -17,8 +17,8 @@
             {
                 "parentId": "user-123",
                 "role": "dad",
-                "rsaPublicKeyBase64": "mock-pub-key",
-                "encryptedRsaPrivateKeyBase64": "mock-encrypted-priv-key",
+                "rsaPublicKeyBase64": "bW9jay1wdWIta2V5",
+                "encryptedRsaPrivateKeyBase64": "bW9jay1lbmNyeXB0ZWQtcHJpdi1rZXk=",
                 "prfSaltBase64": "c2FsdC0xMjM0"
             }
         ]

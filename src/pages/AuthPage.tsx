@@ -72,9 +72,11 @@ export default function AuthPage() {
         setError(null);
         try {
             const success = await loginWithPasskey(email);
-            if (success) {
-                navigate('/dashboard');
+            if (!success) {
+                setError(t("auth.loginFailed"));
+                return;
             }
+            navigate('/dashboard');
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : t("auth.loginFailed");
             setError(msg);

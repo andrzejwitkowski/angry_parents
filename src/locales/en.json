@@ -299,6 +299,8 @@
         "settings.security.30m": "30 Minutes",
         "settings.security.1h": "1 Hour",
         "security.timer.locked": "Security Locked",
+        "security.timer.timeoutIn": "Session timeout in {{time}}",
+        "security.timer.reset": "Reset session timer",
         "security.notification.expired.title": "Session Expired",
         "security.notification.expired.desc": "Your E2EE session has timed out. Sensitive data is now locked.",
         "security.notification.actionLocked.title": "Access Denied",
