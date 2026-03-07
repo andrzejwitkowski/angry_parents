@@ -222,6 +222,22 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 const invitationRole = invitation.targetRole as "dad" | "mom";
                 console.log(`[Register] Token valid. Joining family: ${familyIdToUse} as ${invitationRole}`);
 
+                if (!isDev && !isMock) {
+                    const requiredKeyMaterial: Array<[string, string | undefined]> = [
+                        ["rsaPublicKeyBase64", rsaPublicKeyBase64],
+                        ["encryptedRsaPrivateKeyBase64", encryptedRsaPrivateKeyBase64],
+                        ["prfSaltBase64", prfSaltBase64],
+                    ];
+                    const missing = requiredKeyMaterial
+                        .filter(([, value]) => !value || !value.trim())
+                        .map(([name]) => name);
+
+                    if (missing.length > 0) {
+                        set.status = 400;
+                        return { message: `Missing required key material: ${missing.join(", ")}` };
+                    }
+                }
+
                 // Mark invitation as accepted
                 invitation.status = "accepted";
                 await invitation.save();
@@ -383,12 +399,31 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             body: t.Any(),
         })
 
-        .post("/login/options", async ({ body, set }) => {
+        .post("/login/options", async ({ body, set, request }) => {
             console.log("[Login] options hit");
             const { email } = (body || {}) as { email?: string };
             let prfSalt: string | undefined;
 
-            if (email && mongoose.connection.readyState === 1) {
+            if (mongoose.connection.readyState === 1) {
+                const token = getJwtFromCookie(request);
+                if (token) {
+                    try {
+                        const payload = await verifyJwt(token);
+                        const sessionUserId = payload?.userId ? String(payload.userId).trim() : "";
+                        const sessionFamilyId = payload?.familyId ? String(payload.familyId).trim() : "";
+
+                        if (sessionUserId && sessionFamilyId) {
+                            const family = await Family.findById(sessionFamilyId);
+                            const parentKey = family?.parentPublicKeys.find((k: any) => String(k.parentId || "").trim() === sessionUserId);
+                            prfSalt = parentKey?.prfSaltBase64;
+                        }
+                    } catch (e) {
+                        console.warn("[Login] Failed to lookup PRF salt from session token:", e);
+                    }
+                }
+            }
+
+            if (!prfSalt && email && mongoose.connection.readyState === 1) {
                 try {
                     const user = await mongoose.connection.db?.collection("user").findOne({ email });
                     if (user && user.familyId) {
@@ -457,11 +492,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     if (!user) {
                         throw new Error("User not found for credential");
                     }
-
-                    verified = true;
                     const expectedChallenge = email ? loginChallenges.get(email) : null;
 
-                    if (!isDev && !expectedChallenge && email) {
+                    if (!isDev && !expectedChallenge) {
                         throw new Error("Login challenge not found or expired");
                     }
 
@@ -490,6 +523,8 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         );
                     }
 
+                    verified = true;
+
                     finalUserId = user.id || user._id.toString();
                     finalFamilyId = user.familyId;
 
@@ -508,6 +543,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
 
                     if (email) loginChallenges.delete(email);
                 } catch (e) {
+                    verified = false;
+                    finalUserId = undefined;
+                    finalFamilyId = undefined;
                     console.error("[Login] Verification error:", e);
                 }
             }
