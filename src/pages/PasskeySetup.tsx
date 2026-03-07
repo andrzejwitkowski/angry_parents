@@ -21,7 +21,7 @@ export default function PasskeySetup() {
         if (token) {
             authApi.getInvitation(token)
                 .then(info => setInvitationInfo(info))
-                .catch(() => setError("Invalid or expired invitation link"));
+                .catch(() => setError(t("passkey.invalidInvitationLink")));
         }
 
         // If user already has key, redirect (sanity check)
@@ -36,7 +36,7 @@ export default function PasskeySetup() {
         try {
             if (token) {
                 if (!invitationInfo) {
-                    setError("Missing invitation information");
+                    setError(t("passkey.missingInvitationInfo"));
                     return;
                 }
                 await registerPasskey({

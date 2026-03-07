@@ -245,10 +245,6 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     }
                 }
 
-                // Mark invitation as accepted
-                invitation.status = "accepted";
-                await invitation.save();
-
                 if (isDev && isMock) {
                     userId = new mongoose.Types.ObjectId().toString();
                     console.log("[Register] Mock mode, generated userId:", userId);
@@ -385,6 +381,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     await registrationRepo.save(regProcess);
                 }
 
+                invitation.status = "accepted";
+                await invitation.save();
+
                 const tokenValue = await signJwt({
                     userId: baUser.userId,
                     familyId: family._id.toString(),
@@ -396,7 +395,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 set.headers["Set-Cookie"] = setCookie(tokenValue);
                 set.headers["Content-Type"] = "application/json";
                 console.log("[Register] verify success");
-                return { verified: true, role: roleUsed };
+                return {
+                    verified: true,
+                    role: roleUsed,
+                    userId: baUser.userId,
+                    familyId: family._id.toString(),
+                };
             } catch (err) {
                 console.error("[Register] verify error:", err);
                 set.status = 500;

@@ -51,12 +51,16 @@ export default function AuthPage() {
         setError(null);
 
         try {
+            if (!token) {
+                setError(t("auth.invitationRequired"));
+                return;
+            }
             await registerPasskey({
                 email,
                 name,
                 username: username || email.split('@')[0],
                 gender,
-                token: token || ""
+                token
             });
             navigate('/dashboard');
         } catch (err: unknown) {

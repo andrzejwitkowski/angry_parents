@@ -181,7 +181,7 @@ export default function Settings() {
                                         disabled={isUnlocking}
                                     >
                                         <Lock className="w-4 h-4 mr-2" />
-                                        {isUnlocking ? t("settings.encryption.unlocking") || "Unlocking..." : t('settings.encryption.unlockButton')}
+                                        {isUnlocking ? t("settings.encryption.unlocking") : t('settings.encryption.unlockButton')}
                                     </Button>
                                 )}
                                 {!parentStatuses.current && (
@@ -227,7 +227,7 @@ export default function Settings() {
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('settings.security.timeout')}</label>
                             <Select value={configTimeout.toString()} onValueChange={(v) => updateConfig(parseInt(v, 10))}>
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Timeout" />
+                                    <SelectValue placeholder={t('settings.security.selectTimeout')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="120">{t('settings.security.2m')}</SelectItem>

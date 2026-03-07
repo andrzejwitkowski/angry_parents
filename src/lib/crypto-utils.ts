@@ -88,7 +88,7 @@ export async function decryptRSA(ciphertext: string, privateKey: CryptoKey): Pro
  * Chunked byte-to-base64 conversion to avoid RangeError
  * when spreading large Uint8Arrays into String.fromCharCode().
  */
-function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Uint8Array): string {
     const chunkSize = 0x8000; // 32KB chunks
     const chunks: string[] = [];
     for (let i = 0; i < bytes.length; i += chunkSize) {

@@ -108,6 +108,13 @@ describe("Auth PRF Integration Flow", () => {
             })
         );
         expect(verifyRes.status).toBe(200);
+        const verifyData = await verifyRes.json();
+        expect(verifyData.verified).toBe(true);
+        expect(verifyData.userId).toBeDefined();
+        expect(verifyData.familyId).toBe(family._id.toString());
+
+        const acceptedInvitation = await Invitation.findOne({ token });
+        expect(acceptedInvitation?.status).toBe("accepted");
 
         // Verify state in DB
         const updatedFamily = await Family.findById(family._id);

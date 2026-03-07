@@ -1,5 +1,5 @@
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
-import { generateRSAKeyPair, deriveMasterKey, wrapPrivateKey, unwrapPrivateKey } from "./crypto-utils";
+import { generateRSAKeyPair, deriveMasterKey, wrapPrivateKey, unwrapPrivateKey, bytesToBase64 } from "./crypto-utils";
 import { savePrivateKey } from "./idb-crypto";
 import { authApi, type Gender } from "./api/auth";
 
@@ -13,7 +13,11 @@ export const isPrfSupported = async () => {
         return !!caps?.["prf"] || !!caps?.["extension:prf"];
     } catch (e) {
         // Fallback to basic check if getClientCapabilities is not supported
-        return !!(window as any).PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable;
+        const uvpa = (window as any).PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable;
+        if (typeof uvpa === "function") {
+            return !!(await uvpa());
+        }
+        return false;
     }
 };
 
@@ -76,7 +80,7 @@ export const registerPasskey = async (params: {
         ["decrypt", "unwrapKey"]
     );
 
-    const prfSaltBase64 = btoa(String.fromCharCode(...salt));
+    const prfSaltBase64 = bytesToBase64(salt);
 
     // 6. Verify with server
     const verificationJSON = await authApi.registerVerify({
