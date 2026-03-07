@@ -261,7 +261,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             })
         })
         .post("/register/verify", async ({ body, set }) => {
-            console.log("[Register] verify hit", JSON.stringify(body));
+            console.log("[Register] verify hit");
             try {
                 const {
                     registrationResponse,
