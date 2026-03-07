@@ -5,9 +5,7 @@ import { Invitation, type Gender } from "../../models/Invitation";
 import { RegistrationStatus, ParentRegistrationStatus } from "../../models/RegistrationProcess";
 import { generateDevRSAKeyPair } from "../secondary/BunCryptoService";
 import { MongoRegistrationProcessRepository } from "../secondary/MongoRegistrationProcessRepository";
-import { ChildModel } from "../../models/Child";
 import { signJwt, verifyJwt } from "../../lib/jwt";
-import { sendInvitationEmail } from "../../lib/email";
 import {
     generateRegistrationOptions,
     generateAuthenticationOptions,
