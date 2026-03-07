@@ -146,15 +146,46 @@ export const registerPasskeyForLoggedInUser = async () => {
     }
     const options = await optionsResp.json();
 
+    const salt = window.crypto.getRandomValues(new Uint8Array(32));
+    const optionsWithPrf = options as any;
+    optionsWithPrf.extensions = {
+        ...(optionsWithPrf.extensions || {}),
+        prf: { eval: { first: salt } }
+    };
+
     let registrationResponse;
     try {
-        registrationResponse = await startRegistration({ optionsJSON: options });
+        registrationResponse = await startRegistration({ optionsJSON: optionsWithPrf });
     } catch (error: unknown) {
         if (error instanceof Error && error.name === 'InvalidStateError') {
             throw new Error('Authenticator was probably already registered by this user');
         }
         throw error;
     }
+
+    const { publicKeyBase64, privateKey: extractablePrivateKey } = await generateRSAKeyPair();
+
+    const prfResults = (registrationResponse as any).clientExtensionResults?.prf;
+    if (!prfResults || !prfResults.results?.first) {
+        throw new Error("Your YubiKey/Browser does not support the required PRF encryption extension.");
+    }
+
+    const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
+    const encryptedRsaPrivateKeyBase64 = await wrapPrivateKey(extractablePrivateKey, masterKey);
+
+    const privateKeyArrayBuffer = await window.crypto.subtle.exportKey("pkcs8", extractablePrivateKey);
+    const nonExtractablePrivateKey = await window.crypto.subtle.importKey(
+        "pkcs8",
+        privateKeyArrayBuffer,
+        {
+            name: "RSA-OAEP",
+            hash: "SHA-256",
+        },
+        false,
+        ["decrypt", "unwrapKey"]
+    );
+
+    const prfSaltBase64 = bytesToBase64(salt);
 
     const verifyResp = await fetch(`/api/auth/webauthn/register/verify`, {
         method: "POST",
@@ -171,6 +202,17 @@ export const registerPasskeyForLoggedInUser = async () => {
     const verifyJson = await verifyResp.json();
     if (!verifyJson?.verified) {
         throw new Error("Verification failed on server");
+    }
+
+    await authApi.updatePublicKey({
+        rsaPublicKeyBase64: publicKeyBase64,
+        encryptedRsaPrivateKeyBase64,
+        prfSaltBase64,
+    });
+
+    const me = await authApi.getMe();
+    if (me?.user?.id) {
+        await savePrivateKey(me.user.id, nonExtractablePrivateKey);
     }
 
     return true;

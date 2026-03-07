@@ -10,13 +10,28 @@ const authApiMock = {
   loginVerify: mock(async () => ({ verified: true, userId: "user-1", familyId: "fam-1" })),
   registerOptions: mock(async () => ({ challenge: "reg-challenge" })),
   registerVerify: mock(async () => ({ verified: true, userId: "user-1", familyId: "fam-1", role: "dad" })),
+  updatePublicKey: mock(async () => ({ success: true })),
+  getMe: mock(async () => ({ user: { id: "user-1", email: "user-1@example.com", name: "User", gender: "dad" }, family: null })),
 };
 
 const savePrivateKeyMock = mock(async () => undefined);
 const wrapPrivateKeyMock = mock(async () => "wrapped");
 const unwrapPrivateKeyMock = mock(async () => ({}) as CryptoKey);
 const deriveMasterKeyMock = mock(async () => ({}) as CryptoKey);
-const generateRSAKeyPairMock = mock(async () => ({ publicKeyBase64: "pub", privateKey: {} as CryptoKey }));
+const generateRSAKeyPairMock = mock(async () => {
+  const keyPair = await window.crypto.subtle.generateKey(
+    {
+      name: "RSA-OAEP",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256"
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+
+  return { publicKeyBase64: "pub", privateKey: keyPair.privateKey };
+});
 const bytesToBase64Mock = mock(() => "salt-b64");
 
 mock.module("@simplewebauthn/browser", () => ({
@@ -40,7 +55,7 @@ mock.module("./crypto-utils", () => ({
   bytesToBase64: bytesToBase64Mock,
 }));
 
-import { isPrfSupported, checkHasPasskey, loginWithPasskey } from "./webauthn-client";
+import { isPrfSupported, checkHasPasskey, loginWithPasskey, registerPasskeyForLoggedInUser } from "./webauthn-client";
 
 describe("isPrfSupported", () => {
   const originalPublicKeyCredential = (window as any).PublicKeyCredential;
@@ -52,6 +67,11 @@ describe("isPrfSupported", () => {
     startAuthenticationMock.mockClear();
     authApiMock.loginOptions.mockClear();
     authApiMock.loginVerify.mockClear();
+    authApiMock.updatePublicKey.mockClear();
+    authApiMock.getMe.mockClear();
+    savePrivateKeyMock.mockClear();
+    deriveMasterKeyMock.mockClear();
+    wrapPrivateKeyMock.mockClear();
   });
 
   afterEach(() => {
@@ -99,5 +119,42 @@ describe("isPrfSupported", () => {
     expect(callArg).toBeDefined();
     expect(callArg.optionsJSON.challenge).toBe("challenge");
     expect(callArg.optionsJSON.prfSaltBase64).toBeUndefined();
+  });
+
+  it("provisions PRF-wrapped RSA key material for logged-in registration flow", async () => {
+    const fetchMock = mock(async (input: string) => {
+      if (input === "/api/auth/webauthn/register/options") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ challenge: "register-challenge" })
+        } as Response;
+      }
+
+      if (input === "/api/auth/webauthn/register/verify") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ verified: true })
+        } as Response;
+      }
+
+      throw new Error(`Unexpected fetch call: ${input}`);
+    });
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(registerPasskeyForLoggedInUser()).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/webauthn/register/options", { credentials: "include" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/auth/webauthn/register/verify",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include"
+      })
+    );
+    expect(authApiMock.updatePublicKey).toHaveBeenCalledTimes(1);
+    expect(authApiMock.getMe).toHaveBeenCalledTimes(1);
+    expect(savePrivateKeyMock).toHaveBeenCalledWith("user-1", expect.anything());
   });
 });

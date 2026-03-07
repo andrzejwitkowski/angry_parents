@@ -141,6 +141,42 @@ function isValidBase64Value(value: string): boolean {
     return BASE64_VALUE_RE.test(normalized);
 }
 
+const KEY_MATERIAL_MAX_LENGTH = {
+    rsaPublicKeyBase64: 8192,
+    encryptedRsaPrivateKeyBase64: 16384,
+    prfSaltBase64: 1024,
+} as const;
+
+type KeyMaterialName = keyof typeof KEY_MATERIAL_MAX_LENGTH;
+
+function validateRequiredKeyMaterial(input: Partial<Record<KeyMaterialName, string | undefined>>) {
+    const missing: KeyMaterialName[] = [];
+    const invalid: KeyMaterialName[] = [];
+    const names = Object.keys(KEY_MATERIAL_MAX_LENGTH) as KeyMaterialName[];
+
+    for (const name of names) {
+        const rawValue = input[name];
+        const value = typeof rawValue === "string" ? rawValue.trim() : "";
+
+        if (!value) {
+            missing.push(name);
+            continue;
+        }
+
+        if (value.length > KEY_MATERIAL_MAX_LENGTH[name] || !isValidBase64Value(value)) {
+            invalid.push(name);
+            continue;
+        }
+
+        const decoded = Buffer.from(value, "base64");
+        if (!decoded || decoded.length === 0) {
+            invalid.push(name);
+        }
+    }
+
+    return { missing, invalid };
+}
+
 async function createBetterAuthUser(
     email: string,
     name: string,
@@ -311,18 +347,20 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 console.log(`[Register] Token valid. Joining family: ${familyIdToUse} as ${invitationRole}`);
 
                 if (!isDev && !isMock) {
-                    const requiredKeyMaterial: Array<[string, string | undefined]> = [
-                        ["rsaPublicKeyBase64", rsaPublicKeyBase64],
-                        ["encryptedRsaPrivateKeyBase64", encryptedRsaPrivateKeyBase64],
-                        ["prfSaltBase64", prfSaltBase64],
-                    ];
-                    const missing = requiredKeyMaterial
-                        .filter(([, value]) => !value || !value.trim())
-                        .map(([name]) => name);
+                    const { missing, invalid } = validateRequiredKeyMaterial({
+                        rsaPublicKeyBase64,
+                        encryptedRsaPrivateKeyBase64,
+                        prfSaltBase64,
+                    });
 
                     if (missing.length > 0) {
                         set.status = 400;
                         return { message: `Missing required key material: ${missing.join(", ")}` };
+                    }
+
+                    if (invalid.length > 0) {
+                        set.status = 400;
+                        return { message: `Invalid key material: ${invalid.join(", ")}` };
                     }
                 }
 
@@ -552,13 +590,18 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             };
         })
         .post("/login/verify", async ({ body, set, request }) => {
-            console.log("[Login] verify hit", JSON.stringify(body));
             const { email, authenticationResponse, mockLogin, userId } = (body || {}) as {
                 email?: string;
                 authenticationResponse?: any;
                 mockLogin?: boolean;
                 userId?: string;
             };
+            console.log("[Login] verify hit", {
+                hasEmail: !!email,
+                hasAuthenticationResponse: !!authenticationResponse,
+                isMockLogin: !!mockLogin,
+                hasUserId: !!userId,
+            });
             let verified = false;
             let finalUserId: string | undefined = userId;
             let finalFamilyId: string | undefined;
@@ -707,30 +750,20 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 prfSaltBase64: string;
             };
 
-            const keyFields: Array<[string, string]> = [
-                ["rsaPublicKeyBase64", rsaPublicKeyBase64],
-                ["encryptedRsaPrivateKeyBase64", encryptedRsaPrivateKeyBase64],
-                ["prfSaltBase64", prfSaltBase64],
-            ];
+            const { missing, invalid } = validateRequiredKeyMaterial({
+                rsaPublicKeyBase64,
+                encryptedRsaPrivateKeyBase64,
+                prfSaltBase64,
+            });
 
-            for (const [name, value] of keyFields) {
-                if (!value?.trim()) {
-                    set.status = 400;
-                    return { message: `Missing or empty ${name}` };
-                }
-                if (value.length > 16384) {
-                    set.status = 400;
-                    return { message: `${name} exceeds maximum length` };
-                }
+            if (missing.length > 0) {
+                set.status = 400;
+                return { message: `Missing required key material: ${missing.join(", ")}` };
             }
 
-            if (
-                !isValidBase64Value(rsaPublicKeyBase64) ||
-                !isValidBase64Value(encryptedRsaPrivateKeyBase64) ||
-                !isValidBase64Value(prfSaltBase64)
-            ) {
+            if (invalid.length > 0) {
                 set.status = 400;
-                return { message: "Key material must be valid base64" };
+                return { message: `Invalid key material: ${invalid.join(", ")}` };
             }
 
             const token = getJwtFromCookie(request);
@@ -781,9 +814,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             }
         }, {
             body: t.Object({
-                rsaPublicKeyBase64: t.String({ minLength: 1, maxLength: 16384 }),
-                encryptedRsaPrivateKeyBase64: t.String({ minLength: 1, maxLength: 16384 }),
-                prfSaltBase64: t.String({ minLength: 1, maxLength: 16384 }),
+                rsaPublicKeyBase64: t.String({ minLength: 1, maxLength: KEY_MATERIAL_MAX_LENGTH.rsaPublicKeyBase64 }),
+                encryptedRsaPrivateKeyBase64: t.String({ minLength: 1, maxLength: KEY_MATERIAL_MAX_LENGTH.encryptedRsaPrivateKeyBase64 }),
+                prfSaltBase64: t.String({ minLength: 1, maxLength: KEY_MATERIAL_MAX_LENGTH.prfSaltBase64 }),
             }),
         })
         .get("/me", async ({ request, set }) => {

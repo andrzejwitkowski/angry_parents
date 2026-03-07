@@ -222,6 +222,46 @@ describe("AuthController Copilot regression fixes", () => {
         }
     });
 
+    it("rejects /register/verify in production when key material is not valid base64", async () => {
+        const previousEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = "production";
+
+        try {
+            const family = await Family.create({ name: "Family Invalid Key Material", parentPublicKeys: [] });
+            const token = "token-register-invalid-material";
+            await Invitation.create({
+                email: "dad@example.com",
+                familyId: family._id.toString(),
+                targetRole: "dad",
+                status: "pending",
+                token,
+                expiresAt: new Date(Date.now() + 3_600_000)
+            });
+
+            const response = await app.handle(new Request("http://localhost/register/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    token,
+                    tempEmail: "dad@example.com",
+                    registrationResponse: { id: "mock-credential-id" },
+                    rsaPublicKeyBase64: "not-base64!!!",
+                    encryptedRsaPrivateKeyBase64: "still-not-base64***",
+                    prfSaltBase64: "bad$$$"
+                })
+            }));
+
+            const json = await response.json();
+            expect(response.status).toBe(400);
+            expect(String(json.message || "")).toContain("Invalid key material");
+            expect(String(json.message || "")).toContain("rsaPublicKeyBase64");
+            expect(String(json.message || "")).toContain("encryptedRsaPrivateKeyBase64");
+            expect(String(json.message || "")).toContain("prfSaltBase64");
+        } finally {
+            process.env.NODE_ENV = previousEnv;
+        }
+    });
+
     it("consumes registration challenge even when verification fails", async () => {
         const previousEnv = process.env.NODE_ENV;
         process.env.NODE_ENV = "production";
