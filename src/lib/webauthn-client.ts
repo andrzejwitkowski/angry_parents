@@ -54,7 +54,7 @@ export const registerPasskey = async (params: {
     // 4. Derive Master Key from PRF results
     const prfResults = (registrationResponse as any).clientExtensionResults?.prf;
     if (!prfResults || !prfResults.results?.first) {
-        console.warn("PRF extension not returned by authenticator - device might not support PRF. Proceeding without wrapping.");
+        console.warn("PRF extension not returned by authenticator - device might not support PRF. Registration cannot continue without PRF support.");
         throw new Error("Your YubiKey/Browser does not support the required PRF encryption extension.");
     }
 
