@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { createProcessForensicIntentHandler } from "./ProcessForensicIntent";
-import type { ForensicIntentRepository } from "../../core/ports/ForensicIntentRepository";
-import type { ForensicService } from "../../application/ForensicService";
+import type { ForensicIntentRepository } from "../../domain/forensic/ports/ForensicIntentRepository";
+import type { ForensicService } from "../../domain/forensic/service/ForensicService";
 
 describe("ProcessForensicIntent", () => {
     it("should bail out if markProcessing returns false (already claimed)", async () => {

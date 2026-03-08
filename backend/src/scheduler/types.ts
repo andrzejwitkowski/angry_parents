@@ -1,5 +1,5 @@
 // Re-export core types to maintain compatibility and unification
-export * from '../core/ports/TaskScheduler';
+export * from '../domain/shared/ports/TaskScheduler';
 
 // Payloads
 export interface SyncUserPendingDocsPayload {

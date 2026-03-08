@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { CustodyGenerator } from "../src/application/CustodyGenerator";
-import { PropagationService } from "../src/application/PropagationService";
-import { CustodyPatternConfig } from "../src/core/domain/child/CustodyPatternConfig";
-import { RealUuidProvider } from "../src/adapters/secondary/RealUuidProvider";
-import { ScheduleRule } from "../src/core/domain/child/ScheduleRule";
+import { CustodyGenerator } from "../src/domain/events/service/CustodyGenerator";
+import { PropagationService } from "../src/domain/events/service/PropagationService";
+import { CustodyPatternConfig } from "../src/domain/events/model/child/CustodyPatternConfig";
+import { RealUuidProvider } from "../src/shared/providers/RealUuidProvider";
+import { ScheduleRule } from "../src/domain/events/model/child/ScheduleRule";
 
 describe("Custody Propagation Stable Math", () => {
     const uuidProvider = new RealUuidProvider();

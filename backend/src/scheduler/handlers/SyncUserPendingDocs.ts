@@ -1,6 +1,6 @@
 import { TaskManager } from '../TaskManager';
 import { TaskType, SyncUserPendingDocsPayload, ProcessDocumentIntegrityPayload } from '../types';
-import { IForensicRepository } from '../../core/ports/IForensicRepository';
+import { IForensicRepository } from '../../domain/forensic/ports/IForensicRepository';
 
 export const createSyncUserPendingDocsHandler = (
     forensicRepo: IForensicRepository,

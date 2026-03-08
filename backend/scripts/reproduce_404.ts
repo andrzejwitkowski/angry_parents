@@ -1,11 +1,22 @@
 
 import { Elysia } from "elysia";
-import { createCustodyController } from "../src/adapters/primary/CustodyController";
-import { InMemoryCustodyRepository } from "../src/adapters/secondary/InMemoryCustodyRepository";
+import { createCustodyController } from "../src/adapters/rest/events/CustodyController";
+import { InMemoryCustodyRepository } from "../src/adapters/mongo/inmemory/events/InMemoryCustodyRepository";
+import { InMemoryScheduleRepository } from "../src/adapters/mongo/inmemory/events/InMemoryScheduleRepository";
+import { RealUuidProvider } from "../src/shared/providers/RealUuidProvider";
+import { RealDateProvider } from "../src/shared/providers/RealDateProvider";
+import { ScheduleService } from "../src/domain/events/service/ScheduleService";
+import { PropagationService } from "../src/domain/events/service/PropagationService";
+import { CustodyApiService } from "../src/domain/events/service/CustodyApiService";
 
 const repository = new InMemoryCustodyRepository();
+const scheduleRepository = new InMemoryScheduleRepository();
+const uuidProvider = new RealUuidProvider();
+const scheduleService = new ScheduleService(scheduleRepository, repository, new RealDateProvider(), uuidProvider);
+const propagationService = new PropagationService(scheduleRepository);
+const custodyApiService = new CustodyApiService(repository, scheduleService, propagationService, uuidProvider);
 // Simulate how index.ts mounts it
-const controller = createCustodyController(repository);
+const controller = createCustodyController(custodyApiService);
 const app = new Elysia().use(controller);
 
 console.log("Testing POST /api/custody ...");

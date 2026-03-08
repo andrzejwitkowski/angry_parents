@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach, mock } from "bun:test";
-import { createAuthController } from "../src/adapters/primary/AuthController";
-import { Family } from "../src/models/Family";
-import { Invitation } from "../src/models/Invitation";
-import { MongoRegistrationProcessRepository } from "../src/adapters/secondary/MongoRegistrationProcessRepository";
+import { createAuthController } from "../src/adapters/rest/auth/AuthController";
+import { Family } from "../src/adapters/mongo/models/FamilyModel";
+import { Invitation } from "../src/adapters/mongo/models/InvitationModel";
+import { MongoRegistrationProcessRepository } from "../src/adapters/mongo/repositories/auth/MongoRegistrationProcessRepository";
 import mongoose from "mongoose";
 import { Elysia } from "elysia";
 import { ensureMongo } from "./utils/ensureMongo";
@@ -18,7 +18,7 @@ mock.module("../src/lib/auth", () => ({
 }));
 
 describe.skipIf(!process.env.INTEGRATION_TEST)("Auth Controller Integration", () => {
-    let app: Elysia;
+    let app: any;
     let repo: MongoRegistrationProcessRepository;
     const TEST_DB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/angry_parents_test_auth_integration";
 

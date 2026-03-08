@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
-import { createWebAuthnController } from "../src/adapters/primary/WebAuthnController";
-import { InMemoryPasskeyRepository } from "../src/adapters/secondary/InMemoryPasskeyRepository";
-import { RealDateProvider } from "../src/adapters/secondary/RealDateProvider";
+import { createWebAuthnController } from "../src/adapters/rest/auth/WebAuthnController";
+import { InMemoryPasskeyRepository } from "../src/adapters/mongo/inmemory/auth/InMemoryPasskeyRepository";
+import { RealDateProvider } from "../src/shared/providers/RealDateProvider";
 import { Elysia } from "elysia";
 
 // Mock auth module
@@ -25,7 +25,6 @@ describe("WebAuthnController", () => {
         expect(response.status).toBe(200);
         const json = await response.json();
         expect(json.challenge).toBeDefined();
-        // @ts-expect-error Testing mock response
         expect(json.user.id).toBeDefined();
     });
 
@@ -45,7 +44,6 @@ describe("WebAuthnController", () => {
 
         expect(response.status).toBe(200);
         const json = await response.json();
-        // @ts-expect-error Testing mock response
         expect(json.verified).toBe(true);
 
         const saved = await repo.findByUserId("user-123");
@@ -57,7 +55,6 @@ describe("WebAuthnController", () => {
         const response = await app.handle(new Request("http://localhost/api/auth/webauthn/status"));
         expect(response.status).toBe(200);
         const json = await response.json();
-        // @ts-expect-error Testing mock response
         expect(json.hasPasskey).toBe(true);
     });
 });

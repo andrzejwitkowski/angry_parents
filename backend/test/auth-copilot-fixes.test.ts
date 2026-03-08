@@ -2,10 +2,10 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, mock } from "bun
 import { Elysia } from "elysia";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { Family } from "../src/models/Family";
-import { Invitation } from "../src/models/Invitation";
-import { createAuthController } from "../src/adapters/primary/AuthController";
-import { MongoRegistrationProcessRepository } from "../src/adapters/secondary/MongoRegistrationProcessRepository";
+import { Family } from "../src/adapters/mongo/models/FamilyModel";
+import { Invitation } from "../src/adapters/mongo/models/InvitationModel";
+import { createAuthController } from "../src/adapters/rest/auth/AuthController";
+import { MongoRegistrationProcessRepository } from "../src/adapters/mongo/repositories/auth/MongoRegistrationProcessRepository";
 import { signJwt } from "../src/lib/jwt";
 
 let failAuthenticationVerification = false;

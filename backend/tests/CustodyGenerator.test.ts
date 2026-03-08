@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { CustodyGenerator } from "../src/application/CustodyGenerator";
-import { CustodyPatternConfig } from "../src/core/domain/child/CustodyPatternConfig";
-import { CustodyEntry } from "../src/core/domain/child/CustodyEntry";
-import { ConflictService } from "../src/core/domain/child/ConflictService";
-import { RealUuidProvider } from "../src/adapters/secondary/RealUuidProvider";
+import { CustodyGenerator } from "../src/domain/events/service/CustodyGenerator";
+import { CustodyPatternConfig } from "../src/domain/events/model/child/CustodyPatternConfig";
+import { CustodyEntry } from "../src/domain/events/model/child/CustodyEntry";
+import { ConflictService } from "../src/domain/events/model/child/ConflictService";
+import { RealUuidProvider } from "../src/shared/providers/RealUuidProvider";
 
 describe("CustodyGenerator", () => {
     const generator = new CustodyGenerator(new RealUuidProvider());

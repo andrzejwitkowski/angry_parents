@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { describe, it, expect, mock, beforeEach } from "bun:test";
-import { ForensicService } from "../src/application/ForensicService";
-import { IForensicRepository } from "../src/core/ports/IForensicRepository";
-import { IBlockchainAnchor } from "../src/core/ports/IBlockchainAnchor";
-import { ICryptoService } from "../src/core/ports/ICryptoService";
-import { ForensicDocument } from "../src/core/domain/forensic/ForensicDocument";
-import { ITaskManager } from "../src/core/ports/TaskScheduler";
+import { ForensicService } from "../src/domain/forensic/service/ForensicService";
+import { IForensicRepository } from "../src/domain/forensic/ports/IForensicRepository";
+import { IBlockchainAnchor } from "../src/domain/shared/ports/IBlockchainAnchor";
+import { ICryptoService } from "../src/domain/shared/ports/ICryptoService";
+import { ForensicDocument } from "../src/domain/forensic/model/ForensicDocument";
+import { ITaskManager } from "../src/domain/shared/ports/TaskScheduler";
 
 // --- MOCKS ---
 const mockRepo = {

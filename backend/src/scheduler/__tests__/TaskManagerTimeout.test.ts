@@ -3,7 +3,7 @@ import { TaskManager } from '../TaskManager';
 import { TaskStatus, TaskType } from '../types';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { ObservabilityService } from '../../core/ports/ObservabilityService';
+import { ObservabilityService } from '../../domain/shared/ports/ObservabilityService';
 
 class MockObservability implements ObservabilityService {
     public timeouts: { taskType: string; taskId: string; metadata: any }[] = [];

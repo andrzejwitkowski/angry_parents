@@ -1,17 +1,53 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { TimelineServiceImpl } from "../src/application/TimelineService";
-import { InMemoryTimelineRepository } from "../src/adapters/secondary/InMemoryTimelineRepository";
-import { RealDateProvider } from "../src/adapters/secondary/RealDateProvider";
-import { RealUuidProvider } from "../src/adapters/secondary/RealUuidProvider";
-import type { TimelineItem } from "../src/core/domain/TimelineItem";
+import { TimelineServiceImpl } from "../src/domain/events/service/TimelineService";
+import { InMemoryTimelineRepository } from "../src/adapters/mongo/inmemory/events/InMemoryTimelineRepository";
+import { RealDateProvider } from "../src/shared/providers/RealDateProvider";
+import { RealUuidProvider } from "../src/shared/providers/RealUuidProvider";
 
 describe("TimelineService - getItemsByDateRange", () => {
     let service: TimelineServiceImpl;
     let repository: InMemoryTimelineRepository;
 
+    const mockCrypto = {
+        verifySignature: async () => true,
+        getFingerprint: async () => "fp",
+        encryptRSA: async (plaintext: string) => plaintext,
+    } as any;
+
+    const mockFamilyModel = {
+        findById: async () => ({ parentPublicKeys: [] })
+    } as any;
+
+    const mockChildRepository = {
+        findById: async () => ({ id: "child-1", familyId: "family-1" })
+    } as any;
+
+    const mockForensicIntentRepository = {
+        save: async () => undefined
+    } as any;
+
+    const mockTaskManager = {
+        schedule: async () => ({ id: "task-1" })
+    } as any;
+
+    const encrypted = (item: Record<string, unknown>) => ({
+        ...item,
+        encryption: "ENCRYPTED" as const,
+        encryptedPayload: { "user1": "ciphertext" }
+    } as any);
+
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
-        service = new TimelineServiceImpl(repository, new RealDateProvider(), new RealUuidProvider());
+        service = new TimelineServiceImpl(
+            repository,
+            new RealDateProvider(),
+            new RealUuidProvider(),
+            mockCrypto,
+            mockFamilyModel,
+            mockChildRepository,
+            mockForensicIntentRepository,
+            mockTaskManager
+        );
     });
 
     it("should validate date format and throw error for invalid dates", async () => {
@@ -35,7 +71,7 @@ describe("TimelineService - getItemsByDateRange", () => {
         const earlier = new Date(now.getTime() - 1000);
         const later = new Date(now.getTime() + 1000);
 
-        const item1: TimelineItem = {
+        const item1 = encrypted({
             id: "1",
             type: "NOTE",
             date: "2026-01-20",
@@ -45,9 +81,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             auditTrail: [],
             isDeleted: false,
             childIds: [],
-        };
+        });
 
-        const item2: TimelineItem = {
+        const item2 = encrypted({
             id: "2",
             type: "NOTE",
             date: "2026-01-10",
@@ -57,9 +93,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             auditTrail: [],
             isDeleted: false,
             childIds: [],
-        };
+        });
 
-        const item3: TimelineItem = {
+        const item3 = encrypted({
             id: "3",
             type: "NOTE",
             date: "2026-01-20",
@@ -69,11 +105,11 @@ describe("TimelineService - getItemsByDateRange", () => {
             auditTrail: [],
             isDeleted: false,
             childIds: [],
-        };
+        });
 
-        await repository.save(item1);
-        await repository.save(item2);
-        await repository.save(item3);
+        await repository.save(item1 as any);
+        await repository.save(item2 as any);
+        await repository.save(item3 as any);
 
         // Act
         const items = await service.getItemsByDateRange("2026-01-01", "2026-01-31");
@@ -89,7 +125,7 @@ describe("TimelineService - getItemsByDateRange", () => {
 
     it("should handle multiple event types in range", async () => {
         // Arrange
-        const medicalVisit: TimelineItem = {
+        const medicalVisit = encrypted({
             id: "1",
             type: "MEDICAL_VISIT",
             date: "2026-01-15",
@@ -101,9 +137,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             auditTrail: [],
             isDeleted: false,
             childIds: [],
-        };
+        });
 
-        const medication: TimelineItem = {
+        const medication = encrypted({
             id: "2",
             type: "MEDS",
             date: "2026-01-16",
@@ -115,9 +151,9 @@ describe("TimelineService - getItemsByDateRange", () => {
             auditTrail: [],
             isDeleted: false,
             childIds: [],
-        };
+        });
 
-        const handover: TimelineItem = {
+        const handover = encrypted({
             id: "3",
             type: "HANDOVER",
             date: "2026-01-17",
@@ -129,11 +165,11 @@ describe("TimelineService - getItemsByDateRange", () => {
             auditTrail: [],
             isDeleted: false,
             childIds: [],
-        };
+        });
 
-        await repository.save(medicalVisit);
-        await repository.save(medication);
-        await repository.save(handover);
+        await repository.save(medicalVisit as any);
+        await repository.save(medication as any);
+        await repository.save(handover as any);
 
         // Act
         const items = await service.getItemsByDateRange("2026-01-01", "2026-01-31");

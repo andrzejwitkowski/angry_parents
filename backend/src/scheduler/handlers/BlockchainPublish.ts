@@ -1,8 +1,8 @@
 
-import { IBlockchainAnchor } from '../../core/ports/IBlockchainAnchor';
-import { IForensicRepository } from '../../core/ports/IForensicRepository';
+import { IBlockchainAnchor } from '../../domain/shared/ports/IBlockchainAnchor';
+import { IForensicRepository } from '../../domain/forensic/ports/IForensicRepository';
 import { BlockchainPublishPayload } from '../types';
-import { SystemState } from '../../core/domain/forensic/SystemState';
+import { SystemState } from '../../domain/forensic/model/SystemState';
 
 export const createBlockchainPublishHandler = (
     forensicRepo: IForensicRepository,
