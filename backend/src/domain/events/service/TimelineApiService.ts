@@ -1,6 +1,7 @@
 import type { TimelineServiceImpl } from "./TimelineService";
 import type { CreateTimelineItemDto } from "../model/TimelineItem";
 import type { SessionUser } from "../../shared/types/SessionUser";
+import type { ChildRepository } from "../../family/ports/ChildRepository";
 
 function isParentRole(role?: string): role is "mom" | "dad" {
     return role === "mom" || role === "dad";
@@ -35,7 +36,10 @@ function selectSingleCiphertextForUser(item: any, userId: string) {
 }
 
 export class TimelineApiService {
-    constructor(private readonly service: TimelineServiceImpl) { }
+    constructor(
+        private readonly service: TimelineServiceImpl,
+        private readonly childRepository?: ChildRepository
+    ) { }
 
     async getItemsByDate(date: string, user: SessionUser | null) {
         if (!user) {
@@ -93,6 +97,15 @@ export class TimelineApiService {
             const error = new Error("childId, signatureBase64, timestamp, and keyId are required for data integrity");
             (error as any).status = 400;
             throw error;
+        }
+
+        if (user.familyId && this.childRepository) {
+            const child = await this.childRepository.findById(body.childId);
+            if (!child || child.familyId !== user.familyId) {
+                const error = new Error("Forbidden: child does not belong to your family");
+                (error as any).status = 403;
+                throw error;
+            }
         }
 
         const userId = user.id;

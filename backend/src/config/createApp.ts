@@ -101,7 +101,9 @@ export async function createApp() {
                             process.timeline.push({
                                 type: "EMAIL_READ",
                                 familyName: process.familyName || (translate("common.familyDefault") as string),
-                                message: translate("admin.log.email_read_parent_a") as string,
+                                message: translate(
+                                    isDad ? "admin.log.email_read_parent_a" : "admin.log.email_read_parent_b"
+                                ) as string,
                                 timestamp: new Date()
                             });
                             await process.save();

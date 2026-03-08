@@ -41,11 +41,10 @@ export class FamilyApiService {
             (error as any).status = 403;
             throw error;
         }
-        const safeUpdates = {
-            name: typeof body.name === "string" ? body.name : undefined,
-            icon: typeof body.icon === "string" ? body.icon : undefined,
-            color: typeof body.color === "string" ? body.color : undefined
-        };
+        const safeUpdates: Partial<{ name: string; icon: string; color: string }> = {};
+        if (typeof body.name === "string") safeUpdates.name = body.name;
+        if (typeof body.icon === "string") safeUpdates.icon = body.icon;
+        if (typeof body.color === "string") safeUpdates.color = body.color;
         return this.childService.updateChild(id, safeUpdates);
     }
 

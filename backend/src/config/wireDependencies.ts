@@ -85,7 +85,7 @@ export async function wireDependencies() {
     const propagationService = new PropagationService(scheduleRepository);
     const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
 
-    const timelineApiService = new TimelineApiService(timelineService);
+    const timelineApiService = new TimelineApiService(timelineService, childRepository);
     const custodyApiService = new CustodyApiService(custodyRepository, scheduleService, propagationService, uuidProvider);
     const familyApiService = new FamilyApiService(childService);
     const forensicApiService = new ForensicApiService(forensicService, forensicRepository);
