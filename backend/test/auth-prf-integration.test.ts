@@ -98,8 +98,11 @@ describe("Auth PRF Integration Flow", () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    email,
                     token,
+                    tempEmail: email,
+                    tempName: "Mom",
+                    tempUsername: "mom",
+                    tempGender: "mom",
                     registrationResponse: { id: "mock-credential-id" }, // Mocked response
                     rsaPublicKeyBase64: "mock-public-key",
                     encryptedRsaPrivateKeyBase64: "mock-encrypted-private-key",

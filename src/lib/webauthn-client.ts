@@ -240,23 +240,37 @@ export const loginWithPasskey = async (email?: string) => {
         authenticationResponse
     });
 
-    // 4. If login successful and we have PRF material, decrypt the private key
-    if (result.verified && result.encryptedRsaPrivateKeyBase64 && result.prfSaltBase64) {
-        try {
-            const prfResults = (authenticationResponse as any).clientExtensionResults?.prf;
-            if (prfResults?.results?.first) {
-                const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
-                const privateKey = await unwrapPrivateKey(result.encryptedRsaPrivateKeyBase64, masterKey, false);
-
-                // result.userId is now returned by backend
-                const userId = result.userId;
-                await savePrivateKey(userId, privateKey);
-                console.log(`[Auth] Successfully decrypted and stored RSA private key for ${userId} from YubiKey PRF.`);
-            }
-        } catch (e) {
-            console.error("[Auth] Failed to decrypt RSA private key during login:", e);
-        }
+    if (!result.verified) {
+        return false;
     }
 
-    return result.verified;
+    const requiresPrivateKeyRestore = Boolean(
+        result.encryptedRsaPrivateKeyBase64 || result.prfSaltBase64
+    );
+
+    if (!requiresPrivateKeyRestore) {
+        return true;
+    }
+
+    if (!result.encryptedRsaPrivateKeyBase64 || !result.prfSaltBase64 || !result.userId) {
+        console.error("[Auth] Login succeeded but key restoration payload is incomplete.");
+        return false;
+    }
+
+    try {
+        const prfResults = (authenticationResponse as any).clientExtensionResults?.prf;
+        if (!prfResults?.results?.first) {
+            console.error("[Auth] Login succeeded but PRF results were missing.");
+            return false;
+        }
+
+        const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
+        const privateKey = await unwrapPrivateKey(result.encryptedRsaPrivateKeyBase64, masterKey, false);
+        await savePrivateKey(result.userId, privateKey);
+        console.log(`[Auth] Successfully decrypted and stored RSA private key for ${result.userId} from YubiKey PRF.`);
+        return true;
+    } catch (e) {
+        console.error("[Auth] Failed to decrypt RSA private key during login:", e);
+        return false;
+    }
 };

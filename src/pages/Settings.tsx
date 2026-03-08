@@ -44,6 +44,8 @@ export default function Settings() {
             try {
                 const { user: me, family } = await authApi.getMe();
                 setUser(me);
+                const pk = await getPrivateKey(me.id);
+                setLocalUnlocked(!!pk);
                 if (family) {
                     const statuses = {
                         mom: family.parentPublicKeys.some(k => k.role === 'mom'),
@@ -51,11 +53,12 @@ export default function Settings() {
                         current: family.parentPublicKeys.some(k => k.parentId === me.id)
                     };
                     setParentStatuses(statuses);
-
-                    const pk = await getPrivateKey(me.id);
-                    setLocalUnlocked(!!pk);
+                } else {
+                    setParentStatuses({ mom: false, dad: false, current: false });
                 }
             } catch (e) {
+                setLocalUnlocked(false);
+                setParentStatuses({ mom: false, dad: false, current: false });
                 console.error("Failed to fetch settings status", e);
             }
         };
@@ -76,11 +79,15 @@ export default function Settings() {
             if (success) {
                 const pk = await getPrivateKey(user.id);
                 setLocalUnlocked(!!pk);
-                // Reset the timer and clear the locked state
-                resetTimer();
-                clearExpiryFlag();
+                if (pk) {
+                    resetTimer();
+                    clearExpiryFlag();
+                }
+            } else {
+                setLocalUnlocked(false);
             }
         } catch (e) {
+            setLocalUnlocked(false);
             console.error("Unlock failed", e);
         } finally {
             setIsUnlocking(false);

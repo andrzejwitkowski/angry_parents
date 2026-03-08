@@ -121,6 +121,58 @@ describe("isPrfSupported", () => {
     expect(callArg.optionsJSON.prfSaltBase64).toBeUndefined();
   });
 
+  it("fails closed when key material is returned but PRF results are missing", async () => {
+    startAuthenticationMock.mockResolvedValueOnce({ id: "assertion", clientExtensionResults: {} } as any);
+    authApiMock.loginVerify.mockResolvedValueOnce({
+      verified: true,
+      userId: "user-1",
+      familyId: "fam-1",
+      encryptedRsaPrivateKeyBase64: "wrapped-key",
+      prfSaltBase64: "c2FsdA==",
+    } as any);
+
+    await expect(loginWithPasskey("test@example.com")).resolves.toBe(false);
+    expect(deriveMasterKeyMock).not.toHaveBeenCalled();
+    expect(savePrivateKeyMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when key unwrap fails", async () => {
+    startAuthenticationMock.mockResolvedValueOnce({
+      id: "assertion",
+      clientExtensionResults: { prf: { results: { first: new Uint8Array([1, 2, 3]).buffer } } }
+    } as any);
+    authApiMock.loginVerify.mockResolvedValueOnce({
+      verified: true,
+      userId: "user-1",
+      familyId: "fam-1",
+      encryptedRsaPrivateKeyBase64: "wrapped-key",
+      prfSaltBase64: "c2FsdA==",
+    } as any);
+    unwrapPrivateKeyMock.mockRejectedValueOnce(new Error("unwrap failed"));
+
+    await expect(loginWithPasskey("test@example.com")).resolves.toBe(false);
+    expect(savePrivateKeyMock).not.toHaveBeenCalled();
+  });
+
+  it("returns true only after restoring and saving the private key", async () => {
+    startAuthenticationMock.mockResolvedValueOnce({
+      id: "assertion",
+      clientExtensionResults: { prf: { results: { first: new Uint8Array([1, 2, 3]).buffer } } }
+    } as any);
+    authApiMock.loginVerify.mockResolvedValueOnce({
+      verified: true,
+      userId: "user-1",
+      familyId: "fam-1",
+      encryptedRsaPrivateKeyBase64: "wrapped-key",
+      prfSaltBase64: "c2FsdA==",
+    } as any);
+
+    await expect(loginWithPasskey("test@example.com")).resolves.toBe(true);
+    expect(deriveMasterKeyMock).toHaveBeenCalledTimes(1);
+    expect(unwrapPrivateKeyMock).toHaveBeenCalledWith("wrapped-key", expect.anything(), false);
+    expect(savePrivateKeyMock).toHaveBeenCalledWith("user-1", expect.anything());
+  });
+
   it("provisions PRF-wrapped RSA key material for logged-in registration flow", async () => {
     const fetchMock = mock(async (input: string) => {
       if (input === "/api/auth/webauthn/register/options") {
