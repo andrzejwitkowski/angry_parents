@@ -1,5 +1,5 @@
-import type { ForensicService } from "../../application/ForensicService";
-import type { ForensicIntentRepository } from "../../core/ports/ForensicIntentRepository";
+import type { ForensicService } from "../../domain/forensic/service/ForensicService";
+import type { ForensicIntentRepository } from "../../domain/forensic/ports/ForensicIntentRepository";
 import type { ProcessForensicIntentPayload } from "../types";
 
 export const createProcessForensicIntentHandler = (

@@ -8,6 +8,14 @@ description: Senior-level guide for developing features using Hexagonal (Ports &
 > Architektura Hexagonalna (Ports & Adapters) izoluje logikę biznesową od szczegółów technicznych.
 > Domena NIE wie nic o HTTP, MongoDB, ani React. Zna tylko swoje porty.
 
+## Repo Mapping (angry_parents)
+
+- Aktualny backend w tym repo używa układu `domain/<context>/{model,ports,service}` zamiast historycznego `core/ + application/`.
+- HTTP (driving adapter) pozostaje w `adapters/rest/*`.
+- Persistencja i InMemory adaptery są pod `adapters/mongo/*`.
+- Adaptery techniczne są rozdzielone na `adapters/security`, `adapters/blockchain`, `adapters/observability`.
+- `config/*` pełni rolę composition root (wiring dependencies + scheduler handlers).
+
 ---
 
 ## 1. Mapa Warstw i Flow Zależności
@@ -41,56 +49,33 @@ description: Senior-level guide for developing features using Hexagonal (Ports &
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Zasada zależności:** Strzałki wskazują kierunek importów. Core NIE importuje nic z adapters ani application.
+**Zasada zależności:** Strzałki wskazują kierunek importów. Warstwa `domain/*/{model,ports}` NIE importuje nic z adapterów.
 
 ---
 
 ## 2. Struktura Katalogów
 
-```
+```text
 backend/src/
-├── core/                         # 🔴 SERCE — zero zależności od frameworków
-│   ├── domain/                   # Encje, Value Objects, reguły biznesowe
-│   │   ├── child/                # Bounded context (subdomena)
-│   │   │   ├── Child.ts          # Encja
-│   │   │   └── ChildRules.ts     # Reguły walidacji
-│   │   ├── forensic/             # Bounded context
-│   │   ├── TimelineItem.ts       # Encja + DTO
-│   │   └── Passkey.ts            # Value Object
-│   └── ports/                    # Interfejsy (kontrakty)
-│       ├── ChildRepository.ts    # Port OUT (driven)
-│       ├── TimelineRepository.ts # Port OUT + Service Port
-│       ├── DateProvider.ts       # Port OUT (utility)
-│       ├── UuidProvider.ts       # Port OUT (utility)
-│       ├── ICryptoService.ts     # Port OUT
-│       └── IBlockchainAnchor.ts  # Port OUT
-├── application/                  # 🟡 USE CASES — orkiestracja
-│   ├── ChildService.ts           # Implementacja use cases
-│   ├── ScheduleService.ts
-│   ├── TimelineService.ts
-│   ├── ForensicService.ts
-│   └── __tests__/                # Testy z InMemory adapterami
-├── adapters/                     # 🟢 INFRASTRUKTURA
-│   ├── primary/                  # Driving (wejście do systemu)
-│   │   ├── ChildController.ts    # HTTP routes → wywołuje Application Service
-│   │   ├── TimelineController.ts
-│   │   ├── AuthController.ts
-│   │   └── __tests__/
-│   └── secondary/                # Driven (wyjście z systemu)
-│       ├── MongoChildRepository.ts       # Implementacja produkcyjna
-│       ├── InMemoryChildRepository.ts    # Implementacja testowa
-│       ├── RealDateProvider.ts           # Implementacja produkcyjna
-│       ├── BunCryptoService.ts
-│       ├── MockBlockchainAnchor.ts       # Test double
-│       └── __tests__/
-├── lib/                          # Narzędzia techniczne (i18n, auth)
-├── models/                       # Mongoose schemas (TYLKO w adapters!)
-└── index.ts                      # Composition Root — wiring DI
+├── adapters/
+│   ├── rest/                     # HTTP controllers (thin)
+│   ├── mongo/                    # models + repositories + inmemory
+│   ├── security/
+│   ├── blockchain/
+│   └── observability/
+├── config/                       # composition root (wiring + scheduler)
+├── domain/
+│   └── <context>/
+│       ├── model/
+│       ├── ports/
+│       └── service/
+├── shared/providers/
+└── index.ts
 ```
 
 ---
 
-## 3. Zasady dla Warstwy Domain (`core/domain/`)
+## 3. Zasady dla Warstwy Domain (`domain/*/model/`)
 
 ### MUSISZ:
 - Definiować encje jako **plain TypeScript interfaces** — bez dekoratorów, bez Mongoose
@@ -99,13 +84,13 @@ backend/src/
 - Grupować powiązane encje w **bounded contexts** (subdirektory: `child/`, `forensic/`)
 
 ### NIE WOLNO:
-- ❌ Importować CZEGOKOLWIEK z `adapters/`, `application/`, `lib/`, ani `node_modules` (zero frameworków)
+- ❌ Importować CZEGOKOLWIEK z `adapters/`, `domain/*/service/`, `lib/`, ani `node_modules` (zero frameworków)
 - ❌ Używać `mongoose.Schema`, `Elysia`, `Bun` API w domenie
 - ❌ Umieszczać logiki persystencji (save/find) w encjach
 
 ### Wzorzec — Encja Domain:
 ```typescript
-// core/domain/child/Child.ts
+// domain/child/Child.ts
 export interface Child {
     id: string;
     familyId: string;
@@ -118,7 +103,7 @@ export interface Child {
 
 ### Wzorzec — Value Object:
 ```typescript
-// core/domain/Passkey.ts
+// domain/Passkey.ts
 export interface Passkey {
     userId: string;
     webauthnUserId: string;
@@ -133,18 +118,18 @@ export interface Passkey {
 
 ---
 
-## 4. Zasady dla Portów (`core/ports/`)
+## 4. Zasady dla Portów (`domain/*/ports/`)
 
 ### MUSISZ:
 - Definiować porty jako **TypeScript `interface`** (nigdy `class`)
-- Importować TYLKO z `core/domain/` — nigdy z `adapters/`
+- Importować TYLKO z `domain/*/model/` — nigdy z `adapters/`
 - Dokumentować każdą metodę JSDoc
 - Oddzielać **Repository Ports** (CRUD) od **Service Ports** (logika biznesowa)
 - Porty utility (`DateProvider`, `UuidProvider`) powinny być minimalne
 
 ### Wzorzec — Repository Port:
 ```typescript
-// core/ports/ChildRepository.ts
+// domain/shared/ports/ChildRepository.ts
 import { Child } from "../domain/child/Child";
 
 export interface ChildRepository {
@@ -157,13 +142,13 @@ export interface ChildRepository {
 
 ### Wzorzec — Utility Port:
 ```typescript
-// core/ports/DateProvider.ts
+// domain/shared/ports/DateProvider.ts
 export interface DateProvider {
     getNow(): Date;
     getIsoString(): string;
 }
 
-// core/ports/UuidProvider.ts
+// domain/shared/ports/UuidProvider.ts
 export interface UuidProvider {
     generate(): string;
 }
@@ -171,7 +156,7 @@ export interface UuidProvider {
 
 ---
 
-## 5. Zasady dla Application Services (`application/`)
+## 5. Zasady dla Application Services (`domain/*/service/`)
 
 ### MUSISZ:
 - Przyjmować **wszystkie zależności przez konstruktor** (Dependency Injection)
@@ -186,11 +171,11 @@ export interface UuidProvider {
 
 ### Wzorzec — Application Service:
 ```typescript
-// application/ChildService.ts
-import { Child } from "../core/domain/child/Child";
-import { ChildRepository } from "../core/ports/ChildRepository";
-import { TimelineRepository } from "../core/ports/TimelineRepository";
-import { UuidProvider } from "../core/ports/UuidProvider";
+// domain/family/service/ChildService.ts
+import { Child } from "../model/Child";
+import { ChildRepository } from "../ports/ChildRepository";
+import { TimelineRepository } from "../../events/ports/TimelineRepository";
+import { UuidProvider } from "../../shared/ports/UuidProvider";
 
 export class ChildService {
     constructor(
@@ -220,7 +205,7 @@ export class ChildService {
 
 ---
 
-## 6. Zasady dla Adapterów Primary (`adapters/primary/`)
+## 6. Zasady dla Adapterów Primary (`adapters/rest/`)
 
 ### MUSISZ:
 - Tworzyć kontrolery jako **factory functions** przyjmujące Application Service
@@ -230,20 +215,20 @@ export class ChildService {
 
 ### Wzorzec — Primary Adapter (Controller):
 ```typescript
-// adapters/primary/ChildController.ts
+// adapters/rest/family/ChildController.ts
 import { Elysia } from "elysia";
-import { ChildService } from "../../application/ChildService";
+import { FamilyApiService } from "../../../domain/family/service/FamilyApiService";
 
-export const createChildController = (childService: ChildService) => {
+export const createChildController = (service: FamilyApiService) => {
     return new Elysia({ prefix: "/api/children" })
         .get("/", async ({ query }) => {
             const { familyId } = query as { familyId: string };
-            return await childService.getAllChildren(familyId);
+            return await service.getAllChildren({ id: "u1", familyId } as any);
         })
         .post("/", async ({ body, set }) => {
             try {
                 const { familyId, ...childData } = body as any;
-                const child = await childService.addChild(familyId, childData);
+                const child = await service.addChild(childData, { id: "u1", familyId } as any);
                 set.status = 201;
                 return child;
             } catch (error) {
@@ -256,7 +241,7 @@ export const createChildController = (childService: ChildService) => {
 
 ---
 
-## 7. Zasady dla Adapterów Secondary (`adapters/secondary/`)
+## 7. Zasady dla Adapterów Secondary (`adapters/mongo/`)
 
 ### MUSISZ:
 - Implementować port interface z użyciem `implements`
@@ -266,9 +251,9 @@ export const createChildController = (childService: ChildService) => {
 
 ### Wzorzec — Secondary Adapter (MongoDB):
 ```typescript
-// adapters/secondary/MongoChildRepository.ts
-import { Child } from "../../core/domain/child/Child";
-import { ChildRepository } from "../../core/ports/ChildRepository";
+// adapters/mongo/MongoChildRepository.ts
+import { Child } from "../../domain/child/Child";
+import { ChildRepository } from "../../domain/shared/ports/ChildRepository";
 import { ChildModel } from "../../models/ChildModel";
 
 export class MongoChildRepository implements ChildRepository {
@@ -294,9 +279,9 @@ export class MongoChildRepository implements ChildRepository {
 
 ### Wzorzec — Secondary Adapter (InMemory dla testów):
 ```typescript
-// adapters/secondary/InMemoryChildRepository.ts
-import { Child } from "../../core/domain/child/Child";
-import { ChildRepository } from "../../core/ports/ChildRepository";
+// adapters/mongo/InMemoryChildRepository.ts
+import { Child } from "../../domain/child/Child";
+import { ChildRepository } from "../../domain/shared/ports/ChildRepository";
 
 export class InMemoryChildRepository implements ChildRepository {
     private children: Map<string, Child> = new Map();
@@ -318,8 +303,8 @@ export class InMemoryChildRepository implements ChildRepository {
 
 ### Wzorzec — Utility Adapter:
 ```typescript
-// adapters/secondary/RealDateProvider.ts
-import { DateProvider } from "../core/ports/DateProvider";
+// adapters/mongo/RealDateProvider.ts
+import { DateProvider } from "../domain/shared/ports/DateProvider";
 
 export class RealDateProvider implements DateProvider {
     getNow(): Date { return new Date(); }
@@ -413,8 +398,8 @@ describe("ChildService", () => {
 | `new Date()` bezpośrednio w serwisie | Użyj `DateProvider` port |
 | `crypto.randomUUID()` w domenie | Użyj `UuidProvider` port |
 | `console.log()` w serwisach | Użyj structured logger przez port |
-| Mongoose schema w `core/domain/` | Mongoose TYLKO w `adapters/secondary/` |
-| HTTP status codes w Application Service | Status codes TYLKO w `adapters/primary/` |
+| Mongoose schema w `domain/*/model/` | Mongoose TYLKO w `adapters/mongo/` |
+| HTTP status codes w Application Service | Status codes TYLKO w `adapters/rest/` |
 | Business logic w Controller | Controller to TYLKO mapowanie HTTP ↔ Service |
 | Tworzenie adaptera bez portu | Najpierw port (interface), potem adapter (impl) |
 
@@ -424,15 +409,15 @@ describe("ChildService", () => {
 
 Kolejność implementacji (bottom-up):
 
-- [ ] **1. Domain Entity** — `core/domain/[feature]/Entity.ts` — plain interface
-- [ ] **2. Port Interface** — `core/ports/[Feature]Repository.ts` — kontrakt
-- [ ] **3. InMemory Adapter** — `adapters/secondary/InMemory[Feature]Repository.ts` — do testów
-- [ ] **4. Unit Testy Domeny** — `core/domain/[feature]/__tests__/` — zero zależności
-- [ ] **5. Application Service** — `application/[Feature]Service.ts` — use cases z DI
-- [ ] **6. Unit Testy Serwisu** — `application/__tests__/[Feature]Service.test.ts` — z InMemory
-- [ ] **7. Mongo Adapter** — `adapters/secondary/Mongo[Feature]Repository.ts` — implementacja prod
+- [ ] **1. Domain Entity** — `domain/[feature]/Entity.ts` — plain interface
+- [ ] **2. Port Interface** — `domain/shared/ports/[Feature]Repository.ts` — kontrakt
+- [ ] **3. InMemory Adapter** — `adapters/mongo/InMemory[Feature]Repository.ts` — do testów
+- [ ] **4. Unit Testy Domeny** — `domain/[feature]/__tests__/` — zero zależności
+- [ ] **5. Application Service** — `domain/<context>/service/[Feature]Service.ts` — use cases z DI
+- [ ] **6. Unit Testy Serwisu** — `domain/<context>/service/__tests__/[Feature]Service.test.ts` — z InMemory
+- [ ] **7. Mongo Adapter** — `adapters/mongo/Mongo[Feature]Repository.ts` — implementacja prod
 - [ ] **8. Mongoose Model** — `models/[Feature].ts` — schema
-- [ ] **9. Primary Adapter** — `adapters/primary/[Feature]Controller.ts` — HTTP routes
+- [ ] **9. Primary Adapter** — `adapters/rest/[Feature]Controller.ts` — HTTP routes
 - [ ] **10. Composition Root** — `index.ts` — wiring nowych zależności
 - [ ] **11. i18n Keys** — dodaj klucze tłumaczeń
 - [ ] **12. Cypress E2E** — `cypress/e2e/[feature].cy.ts` — test pełnego flow
@@ -461,7 +446,7 @@ src/
 ├── hooks/             # Custom hooks — logika UI
 ├── components/        # Prezentacja — shadcn/ui + Tailwind
 ├── pages/             # Orkiestracja route'ów
-└── types/             # Współdzielone typy (mogą być importowane z backend/core/domain)
+└── types/             # Współdzielone typy (mogą być importowane z backend/src/domain/*/model)
 ```
 
 **Zasada:** Komponenty React NIE wywołują `fetch` bezpośrednio. Używamy `lib/api/` klienta jako warstwy abstrakcji.

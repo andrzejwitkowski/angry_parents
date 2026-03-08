@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 import { ITask, TaskStatus, TaskType, TaskHandler, ScheduleOptions, ITaskManager } from './types.ts';
 import { calculatePayloadHash } from './utils/crypto.ts';
 import { randomUUID } from 'crypto';
-import { ObservabilityService } from '../core/ports/ObservabilityService';
+import { ObservabilityService } from '../domain/shared/ports/ObservabilityService';
 
 // Mongoose Document Interface
 // We treat payload as `any` at the DB level but strictly typed at the Manager level

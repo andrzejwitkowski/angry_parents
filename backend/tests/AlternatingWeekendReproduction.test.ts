@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { CustodyGenerator } from "../src/application/CustodyGenerator";
-import { CustodyPatternConfig } from "../src/core/domain/child/CustodyPatternConfig";
-import { RealUuidProvider } from "../src/adapters/secondary/RealUuidProvider";
+import { CustodyGenerator } from "../src/domain/events/service/CustodyGenerator";
+import { CustodyPatternConfig } from "../src/domain/events/model/child/CustodyPatternConfig";
+import { RealUuidProvider } from "../src/shared/providers/RealUuidProvider";
 
 describe("Alternating Weekend Reproduction (Feb 2026)", () => {
     const generator = new CustodyGenerator(new RealUuidProvider());

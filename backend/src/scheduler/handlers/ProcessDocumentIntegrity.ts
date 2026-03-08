@@ -1,8 +1,8 @@
 import { TaskManager } from '../TaskManager';
 import { TaskType, ProcessDocumentIntegrityPayload, BlockchainPublishPayload } from '../types';
-import { IForensicRepository } from '../../core/ports/IForensicRepository';
-import { ICryptoService } from '../../core/ports/ICryptoService';
-import { PasskeyRepository } from '../../core/ports/PasskeyRepository';
+import { IForensicRepository } from '../../domain/forensic/ports/IForensicRepository';
+import { ICryptoService } from '../../domain/shared/ports/ICryptoService';
+import { PasskeyRepository } from '../../domain/auth/ports/PasskeyRepository';
 import { calculatePayloadHash } from '../utils/crypto';
 
 export const createProcessDocumentIntegrityHandler = (

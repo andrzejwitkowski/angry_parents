@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { ScheduleService } from "../src/application/ScheduleService";
-import { InMemoryScheduleRepository } from "../src/adapters/secondary/InMemoryScheduleRepository";
-import { InMemoryCustodyRepository } from "../src/adapters/secondary/InMemoryCustodyRepository";
-import { CustodyPatternConfig } from "../src/core/domain/child/CustodyPatternConfig";
-import { CustodyEntry } from "../src/core/domain/child/CustodyEntry";
-import { RealDateProvider } from "../src/adapters/secondary/RealDateProvider";
-import { RealUuidProvider } from "../src/adapters/secondary/RealUuidProvider";
+import { ScheduleService } from "../src/domain/events/service/ScheduleService";
+import { InMemoryScheduleRepository } from "../src/adapters/mongo/inmemory/events/InMemoryScheduleRepository";
+import { InMemoryCustodyRepository } from "../src/adapters/mongo/inmemory/events/InMemoryCustodyRepository";
+import { CustodyPatternConfig } from "../src/domain/events/model/child/CustodyPatternConfig";
+import { CustodyEntry } from "../src/domain/events/model/child/CustodyEntry";
+import { RealDateProvider } from "../src/shared/providers/RealDateProvider";
+import { RealUuidProvider } from "../src/shared/providers/RealUuidProvider";
 
 describe("ScheduleService", () => {
     let scheduleService: ScheduleService;

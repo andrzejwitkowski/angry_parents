@@ -7,14 +7,14 @@ import { createProcessDocumentIntegrityHandler } from '../handlers/ProcessDocume
 import { createBlockchainPublishHandler } from '../handlers/BlockchainPublish';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { IForensicRepository } from '../../core/ports/IForensicRepository';
-import { ICryptoService } from '../../core/ports/ICryptoService';
-import { PasskeyRepository } from '../../core/ports/PasskeyRepository';
-import { IBlockchainAnchor } from '../../core/ports/IBlockchainAnchor';
-import { ForensicDocument } from '../../core/domain/forensic/ForensicDocument';
-import { SystemState } from '../../core/domain/forensic/SystemState';
-import { Passkey } from '../../core/domain/Passkey';
-import { ObservabilityService } from '../../core/ports/ObservabilityService';
+import { IForensicRepository } from '../../domain/forensic/ports/IForensicRepository';
+import { ICryptoService } from '../../domain/shared/ports/ICryptoService';
+import { PasskeyRepository } from '../../domain/auth/ports/PasskeyRepository';
+import { IBlockchainAnchor } from '../../domain/shared/ports/IBlockchainAnchor';
+import { ForensicDocument } from '../../domain/forensic/model/ForensicDocument';
+import { SystemState } from '../../domain/forensic/model/SystemState';
+import { Passkey } from '../../domain/auth/model/Passkey';
+import { ObservabilityService } from '../../domain/shared/ports/ObservabilityService';
 
 // --- Mocks ---
 

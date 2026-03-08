@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from "bun:test";
-import { ForensicDocument } from "../src/core/domain/forensic/ForensicDocument";
+import { ForensicDocument } from "../src/domain/forensic/model/ForensicDocument";
 
 // 1. Defining different Content Types
 interface TimeLineEntry {

@@ -1,5 +1,5 @@
 import { TaskManager } from "./TaskManager";
-import { JsonLoggerObservability } from "../adapters/secondary/JsonLoggerObservability";
+import { JsonLoggerObservability } from "../adapters/observability/JsonLoggerObservability";
 
 // Standard polling interval, can be pushed to env
 const DEFAULT_POLL_INTERVAL = parseInt(process.env.SCHEDULER_POLL_INTERVAL || "5000");

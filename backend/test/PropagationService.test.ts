@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from "bun:test";
-import { PropagationService } from "../src/application/PropagationService";
-import { InMemoryScheduleRepository } from "../src/adapters/secondary/InMemoryScheduleRepository";
-import { ScheduleRule } from "../src/core/domain/child/ScheduleRule";
+import { PropagationService } from "../src/domain/events/service/PropagationService";
+import { InMemoryScheduleRepository } from "../src/adapters/mongo/inmemory/events/InMemoryScheduleRepository";
+import { ScheduleRule } from "../src/domain/events/model/child/ScheduleRule";
 
 describe("PropagationService", () => {
     let service: PropagationService;

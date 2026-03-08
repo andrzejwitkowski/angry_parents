@@ -1,6 +1,6 @@
 
-import { ForensicChain } from "../src/core/domain/forensic/ForensicChain";
-import { ForensicDocument } from "../src/core/domain/forensic/ForensicDocument";
+import { ForensicChain } from "../src/domain/forensic/model/ForensicChain";
+import { ForensicDocument } from "../src/domain/forensic/model/ForensicDocument";
 
 // Mock Historical Data Provider
 const getHistoricalEntriesHash = async () => {

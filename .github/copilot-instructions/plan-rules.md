@@ -66,6 +66,8 @@ Deploy to Vercel/Oracle only if ALL tests pass.
 7. Architecture Principles
 Simplicity: Favor flat folder structures and "Prostota nad abstrakcję".
 
+Backend structure convention (this repo): use `domain/<context>/{model,ports,service}`; keep HTTP in `adapters/rest/*`; keep persistence in `adapters/mongo/*`; keep crypto/blockchain/logging in dedicated adapter folders.
+
 8. Definition of done
 For every new feature unit tests and e2e cypress tests MUST be created. All projects tests must pass 
 
