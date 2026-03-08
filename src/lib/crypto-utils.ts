@@ -88,7 +88,7 @@ export async function decryptRSA(ciphertext: string, privateKey: CryptoKey): Pro
  * Chunked byte-to-base64 conversion to avoid RangeError
  * when spreading large Uint8Arrays into String.fromCharCode().
  */
-function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Uint8Array): string {
     const chunkSize = 0x8000; // 32KB chunks
     const chunks: string[] = [];
     for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -132,3 +132,73 @@ export async function encryptRSA(plaintext: string, publicKey: CryptoKey): Promi
 
     return btoa(JSON.stringify(envelope));
 }
+
+/**
+ * PRF and Master Key Helpers
+ */
+
+export async function deriveMasterKey(prfOutput: Uint8Array): Promise<CryptoKey> {
+    return crypto.subtle.importKey(
+        "raw",
+        prfOutput as any,
+        { name: "AES-GCM" },
+        false,
+        ["encrypt", "decrypt"]
+    );
+}
+
+export async function wrapPrivateKey(privateKey: CryptoKey, masterKey: CryptoKey): Promise<string> {
+    const exportedKey = await crypto.subtle.exportKey("pkcs8", privateKey);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        masterKey,
+        exportedKey
+    );
+
+    const envelope = {
+        iv: bytesToBase64(iv),
+        d: bytesToBase64(new Uint8Array(encrypted))
+    };
+    return btoa(JSON.stringify(envelope));
+}
+
+export async function unwrapPrivateKey(wrappedBase64: string, masterKey: CryptoKey, extractable: boolean = false): Promise<CryptoKey> {
+    const envelope = JSON.parse(atob(wrappedBase64)) as { iv: string; d: string };
+    const iv = Uint8Array.from(atob(envelope.iv), c => c.charCodeAt(0));
+    const data = Uint8Array.from(atob(envelope.d), c => c.charCodeAt(0));
+
+    const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        masterKey,
+        data
+    );
+
+    return crypto.subtle.importKey(
+        "pkcs8",
+        decrypted,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        extractable,
+        ["decrypt"]
+    );
+}
+
+export async function generateRSAKeyPair(): Promise<{ publicKeyBase64: string; privateKey: CryptoKey }> {
+    const keyPair = await crypto.subtle.generateKey(
+        {
+            name: "RSA-OAEP",
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash: "SHA-256",
+        },
+        true, // Must be extractable here so we can wrap/export it
+        ["encrypt", "decrypt"]
+    );
+
+    const exportedPublic = await crypto.subtle.exportKey("spki", keyPair.publicKey);
+    return {
+        publicKeyBase64: bytesToBase64(new Uint8Array(exportedPublic)),
+        privateKey: keyPair.privateKey
+    };
+}
+

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { startAuthentication } from '@simplewebauthn/browser';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
 import { authApi, type Gender } from '@/lib/api/auth';
+import { loginWithPasskey, registerPasskey } from '@/lib/webauthn-client';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 
 export default function AuthPage() {
@@ -51,19 +51,18 @@ export default function AuthPage() {
         setError(null);
 
         try {
-            const result = await authApi.registerVerify({
-                registrationResponse: {},
-                tempEmail: email,
-                tempName: name,
-                tempUsername: username,
-                tempGender: gender,
-                mock: true,
-                token: token || undefined,
-            });
-
-            if (result.verified) {
-                navigate('/dashboard');
+            if (!token) {
+                setError(t("auth.invitationRequired"));
+                return;
             }
+            await registerPasskey({
+                email,
+                name,
+                username: username || email.split('@')[0],
+                gender,
+                token
+            });
+            navigate('/dashboard');
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : t("auth.regFailed");
             setError(msg);
@@ -76,12 +75,12 @@ export default function AuthPage() {
         setIsLoading(true);
         setError(null);
         try {
-            const options = await authApi.loginOptions();
-            const asseResp = await startAuthentication({ optionsJSON: options });
-            const result = await authApi.loginVerify({ authenticationResponse: asseResp });
-            if (result.verified) {
-                navigate('/dashboard');
+            const success = await loginWithPasskey(email);
+            if (!success) {
+                setError(t("auth.loginFailed"));
+                return;
             }
+            navigate('/dashboard');
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : t("auth.loginFailed");
             setError(msg);

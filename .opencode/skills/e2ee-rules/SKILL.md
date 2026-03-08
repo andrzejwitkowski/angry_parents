@@ -1,4 +1,5 @@
 ---
+name: Strict E2EE Rules
 description: Strict End-to-End Encryption (E2EE) Rules for Timeline Items
 ---
 

@@ -1,0 +1,26 @@
+{
+    "user": {
+        "id": "user-123",
+        "email": "user@example.com",
+        "name": "Test User",
+        "gender": "dad",
+        "familyId": "69ac5a1d69a7a5eb7b7632fc"
+    },
+    "family": {
+        "id": "69ac5a1d69a7a5eb7b7632fc",
+        "_id": "69ac5a1d69a7a5eb7b7632fc",
+        "name": "Test Family",
+        "parentIds": [
+            "user-123"
+        ],
+        "parentPublicKeys": [
+            {
+                "parentId": "user-123",
+                "role": "dad",
+                "rsaPublicKeyBase64": "bW9jay1wdWIta2V5",
+                "encryptedRsaPrivateKeyBase64": "bW9jay1lbmNyeXB0ZWQtcHJpdi1rZXk=",
+                "prfSaltBase64": "c2FsdC0xMjM0"
+            }
+        ]
+    }
+}

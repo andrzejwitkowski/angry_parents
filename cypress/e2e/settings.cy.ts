@@ -25,4 +25,10 @@ describe('Settings Page - Language Preferences', () => {
         cy.reload();
         cy.contains('Ustawienia').should('be.visible');
     });
+
+    it('should use setup-passkey route for encryption setup link', () => {
+        cy.visit('/settings');
+        cy.get('a[href="/setup-passkey"]').should('exist');
+        cy.get('a[href="/passkey-setup"]').should('not.exist');
+    });
 });

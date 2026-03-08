@@ -1,12 +1,12 @@
 import { spawn } from "bun";
 import fs from "fs";
-import { join } from "path";
+import path from "path";
 import { tmpdir } from "os";
 import { MongoClient } from "mongodb";
 
 export const TEST_API_URL = "http://127.0.0.1:3002";
 const TEST_PORT = 3002;
-const LOCK_DIR = join(tmpdir(), "angry_e2e_lock_3002");
+const LOCK_DIR = path.join(tmpdir(), "angry_e2e_lock_3002");
 
 async function isPortOpen(port: number): Promise<boolean> {
     try {
@@ -47,7 +47,7 @@ async function canPingMongo(uri: string): Promise<boolean> {
 }
 
 async function startMongoViaDocker() {
-    const cwd = new URL("../../../", import.meta.url).pathname;
+    const cwd = path.resolve(import.meta.dir, "../../../");
     const commands: Array<[string, string[]]> = [
         ["docker", ["compose", "up", "-d", "mongodb"]],
         ["docker-compose", ["up", "-d", "mongodb"]],
@@ -59,10 +59,24 @@ async function startMongoViaDocker() {
             continue;
         }
         try {
-            const proc = spawn([cmd, ...args], { cwd, stdout: "ignore", stderr: "ignore" });
+            const stderrLines: string[] = [];
+            const proc = spawn([cmd, ...args], {
+                cwd,
+                stdout: "ignore",
+                stderr: "pipe"
+            });
+
+            const reader = proc.stderr.getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                stderrLines.push(new TextDecoder().decode(value));
+            }
+
             const exitCode = await proc.exited;
             if (exitCode === 0) return;
-            lastError = new Error(`${cmd} exited with code ${exitCode}`);
+            const errorMsg = stderrLines.join("").trim();
+            lastError = new Error(`${cmd} exited with code ${exitCode}${errorMsg ? `: ${errorMsg}` : ""}`);
         } catch (error) {
             lastError = error;
         }
@@ -101,8 +115,11 @@ export async function ensureTestBackend() {
             }
 
             console.log(`\n[E2E] Starting Isolated Test Backend on port ${TEST_PORT}...`);
-            const sub = spawn(["bun", "run", "dev:backend"], {
-                cwd: new URL("../../../", import.meta.url).pathname,
+            const bunBin = Bun.which("bun");
+            if (!bunBin) throw new Error("Could not find 'bun' executable");
+
+            const sub = spawn([bunBin, "run", "dev:backend"], {
+                cwd: path.resolve(import.meta.dir, "../../../"),
                 stdout: "ignore", stderr: "ignore", // Prevent polluting test output
                 env: {
                     ...process.env,

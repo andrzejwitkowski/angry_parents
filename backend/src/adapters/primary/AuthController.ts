@@ -5,9 +5,7 @@ import { Invitation, type Gender } from "../../models/Invitation";
 import { RegistrationStatus, ParentRegistrationStatus } from "../../models/RegistrationProcess";
 import { generateDevRSAKeyPair } from "../secondary/BunCryptoService";
 import { MongoRegistrationProcessRepository } from "../secondary/MongoRegistrationProcessRepository";
-import { ChildModel } from "../../models/Child";
 import { signJwt, verifyJwt } from "../../lib/jwt";
-import { sendInvitationEmail } from "../../lib/email";
 import {
     generateRegistrationOptions,
     generateAuthenticationOptions,
@@ -22,7 +20,95 @@ const rpName = "Angry Parents Co-Parenting";
 const rpID = "localhost";
 const origin = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
 
-const registrationChallenges = new Map<string, string>();
+const AUTH_CHALLENGE_COLLECTION = "auth_challenges";
+const AUTH_CHALLENGE_TTL_MS = 10 * 60 * 1000;
+
+type AuthChallengeKind = "registration" | "login";
+
+let challengeIndexesEnsured = false;
+const fallbackChallenges = new Map<string, string>();
+
+function challengeCacheKey(kind: AuthChallengeKind, key: string): string {
+    return `${kind}:${key}`;
+}
+
+async function ensureChallengeIndexes() {
+    if (challengeIndexesEnsured) return;
+    const db = mongoose.connection.db;
+    if (!db) return;
+
+    const collection = db.collection(AUTH_CHALLENGE_COLLECTION);
+    await collection.createIndex({ kind: 1, key: 1 }, { unique: true });
+    await collection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    challengeIndexesEnsured = true;
+}
+
+async function upsertAuthChallenge(kind: AuthChallengeKind, key: string, challenge: string): Promise<void> {
+    const db = mongoose.connection.db;
+    if (!db) {
+        fallbackChallenges.set(challengeCacheKey(kind, key), challenge);
+        return;
+    }
+
+    try {
+        await ensureChallengeIndexes();
+        await db.collection(AUTH_CHALLENGE_COLLECTION).updateOne(
+            { kind, key },
+            {
+                $set: {
+                    kind,
+                    key,
+                    challenge,
+                    createdAt: new Date(),
+                    expiresAt: new Date(Date.now() + AUTH_CHALLENGE_TTL_MS),
+                }
+            },
+            { upsert: true }
+        );
+        fallbackChallenges.delete(challengeCacheKey(kind, key));
+    } catch (error) {
+        fallbackChallenges.set(challengeCacheKey(kind, key), challenge);
+        console.warn("[AuthChallenge] Falling back to in-memory challenge store:", error);
+    }
+}
+
+async function consumeAuthChallenge(kind: AuthChallengeKind, key: string): Promise<string | null> {
+    const db = mongoose.connection.db;
+    if (!db) {
+        const fallbackKey = challengeCacheKey(kind, key);
+        const fallback = fallbackChallenges.get(fallbackKey) ?? null;
+        fallbackChallenges.delete(fallbackKey);
+        return fallback;
+    }
+
+    try {
+        await ensureChallengeIndexes();
+        const result = await db.collection(AUTH_CHALLENGE_COLLECTION).findOneAndDelete({
+            kind,
+            key,
+            expiresAt: { $gt: new Date() }
+        });
+
+        const doc = (
+            result && typeof result === "object" && "value" in result
+                ? result.value
+                : result
+        ) as { challenge?: string } | null | undefined;
+        if (doc?.challenge) {
+            fallbackChallenges.delete(challengeCacheKey(kind, key));
+            return doc.challenge;
+        }
+
+        return null;
+    } catch (error) {
+        const fallbackKey = challengeCacheKey(kind, key);
+        const fallback = fallbackChallenges.get(fallbackKey) ?? null;
+        fallbackChallenges.delete(fallbackKey);
+        console.warn("[AuthChallenge] Falling back to in-memory challenge read:", error);
+        return fallback;
+    }
+}
+
 let cachedDevKeyPair: { publicKey: string; privateKey: string } | null = null;
 
 async function getDevKeyPair() {
@@ -53,7 +139,59 @@ function clearCookie(): string {
     return `token=; HttpOnly${secure}; SameSite=${sameSite}; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }
 
-async function createBetterAuthUser(email: string, name: string, username: string, gender?: Gender, familyId?: string, webauthnCredentialId?: string) {
+const BASE64_VALUE_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+function isValidBase64Value(value: string): boolean {
+    const normalized = value.trim();
+    if (!normalized || normalized.length % 4 !== 0) return false;
+    return BASE64_VALUE_RE.test(normalized);
+}
+
+const KEY_MATERIAL_MAX_LENGTH = {
+    rsaPublicKeyBase64: 8192,
+    encryptedRsaPrivateKeyBase64: 16384,
+    prfSaltBase64: 1024,
+} as const;
+
+type KeyMaterialName = keyof typeof KEY_MATERIAL_MAX_LENGTH;
+
+function validateRequiredKeyMaterial(input: Partial<Record<KeyMaterialName, string | undefined>>) {
+    const missing: KeyMaterialName[] = [];
+    const invalid: KeyMaterialName[] = [];
+    const names = Object.keys(KEY_MATERIAL_MAX_LENGTH) as KeyMaterialName[];
+
+    for (const name of names) {
+        const rawValue = input[name];
+        const value = typeof rawValue === "string" ? rawValue.trim() : "";
+
+        if (!value) {
+            missing.push(name);
+            continue;
+        }
+
+        if (value.length > KEY_MATERIAL_MAX_LENGTH[name] || !isValidBase64Value(value)) {
+            invalid.push(name);
+            continue;
+        }
+
+        const decoded = Buffer.from(value, "base64");
+        if (!decoded || decoded.length === 0) {
+            invalid.push(name);
+        }
+    }
+
+    return { missing, invalid };
+}
+
+async function createBetterAuthUser(
+    email: string,
+    name: string,
+    username: string,
+    gender?: Gender,
+    familyId?: string,
+    webauthnCredentialId?: string,
+    webauthnPublicKey?: string,
+    webauthnCounter?: number
+) {
     const password = "webauthn-" + Date.now();
 
     const signupResult = await auth.api.signUpEmail({
@@ -71,6 +209,8 @@ async function createBetterAuthUser(email: string, name: string, username: strin
     if (gender) updateData.gender = gender;
     if (familyId) updateData.familyId = familyId;
     if (webauthnCredentialId) updateData.webauthnCredentialId = webauthnCredentialId;
+    if (webauthnPublicKey) updateData.webauthnPublicKey = webauthnPublicKey;
+    if (webauthnCounter !== undefined) updateData.webauthnCounter = webauthnCounter;
 
     if (Object.keys(updateData).length > 0) {
         // @ts-ignore - BetterAuth type mismatch in some versions
@@ -114,9 +254,13 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     userVerification: 'preferred',
                     residentKey: 'preferred',
                 },
+                extensions: {
+                    // @ts-ignore - PRF extension type might be missing in some versions
+                    prf: {}
+                }
             });
 
-            registrationChallenges.set(email, options.challenge);
+            await upsertAuthChallenge("registration", email, options.challenge);
 
             set.headers["Content-Type"] = "application/json";
             return {
@@ -158,16 +302,30 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             })
         })
         .post("/register/verify", async ({ body, set }) => {
-            console.log("[Register] verify hit", JSON.stringify(body));
+            console.log("[Register] verify hit");
             try {
-                const { registrationResponse, tempEmail, tempName, tempUsername, tempGender, mock, token } = body as {
+                const {
+                    registrationResponse,
+                    tempEmail,
+                    tempName,
+                    tempUsername,
+                    tempGender,
+                    mock,
+                    token,
+                    rsaPublicKeyBase64,
+                    encryptedRsaPrivateKeyBase64,
+                    prfSaltBase64
+                } = body as {
                     registrationResponse?: unknown;
                     tempEmail?: string;
                     tempName?: string;
                     tempUsername?: string;
                     tempGender?: Gender;
                     mock?: boolean;
-                    token: string; // Token is now mandatory
+                    token: string;
+                    rsaPublicKeyBase64?: string;
+                    encryptedRsaPrivateKeyBase64?: string;
+                    prfSaltBase64?: string;
                 };
 
                 const isMock = !!mock;
@@ -178,8 +336,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     return { message: "Registration token is required" };
                 }
 
-                let userId: string;
                 let credentialId = "mock-credential";
+                let credentialPublicKey = "";
+                let credentialCounter = 0;
                 let familyIdToUse: string | undefined;
 
                 // Invitation must exist for the given token
@@ -192,13 +351,26 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 const invitationRole = invitation.targetRole as "dad" | "mom";
                 console.log(`[Register] Token valid. Joining family: ${familyIdToUse} as ${invitationRole}`);
 
-                // Mark invitation as accepted
-                invitation.status = "accepted";
-                await invitation.save();
+                if (!isDev && !isMock) {
+                    const { missing, invalid } = validateRequiredKeyMaterial({
+                        rsaPublicKeyBase64,
+                        encryptedRsaPrivateKeyBase64,
+                        prfSaltBase64,
+                    });
+
+                    if (missing.length > 0) {
+                        set.status = 400;
+                        return { message: `Missing required key material: ${missing.join(", ")}` };
+                    }
+
+                    if (invalid.length > 0) {
+                        set.status = 400;
+                        return { message: `Invalid key material: ${invalid.join(", ")}` };
+                    }
+                }
 
                 if (isDev && isMock) {
-                    userId = new mongoose.Types.ObjectId().toString();
-                    console.log("[Register] Mock mode, generated userId:", userId);
+                    console.log("[Register] Mock mode registration path");
                 } else {
                     console.log("[Register] WebAuthn mode for", tempEmail);
                     const emailToVerify = tempEmail || invitation.email;
@@ -207,7 +379,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         set.status = 400;
                         return { message: "Missing email for verification" };
                     }
-                    const expectedChallenge = registrationChallenges.get(emailToVerify);
+                    const expectedChallenge = await consumeAuthChallenge("registration", emailToVerify);
                     if (!expectedChallenge) {
                         console.error("[Register] Challenge not found or expired for", emailToVerify);
                         set.status = 400;
@@ -230,12 +402,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         }
                         console.log("[Register] Registration response verified successfully.");
 
-                        const info = verification.registrationInfo!;
+                        const info = verification.registrationInfo as any;
                         credentialId = typeof info.credential.id === 'string'
                             ? info.credential.id
                             : isoBase64URL.fromBuffer(info.credential.id);
-                        userId = new mongoose.Types.ObjectId().toString(); // Generate a new ObjectId for the user
-                        console.log(`[Register] Generated userId: ${userId}, credentialId: ${credentialId}`);
+                        credentialPublicKey = isoBase64URL.fromBuffer(info.credentialPublicKey);
+                        credentialCounter = info.counter;
                     } catch (e) {
                         console.error("[Register] Verification error", e);
                         set.status = 400;
@@ -248,44 +420,51 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     throw new Error("Family not found");
                 }
 
-                if (!family.parentIds.includes(userId)) {
-                    family.parentIds.push(userId);
-                    if (isDev) {
-                        const devKeyPair = await getDevKeyPair();
-                        const devRsaPublicKey = devKeyPair.publicKey;
-                        const existingKey = family.parentPublicKeys?.find(
-                            (k: any) => k.role === invitationRole
-                        );
-                        if (existingKey) {
-                            existingKey.parentId = userId;
-                            existingKey.rsaPublicKeyBase64 = devRsaPublicKey;
-                        } else {
-                            if (!family.parentPublicKeys) family.parentPublicKeys = [];
-                            family.parentPublicKeys.push({
-                                parentId: userId,
-                                role: invitationRole,
-                                rsaPublicKeyBase64: devRsaPublicKey
-                            });
-                        }
-                    }
-                    await family.save();
-                }
-
                 const finalEmail = invitation.email || "unknown@example.com";
 
                 const baUser = await createBetterAuthUser(
                     finalEmail!,
                     tempName || "Parent",
                     tempUsername || finalEmail!.split("@")[0],
-                    tempGender || invitationRole,
+                    invitationRole,
                     family._id.toString(),
-                    credentialId
+                    credentialId,
+                    credentialPublicKey,
+                    credentialCounter
                 );
-                console.log(`[Register] BetterAuth user created for ${finalEmail}, userId: ${baUser.userId}`);
+                const actualUserId = baUser.userId;
+                console.log(`[Register] BetterAuth user created for ${finalEmail}, actualUserId: ${actualUserId}`);
 
-                if (!isMock && finalEmail) {
-                    registrationChallenges.delete(finalEmail);
-                    console.log(`[Register] Deleted challenge for ${finalEmail}`);
+                if (!family.parentIds.includes(actualUserId)) {
+                    family.parentIds.push(actualUserId);
+
+                    const finalRsaPublicKey = rsaPublicKeyBase64 || (isDev ? (await getDevKeyPair()).publicKey : null);
+
+                    if (finalRsaPublicKey) {
+                        if (!family.parentPublicKeys) family.parentPublicKeys = [];
+                        const existingKey = family.parentPublicKeys.find(
+                            (k: any) => k.parentId === actualUserId
+                        );
+
+                        if (existingKey) {
+                            existingKey.parentId = actualUserId;
+                            existingKey.rsaPublicKeyBase64 = finalRsaPublicKey;
+                            existingKey.encryptedRsaPrivateKeyBase64 = encryptedRsaPrivateKeyBase64;
+                            existingKey.prfSaltBase64 = prfSaltBase64;
+                        } else {
+                            family.parentPublicKeys.push({
+                                parentId: actualUserId,
+                                role: invitationRole,
+                                rsaPublicKeyBase64: finalRsaPublicKey,
+                                encryptedRsaPrivateKeyBase64,
+                                prfSaltBase64
+                            } as any);
+                        }
+                    } else if (!isMock && !isDev) {
+                        // Crucial: throw if no public key provided for non-dev/mock
+                        throw new Error("RSA public key is required for registration.");
+                    }
+                    await family.save();
                 }
 
                 // Update Registration Process
@@ -320,6 +499,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                     await registrationRepo.save(regProcess);
                 }
 
+                invitation.status = "accepted";
+                await invitation.save();
+
                 const tokenValue = await signJwt({
                     userId: baUser.userId,
                     familyId: family._id.toString(),
@@ -331,7 +513,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 set.headers["Set-Cookie"] = setCookie(tokenValue);
                 set.headers["Content-Type"] = "application/json";
                 console.log("[Register] verify success");
-                return { verified: true, role: roleUsed };
+                return {
+                    verified: true,
+                    role: roleUsed,
+                    userId: baUser.userId,
+                    familyId: family._id.toString(),
+                };
             } catch (err) {
                 console.error("[Register] verify error:", err);
                 set.status = 500;
@@ -341,91 +528,301 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             body: t.Any(),
         })
 
-        .post("/login/options", async ({ set }) => {
+        .post("/login/options", async ({ body, set, request }) => {
             console.log("[Login] options hit");
+            const { email } = (body || {}) as { email?: string };
+            let prfSalt: string | undefined;
+            let sessionUserIdForChallenge: string | undefined;
+
+            if (mongoose.connection.readyState === 1) {
+                const token = getJwtFromCookie(request);
+                if (token) {
+                    try {
+                        const payload = await verifyJwt(token);
+                        const sessionUserId = payload?.userId ? String(payload.userId).trim() : "";
+                        const sessionFamilyId = payload?.familyId ? String(payload.familyId).trim() : "";
+                        sessionUserIdForChallenge = sessionUserId || undefined;
+
+                        if (sessionUserId && sessionFamilyId) {
+                            const family = await Family.findById(sessionFamilyId);
+                            const parentKey = family?.parentPublicKeys.find((k: any) => String(k.parentId || "").trim() === sessionUserId);
+                            prfSalt = parentKey?.prfSaltBase64;
+                        }
+                    } catch (e) {
+                        console.warn("[Login] Failed to lookup PRF salt from session token:", e);
+                    }
+                }
+            }
+
+            if (!prfSalt && email && mongoose.connection.readyState === 1) {
+                try {
+                    const user = await mongoose.connection.db?.collection("user").findOne({ email });
+                    if (user && user.familyId) {
+                        const family = await Family.findById(user.familyId);
+                        const parentKey = family?.parentPublicKeys.find((k: any) => {
+                            const pkId = String(k.parentId || "").trim();
+                            const uId = String(user.id || "").trim();
+                            const u_Id = String(user._id || "").trim();
+                            return (uId && pkId === uId) || (u_Id && pkId === u_Id);
+                        });
+                        prfSalt = parentKey?.prfSaltBase64;
+                    }
+                } catch (e) {
+                    console.warn("[Login] Failed to lookup PRF salt for email:", email, e);
+                }
+            }
+
             const options = await generateAuthenticationOptions({
                 rpID,
                 userVerification: 'preferred',
+                extensions: prfSalt ? {
+                    // @ts-ignore
+                    prf: { eval: { first: isoBase64URL.fromBuffer(Buffer.from(prfSalt, 'base64')) } }
+                } : undefined
             });
-            console.log("[Login] Generated authentication options.");
+            console.log("[Login] Generated authentication options. PRF Salt present:", !!prfSalt);
+
+            if (email) {
+                await upsertAuthChallenge("login", `email:${email}`, options.challenge);
+            } else if (sessionUserIdForChallenge) {
+                await upsertAuthChallenge("login", `session:${sessionUserIdForChallenge}`, options.challenge);
+            }
 
             set.headers["Content-Type"] = "application/json";
-            return options;
+            return {
+                ...options,
+                prfSaltBase64: prfSalt // Pass back to client so they know which salt was used for the eval challenge
+            };
         })
-        .post("/login/verify", async ({ body, set }) => {
-            console.log("[Login] verify hit", JSON.stringify(body));
-            const { authenticationResponse, mockLogin, userId } = body as {
-                authenticationResponse?: unknown;
+        .post("/login/verify", async ({ body, set, request }) => {
+            const { email, authenticationResponse, mockLogin, userId } = (body || {}) as {
+                email?: string;
+                authenticationResponse?: any;
                 mockLogin?: boolean;
                 userId?: string;
             };
+            console.log("[Login] verify hit", {
+                hasEmail: !!email,
+                hasAuthenticationResponse: !!authenticationResponse,
+                isMockLogin: !!mockLogin,
+                hasUserId: !!userId,
+            });
+            let verified = false;
+            let finalUserId: string | undefined = userId;
+            let finalFamilyId: string | undefined;
+            let encryptedRsaPrivateKeyBase64: string | undefined;
+            let prfSaltBase64: string | undefined;
 
             const isDev = process.env.NODE_ENV !== "production";
+            const MOCK_USER_ID = "mock-user-id-dev-test-stable";
+            const MOCK_FAMILY_ID = "000000000000deadbeef0001";
+            finalFamilyId = MOCK_FAMILY_ID;
 
             if (isDev && mockLogin) {
-                // Use stable deterministic IDs so the JWT matches the Child collection across test runs
-                const MOCK_USER_ID = "mock-user-id-dev-test-stable";
-                const MOCK_FAMILY_ID = "000000000000deadbeef0001";
-                const MOCK_CHILD_ID = "000000000000deadbeef0002";
-                const finalUserId = userId || MOCK_USER_ID;
-                const finalFamilyId = MOCK_FAMILY_ID;
+                finalUserId = userId || MOCK_USER_ID;
                 console.log(`[Login] Mock login for userId: ${finalUserId}`);
-
-                // MOCK IN DB - use upsert to avoid duplicate key errors across test runs
+                verified = true;
+            } else if (authenticationResponse) {
                 try {
-                    const devKeyPair = await getDevKeyPair();
-                    const devRsaPublicKey = devKeyPair.publicKey;
-                    const DUMMY_DAD_ID = "dummy-dad-id-stable";
-                    const DUMMY_MOM_ID = "dummy-mom-id-stable";
+                    const credentialId = authenticationResponse.id;
+                    const user = await mongoose.connection.db?.collection("user").findOne({ webauthnCredentialId: credentialId });
 
-                    await Family.findByIdAndUpdate(
-                        finalFamilyId,
-                        {
-                            _id: finalFamilyId,
-                            name: "Mock Family",
-                            parentIds: [finalUserId, DUMMY_MOM_ID], // Ensure 2 IDs for encryption logic
-                            children: [{ id: MOCK_CHILD_ID, name: "Mock Child" }],
-                            custodyPatterns: [],
-                            parentPublicKeys: [
-                                { parentId: finalUserId, role: "dad", rsaPublicKeyBase64: devRsaPublicKey },
-                                { parentId: DUMMY_MOM_ID, role: "mom", rsaPublicKeyBase64: devRsaPublicKey }
-                            ]
-                        },
-                        { upsert: true, new: true }
-                    );
-                    // Also upsert Child collection so ChildRepository can find it
-                    await ChildModel.findOneAndUpdate(
-                        { id: MOCK_CHILD_ID },
-                        {
-                            id: MOCK_CHILD_ID,
-                            name: "Mock Child",
-                            icon: "user",
-                            color: "#7C3AED",
-                            familyId: finalFamilyId
-                        },
-                        { upsert: true, new: true }
-                    );
+                    if (!user) {
+                        throw new Error("User not found for credential");
+                    }
+                    let challengeKey: string | undefined;
+                    if (email) {
+                        challengeKey = `email:${email}`;
+                    } else {
+                        const sessionToken = getJwtFromCookie(request);
+                        if (sessionToken) {
+                            const payload = await verifyJwt(sessionToken);
+                            if (payload?.userId) {
+                                challengeKey = `session:${String(payload.userId)}`;
+                            }
+                        }
+                    }
+
+                    const expectedChallenge = challengeKey
+                        ? await consumeAuthChallenge("login", challengeKey)
+                        : null;
+
+                    if (!isDev && !expectedChallenge) {
+                        throw new Error("Login challenge not found or expired");
+                    }
+
+                    if (authenticationResponse && !isDev) {
+                        // REAL VERIFICATION
+                        const verification = await (verifyAuthenticationResponse as any)({
+                            response: authenticationResponse,
+                            expectedChallenge: expectedChallenge || "",
+                            expectedOrigin: origin,
+                            expectedRPID: rpID,
+                            authenticator: {
+                                counter: user.webauthnCounter || 0,
+                                credentialID: isoBase64URL.toBuffer(user.webauthnCredentialId),
+                                credentialPublicKey: isoBase64URL.toBuffer(user.webauthnPublicKey),
+                            },
+                        });
+
+                        if (!verification.verified) {
+                            throw new Error("WebAuthn cryptographic verification failed");
+                        }
+
+                        // Update counter in DB
+                        await mongoose.connection.db?.collection("user").updateOne(
+                            { _id: user._id },
+                            { $set: { webauthnCounter: verification.authenticationInfo.newCounter } }
+                        );
+                    }
+
+                    verified = true;
+
+                    finalUserId = user.id || user._id.toString();
+                    finalFamilyId = user.familyId;
+
+                    const family = await Family.findOne({ parentIds: finalUserId });
+
+                    if (family) {
+                        const parent = family.parentPublicKeys.find(
+                            (p: any) => p.parentId === finalUserId
+                        );
+
+                        if (parent) {
+                            encryptedRsaPrivateKeyBase64 = parent.encryptedRsaPrivateKeyBase64;
+                            prfSaltBase64 = parent.prfSaltBase64;
+                        }
+                    }
+
                 } catch (e) {
-                    console.log("[Login] Mock DB Insert error", e);
+                    verified = false;
+                    finalUserId = undefined;
+                    finalFamilyId = undefined;
+                    console.error("[Login] Verification error:", e);
                 }
+            }
+
+            if (verified && finalUserId) {
+                // Determine actual role/gender from user record
+                const dbUser = await mongoose.connection.db?.collection("user").findOne({
+                    $or: [
+                        { id: finalUserId },
+                        ...(mongoose.Types.ObjectId.isValid(finalUserId) ? [{ _id: new mongoose.Types.ObjectId(finalUserId) }] : [])
+                    ]
+                });
+
+                const userRole = (dbUser?.gender || dbUser?.role || "dad") as string;
 
                 const token = await signJwt({
                     userId: finalUserId,
                     familyId: finalFamilyId,
-                    role: "dad",
-                    gender: "dad",
+                    role: userRole,
+                    gender: userRole,
                 });
-                console.log("[Login] Mock JWT signed.");
+
+                // Fallback for mock login if needed
+                if (!encryptedRsaPrivateKeyBase64 && finalFamilyId) {
+                    try {
+                        const family = await Family.findById(finalFamilyId);
+                        const parentKey = family?.parentPublicKeys.find((k: any) => k.parentId === finalUserId);
+                        encryptedRsaPrivateKeyBase64 = parentKey?.encryptedRsaPrivateKeyBase64;
+                        prfSaltBase64 = parentKey?.prfSaltBase64;
+                    } catch (e) {
+                        console.error("[Login] Failed to fetch PRF material:", e);
+                    }
+                }
 
                 set.headers["Set-Cookie"] = setCookie(token);
                 set.headers["Content-Type"] = "application/json";
-                return { verified: true };
+                return {
+                    verified: true,
+                    userId: finalUserId,
+                    familyId: finalFamilyId,
+                    encryptedRsaPrivateKeyBase64,
+                    prfSaltBase64
+                };
             }
 
-            set.status = 400;
-            return { message: "Real WebAuthn login not fully implemented yet" };
+            set.status = 401;
+            return { verified: false };
         }, {
             body: t.Any(),
+        })
+        .post("/public-key", async ({ body, request, set }) => {
+            const { rsaPublicKeyBase64, encryptedRsaPrivateKeyBase64, prfSaltBase64 } = body as {
+                rsaPublicKeyBase64: string;
+                encryptedRsaPrivateKeyBase64: string;
+                prfSaltBase64: string;
+            };
+
+            const { missing, invalid } = validateRequiredKeyMaterial({
+                rsaPublicKeyBase64,
+                encryptedRsaPrivateKeyBase64,
+                prfSaltBase64,
+            });
+
+            if (missing.length > 0) {
+                set.status = 400;
+                return { message: `Missing required key material: ${missing.join(", ")}` };
+            }
+
+            if (invalid.length > 0) {
+                set.status = 400;
+                return { message: `Invalid key material: ${invalid.join(", ")}` };
+            }
+
+            const token = getJwtFromCookie(request);
+            if (!token) {
+                set.status = 401;
+                return { message: "Unauthorized" };
+            }
+
+            const payload = await verifyJwt(token);
+            if (!payload || !payload.userId || !payload.familyId) {
+                set.status = 401;
+                return { message: "Invalid session" };
+            }
+
+            try {
+                const family = await Family.findById(payload.familyId);
+                if (!family) throw new Error("Family not found");
+
+                const parentKey = family.parentPublicKeys.find((k: any) => k.parentId === payload.userId);
+                if (parentKey) {
+                    parentKey.rsaPublicKeyBase64 = rsaPublicKeyBase64;
+                    parentKey.encryptedRsaPrivateKeyBase64 = encryptedRsaPrivateKeyBase64;
+                    parentKey.prfSaltBase64 = prfSaltBase64;
+                } else {
+                    const orConditions: any[] = [{ id: payload.userId }];
+                    if (mongoose.Types.ObjectId.isValid(payload.userId)) {
+                        orConditions.push({ _id: new mongoose.Types.ObjectId(payload.userId) });
+                    }
+                    const user = await mongoose.connection.db?.collection("user").findOne({
+                        $or: orConditions
+                    });
+                    const role = (user?.gender === "mom" || user?.role === "mom") ? "mom" : "dad";
+
+                    family.parentPublicKeys.push({
+                        parentId: payload.userId,
+                        role: role as any,
+                        rsaPublicKeyBase64,
+                        encryptedRsaPrivateKeyBase64,
+                        prfSaltBase64
+                    });
+                }
+                await family.save();
+                return { success: true };
+            } catch (e) {
+                console.error("[Auth] Update public key error:", e);
+                set.status = 500;
+                return { message: "Internal error" };
+            }
+        }, {
+            body: t.Object({
+                rsaPublicKeyBase64: t.String({ minLength: 1, maxLength: KEY_MATERIAL_MAX_LENGTH.rsaPublicKeyBase64 }),
+                encryptedRsaPrivateKeyBase64: t.String({ minLength: 1, maxLength: KEY_MATERIAL_MAX_LENGTH.encryptedRsaPrivateKeyBase64 }),
+                prfSaltBase64: t.String({ minLength: 1, maxLength: KEY_MATERIAL_MAX_LENGTH.prfSaltBase64 }),
+            }),
         })
         .get("/me", async ({ request, set }) => {
             console.log("[Me] hit");
@@ -450,6 +847,7 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 }
 
                 set.headers["Content-Type"] = "application/json";
+                const familyWithId = family as any;
                 return {
                     user: {
                         id: payload.userId,
@@ -458,7 +856,9 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                         gender: payload.gender,
                         familyId: payload.familyId ? payload.familyId.toString() : null,
                     },
-                    family: family ? { ...family, id: family._id.toString(), _id: family._id.toString() } : null
+                    family: familyWithId
+                        ? { ...familyWithId, id: familyWithId._id.toString(), _id: familyWithId._id.toString() }
+                        : null
                 };
             } catch (err) {
                 console.error("[Me] error:", err);

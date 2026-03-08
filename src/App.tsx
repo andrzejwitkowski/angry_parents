@@ -7,35 +7,40 @@ import Settings from './pages/Settings';
 import AdminPage from './pages/AdminPage';
 import AdminRegistrationDetails from './pages/AdminRegistrationDetails';
 import AdminRoute from './components/auth/AdminRoute';
+import { SecurityProvider } from './context/SecurityContext';
+import { Toaster } from './components/ui/toaster';
 import './i18n';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/setup-passkey" element={<PasskeySetup />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <AdminPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/registrations/:id"
-          element={
-            <AdminRoute>
-              <AdminRegistrationDetails />
-            </AdminRoute>
-          }
-        />
-      </Routes>
-    </Router>
+    <SecurityProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/setup-passkey" element={<PasskeySetup />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/registrations/:id"
+            element={
+              <AdminRoute>
+                <AdminRegistrationDetails />
+              </AdminRoute>
+            }
+          />
+        </Routes>
+      </Router>
+      <Toaster />
+    </SecurityProvider>
   );
 }
 
