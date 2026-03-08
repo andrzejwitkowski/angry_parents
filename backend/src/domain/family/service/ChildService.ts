@@ -33,6 +33,10 @@ export class ChildService {
         return await this.childRepository.save(updated);
     }
 
+    async getChild(id: string): Promise<Child | null> {
+        return this.childRepository.findById(id);
+    }
+
     async deleteChild(id: string): Promise<void> {
         const itemCount = await this.timelineRepository.countByChildId(id);
         if (itemCount > 0) {

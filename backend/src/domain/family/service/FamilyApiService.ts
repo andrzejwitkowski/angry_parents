@@ -29,12 +29,34 @@ export class FamilyApiService {
     }
 
     async updateChild(id: string, body: Record<string, unknown>, user: SessionUser | null) {
-        this.assertFamilyUser(user);
+        const familyUser = this.assertFamilyUser(user);
+        const child = await this.childService.getChild(id);
+        if (!child) {
+            const error = new Error(`Child with id ${id} not found`);
+            (error as any).status = 404;
+            throw error;
+        }
+        if (child.familyId !== familyUser.familyId) {
+            const error = new Error("Forbidden: child does not belong to your family");
+            (error as any).status = 403;
+            throw error;
+        }
         return this.childService.updateChild(id, body as any);
     }
 
     async deleteChild(id: string, user: SessionUser | null) {
-        this.assertFamilyUser(user);
+        const familyUser = this.assertFamilyUser(user);
+        const child = await this.childService.getChild(id);
+        if (!child) {
+            const error = new Error(`Child with id ${id} not found`);
+            (error as any).status = 404;
+            throw error;
+        }
+        if (child.familyId !== familyUser.familyId) {
+            const error = new Error("Forbidden: child does not belong to your family");
+            (error as any).status = 403;
+            throw error;
+        }
         try {
             await this.childService.deleteChild(id);
             return { success: true };

@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import { taskManager } from "../scheduler/instance";
 import { MongoForensicRepository } from "../adapters/mongo/repositories/forensic/MongoForensicRepository";
 import { BunCryptoService } from "../adapters/security/BunCryptoService";
-import { Family } from "../adapters/mongo/models/FamilyModel";
 import { MongoTimelineRepository } from "../adapters/mongo/repositories/events/MongoTimelineRepository";
 import { MongoRegistrationProcessRepository } from "../adapters/mongo/repositories/auth/MongoRegistrationProcessRepository";
 import { MongoCustodyRepository } from "../adapters/mongo/repositories/events/MongoCustodyRepository";
@@ -11,6 +10,7 @@ import { MongoChildRepository } from "../adapters/mongo/repositories/family/Mong
 import { MongoPasskeyRepository } from "../adapters/mongo/repositories/auth/MongoPasskeyRepository";
 import { MongoForensicIntentRepository } from "../adapters/mongo/repositories/forensic/MongoForensicIntentRepository";
 import { MockBlockchainAnchor } from "../adapters/blockchain/MockBlockchainAnchor";
+import { ViemBlockchainAnchor } from "../adapters/blockchain/ViemBlockchainAnchor";
 import { TimelineApiService } from "../domain/events/service/TimelineApiService";
 import { CustodyApiService } from "../domain/events/service/CustodyApiService";
 import { FamilyApiService } from "../domain/family/service/FamilyApiService";
@@ -24,8 +24,25 @@ import { PropagationService } from "../domain/events/service/PropagationService"
 import { ChildService } from "../domain/family/service/ChildService";
 
 export async function wireDependencies() {
-    const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/angry_parents";
-    await mongoose.connect(mongoUri);
+    const mongoUri = process.env.MONGODB_URI;
+    const isTestMode =
+        process.env.NODE_ENV === "test" ||
+        process.env.E2E_TEST === "true" ||
+        process.env.INTEGRATION_TEST === "true" ||
+        process.env.ENABLE_TEST_ENDPOINTS === "true";
+    const fallbackMongoUri = "mongodb://localhost:27017/angry_parents";
+
+    if (!mongoUri && !isTestMode && process.env.NODE_ENV === "production") {
+        throw new Error("MONGODB_URI is required in production");
+    }
+
+    const effectiveMongoUri = mongoUri || fallbackMongoUri;
+
+    if (!mongoUri && !isTestMode) {
+        console.warn("[wireDependencies] MONGODB_URI not set; using local fallback");
+    }
+
+    await mongoose.connect(effectiveMongoUri);
 
     if (!mongoose.connection.db) {
         throw new Error("MongoDB connection not established");
@@ -44,7 +61,14 @@ export async function wireDependencies() {
     const passkeyRepository = new MongoPasskeyRepository();
 
     const cryptoService = new BunCryptoService();
-    const blockchainAnchor = new MockBlockchainAnchor();
+    const useMockBlockchain =
+        process.env.USE_MOCK_BLOCKCHAIN === "true" ||
+        process.env.NODE_ENV === "test" ||
+        process.env.E2E_TEST === "true";
+
+    const blockchainAnchor = useMockBlockchain
+        ? new MockBlockchainAnchor()
+        : new ViemBlockchainAnchor();
 
     const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService, taskManager);
     const timelineService = new TimelineServiceImpl(
@@ -52,8 +76,8 @@ export async function wireDependencies() {
         dateProvider,
         uuidProvider,
         cryptoService,
-        Family,
         childRepository,
+        passkeyRepository,
         forensicIntentRepository,
         taskManager
     );

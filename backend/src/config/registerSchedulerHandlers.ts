@@ -4,15 +4,23 @@ import { createSyncUserPendingDocsHandler } from "../scheduler/handlers/SyncUser
 import { createProcessDocumentIntegrityHandler } from "../scheduler/handlers/ProcessDocumentIntegrity";
 import { createBlockchainPublishHandler } from "../scheduler/handlers/BlockchainPublish";
 import { createProcessForensicIntentHandler } from "../scheduler/handlers/ProcessForensicIntent";
+import type { IForensicRepository } from "../domain/forensic/ports/IForensicRepository";
+import type { ICryptoService } from "../domain/shared/ports/ICryptoService";
+import type { PasskeyRepository } from "../domain/auth/ports/PasskeyRepository";
+import type { IBlockchainAnchor } from "../domain/shared/ports/IBlockchainAnchor";
+import type { ForensicIntentRepository } from "../domain/forensic/ports/ForensicIntentRepository";
+import type { ForensicService } from "../domain/forensic/service/ForensicService";
 
-export function registerSchedulerHandlers(deps: {
-    forensicRepository: any;
-    cryptoService: any;
-    passkeyRepository: any;
-    blockchainAnchor: any;
-    forensicIntentRepository: any;
-    forensicService: any;
-}) {
+type SchedulerDependencies = {
+    forensicRepository: IForensicRepository;
+    cryptoService: ICryptoService;
+    passkeyRepository: PasskeyRepository;
+    blockchainAnchor: IBlockchainAnchor;
+    forensicIntentRepository: ForensicIntentRepository;
+    forensicService: ForensicService;
+};
+
+export function registerSchedulerHandlers(deps: SchedulerDependencies) {
     taskManager.registerHandler(
         TaskType.SYNC_USER_PENDING_DOCS,
         createSyncUserPendingDocsHandler(deps.forensicRepository, taskManager)

@@ -5,9 +5,7 @@ import { TimelineItemSchema, acceptTimelineItemVisitor } from "../model/Timeline
 import { DateProvider } from "../../shared/ports/DateProvider";
 import { UuidProvider } from "../../shared/ports/UuidProvider";
 import type { ICryptoService } from "../../shared/ports/ICryptoService";
-import type { Model } from "mongoose";
-import type { IFamily } from "../../../adapters/mongo/models/FamilyModel";
-import { PasskeyModel } from "../../../adapters/mongo/models/PasskeyModel";
+import type { PasskeyRepository } from "../../auth/ports/PasskeyRepository";
 import type { ForensicIntentRecord, ForensicIntentRepository } from "../../forensic/ports/ForensicIntentRepository";
 import type { ITaskManager } from "../../shared/ports/TaskScheduler";
 import { TaskType } from "../../shared/ports/TaskScheduler";
@@ -45,8 +43,8 @@ export class TimelineServiceImpl {
         private readonly dateProvider: DateProvider,
         private readonly uuidProvider: UuidProvider,
         private readonly cryptoService: ICryptoService,
-        private readonly familyModel: Model<IFamily>,
         private readonly childRepository: ChildRepository,
+        private readonly passkeyRepository: PasskeyRepository,
         private readonly forensicIntentRepository: ForensicIntentRepository,
         private readonly taskManager: ITaskManager
     ) { }
@@ -90,11 +88,23 @@ export class TimelineServiceImpl {
         if (credentialId.length === 0) {
             throw new Error("Invalid keyId");
         }
-        const passkey = await PasskeyModel.findOne({ userId: signerId, credentialID: credentialId }).lean();
+
+        const passkeys = await this.passkeyRepository.findByUserId(signerId);
+        const passkey = passkeys.find((candidate) =>
+            Buffer.from(candidate.credentialID).equals(credentialId)
+        );
+
         if (!passkey) {
             throw new Error("Passkey not found for signer");
         }
         return Buffer.from(passkey.credentialPublicKey).toString("base64url");
+    }
+
+    private async assertChildExists(childId: string): Promise<void> {
+        const child = await this.childRepository.findById(childId);
+        if (!child) {
+            throw new Error(`Child with id ${childId} not found`);
+        }
     }
 
     async createItem(dto: CreateTimelineItemDto & {
@@ -103,6 +113,7 @@ export class TimelineServiceImpl {
         createdByName?: string;
     } & SignatureData): Promise<EncryptedTimelineItem> {
         this.assertSignatureMetadata(dto.signatureBase64, dto.timestamp, dto.keyId);
+        await this.assertChildExists(dto.childId);
         const timestamp = this.dateProvider.getIsoString();
 
         // Initial audit entry
@@ -214,6 +225,7 @@ export class TimelineServiceImpl {
         if (!existing.childIds.includes(childId)) {
             throw new Error("Child does not belong to this timeline item");
         }
+        await this.assertChildExists(childId);
 
         // Sanitize createdAt: Mongoose might have stored it as a Date or a non-ISO string
         // If it's not a valid ISO string, convert it defensively.

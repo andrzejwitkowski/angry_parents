@@ -5,8 +5,9 @@ import { RealUuidProvider } from "../../../../shared/providers/RealUuidProvider"
 import type { CreateTimelineItemDto } from "../../model/TimelineItem";
 import type { ICryptoService } from "../../../shared/ports/ICryptoService";
 import type { DateProvider } from "../../../shared/ports/DateProvider";
-import type { Model } from "mongoose";
-import type { IFamily } from "../../../../adapters/mongo/models/FamilyModel";
+import type { ChildRepository } from "../../../family/ports/ChildRepository";
+import type { PasskeyRepository } from "../../../auth/ports/PasskeyRepository";
+import { TaskStatus, TaskType } from "../../../shared/ports/TaskScheduler";
 
 // Mock Crypto Service
 class MockCryptoService implements ICryptoService {
@@ -25,20 +26,32 @@ describe("TimelineService - Timezone Regression", () => {
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
 
-        const mockFamilyModel = {
-            findById: vi.fn().mockResolvedValue({
-                parentPublicKeys: [
-                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" },
-                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-pub-key" }
-                ]
-            })
-        };
-
-        const mockChildRepository = {
+        const mockChildRepository: ChildRepository = {
+            save: vi.fn().mockImplementation(async (child) => child),
+            findAllByFamilyId: vi.fn().mockResolvedValue([]),
             findById: vi.fn().mockResolvedValue({
                 id: "child-1",
                 familyId: "family-1"
-            })
+            }),
+            delete: vi.fn().mockResolvedValue(undefined)
+        };
+
+        const mockPasskeyRepository: PasskeyRepository = {
+            save: vi.fn().mockResolvedValue(undefined),
+            findByUserId: vi.fn().mockResolvedValue([
+                {
+                    userId: "user-1",
+                    webauthnUserId: "webauthn-user-1",
+                    credentialID: new Uint8Array([107, 101, 121, 49]),
+                    credentialPublicKey: new Uint8Array([100, 101, 118]),
+                    counter: 0,
+                    createdAt: new Date(),
+                    name: "test-passkey"
+                }
+            ]),
+            findByCredentialID: vi.fn().mockResolvedValue(null),
+            countByUserId: vi.fn().mockResolvedValue(1),
+            updateCounter: vi.fn().mockResolvedValue(undefined)
         };
 
         mockDateProvider = {
@@ -51,10 +64,37 @@ describe("TimelineService - Timezone Regression", () => {
             mockDateProvider,
             new RealUuidProvider(),
             new MockCryptoService(),
-            mockFamilyModel as unknown as Model<IFamily>,
-            mockChildRepository as any,
-            { save: vi.fn() } as any,
-            { schedule: vi.fn() } as any
+            mockChildRepository,
+            mockPasskeyRepository,
+            {
+                save: vi.fn(),
+                findById: vi.fn().mockResolvedValue(null),
+                markProcessing: vi.fn().mockResolvedValue(true),
+                markCompleted: vi.fn().mockResolvedValue(undefined),
+                markRetry: vi.fn().mockResolvedValue(undefined)
+            },
+            {
+                registerHandler: vi.fn(),
+                schedule: vi.fn().mockImplementation(async (type, payload) => ({
+                    id: "task-1",
+                    type: type as TaskType,
+                    payload,
+                    payloadHash: "hash",
+                    status: TaskStatus.NEW,
+                    scheduledAt: new Date(),
+                    retryCount: 0,
+                    retryPolicy: { maxRetries: 3, initialDelayMinutes: 1 },
+                    workerId: null,
+                    lockedUntil: null,
+                    processingStartedAt: null,
+                    timeoutMinutes: 10,
+                    error: null,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                })),
+                start: vi.fn(),
+                stop: vi.fn()
+            }
         );
     });
 

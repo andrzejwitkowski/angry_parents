@@ -13,6 +13,12 @@ import { createAdminController } from "../adapters/rest/auth/AdminController";
 import { wireDependencies } from "./wireDependencies";
 import { registerSchedulerHandlers } from "./registerSchedulerHandlers";
 
+const enableTestEndpoints =
+    process.env.NODE_ENV === "test" ||
+    process.env.E2E_TEST === "true" ||
+    process.env.INTEGRATION_TEST === "true" ||
+    process.env.ENABLE_TEST_ENDPOINTS === "true";
+
 export async function createApp() {
     const deps = await wireDependencies();
 
@@ -33,10 +39,13 @@ export async function createApp() {
         forensicService: deps.forensicService,
     });
 
-    taskManager.start().catch((err: unknown) => {
+    try {
+        await taskManager.start();
+    } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error("[TaskManager] Failed to start:", message);
-    });
+        throw new Error(`TaskManager startup failed: ${message}`);
+    }
 
     const app = new Elysia();
     const finalApp = app
@@ -103,45 +112,46 @@ export async function createApp() {
             }
             return Bun.file("backend/src/assets/children.jpg");
         })
-        .get("/api/test", () => "test-ok")
-        .post("/api/test/trigger-sync", async ({ body }: { body: any }) => {
-            const { userId } = body as { userId: string };
-            await taskManager.schedule("SYNC_USER_PENDING_DOCS" as any, { userId });
-            return { status: "triggered" };
-        })
-        .post("/api/test/process-tasks", async () => {
-            let processedCount = 0;
-            const tm = taskManager as any;
-            if (tm.claimAndProcess) {
-                await tm.claimAndProcess();
-                processedCount++;
-            }
-            return { status: "processed", count: processedCount };
-        })
-        .delete("/api/test/database", async ({ set }) => {
-            const isDev = process.env.NODE_ENV !== "production";
-            if (!isDev) {
-                set.status = 403;
-                return { error: "Only available in dev mode" };
-            }
+        ;
 
-            if (mongoose.connection.db) {
-                const collections = await mongoose.connection.db.listCollections().toArray();
-                for (const col of collections) {
-                    await mongoose.connection.db.collection(col.name).deleteMany({});
+    if (enableTestEndpoints) {
+        finalApp
+            .get("/api/test", () => "test-ok")
+            .post("/api/test/trigger-sync", async ({ body }: { body: any }) => {
+                const { userId } = body as { userId: string };
+                await taskManager.schedule("SYNC_USER_PENDING_DOCS" as any, { userId });
+                return { status: "triggered" };
+            })
+            .post("/api/test/process-tasks", async () => {
+                let processedCount = 0;
+                const tm = taskManager as any;
+                if (tm.claimAndProcess) {
+                    await tm.claimAndProcess();
+                    processedCount++;
                 }
-            }
+                return { status: "processed", count: processedCount };
+            })
+            .delete("/api/test/database", async () => {
+                if (mongoose.connection.db) {
+                    const collections = await mongoose.connection.db.listCollections().toArray();
+                    for (const col of collections) {
+                        await mongoose.connection.db.collection(col.name).deleteMany({});
+                    }
+                }
 
-            if ((deps.timelineRepository as any).clear) (deps.timelineRepository as any).clear();
-            if ((deps.custodyRepository as any).deleteAll) (deps.custodyRepository as any).deleteAll();
-            if ((deps.passkeyRepository as any).clear) (deps.passkeyRepository as any).clear();
-            if ((deps.blockchainAnchor as any).reset) (deps.blockchainAnchor as any).reset();
+                if ((deps.timelineRepository as any).clear) (deps.timelineRepository as any).clear();
+                if ((deps.custodyRepository as any).deleteAll) (deps.custodyRepository as any).deleteAll();
+                if ((deps.passkeyRepository as any).clear) (deps.passkeyRepository as any).clear();
+                if ((deps.blockchainAnchor as any).reset) (deps.blockchainAnchor as any).reset();
 
-            return { status: "cleared" };
-        })
-        .get("/api/test/routes", () => {
-            return (globalThis as any).app?.routes;
-        });
+                return { status: "cleared" };
+            })
+            .get("/api/test/routes", () => {
+                return finalApp.routes;
+            });
+    }
+
+    (globalThis as any).app = finalApp;
 
     return { app: finalApp, deps };
 }

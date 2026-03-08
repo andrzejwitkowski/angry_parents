@@ -18,7 +18,7 @@ export async function resolveSessionUser(request: Request): Promise<SessionUser 
 
         return {
             id: payload.userId as string,
-            name: payload.role as string,
+            name: (payload.name as string) || (payload.email as string) || "Unknown",
             email: payload.email as string,
             role: payload.role as string,
             familyId: payload.familyId as string,

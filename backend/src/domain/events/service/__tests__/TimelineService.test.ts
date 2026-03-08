@@ -5,8 +5,10 @@ import { RealDateProvider } from "../../../../shared/providers/RealDateProvider"
 import { RealUuidProvider } from "../../../../shared/providers/RealUuidProvider";
 import type { CreateTimelineItemDto } from "../../model/TimelineItem";
 import type { ICryptoService } from "../../../shared/ports/ICryptoService";
-import type { Model } from "mongoose";
-import type { IFamily } from "../../../../adapters/mongo/models/FamilyModel";
+import type { PasskeyRepository } from "../../../auth/ports/PasskeyRepository";
+import type { ChildRepository } from "../../../family/ports/ChildRepository";
+import type { ForensicIntentRepository } from "../../../forensic/ports/ForensicIntentRepository";
+import type { ITaskManager } from "../../../shared/ports/TaskScheduler";
 
 // Mock Crypto Service that just returns a predictable string
 class MockCryptoService implements ICryptoService {
@@ -20,38 +22,56 @@ class MockCryptoService implements ICryptoService {
 describe("TimelineService", () => {
     let service: TimelineServiceImpl;
     let repository: InMemoryTimelineRepository;
-    let mockFamilyModel: Partial<Model<IFamily>>;
-    let mockChildRepository: any;
-    let mockForensicIntentRepository: any;
-    let mockTaskManager: any;
+    let mockChildRepository: ChildRepository;
+    let mockPasskeyRepository: PasskeyRepository;
+    let mockForensicIntentRepository: ForensicIntentRepository;
+    let mockTaskManager: ITaskManager;
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
 
-        // Setup mock family model that returns 2 valid parent public keys
-        mockFamilyModel = {
-            findById: vi.fn().mockResolvedValue({
-                parentPublicKeys: [
-                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" },
-                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-pub-key" }
-                ]
-            })
-        };
-
         mockChildRepository = {
+            save: vi.fn().mockImplementation(async (child) => child),
+            findAllByFamilyId: vi.fn().mockResolvedValue([]),
             findById: vi.fn().mockImplementation((id: string) => Promise.resolve({
                 id,
                 familyId: 'family1',
                 momId: 'mom-1',
                 dadId: 'dad-1'
-            }))
+            })),
+            delete: vi.fn().mockResolvedValue(undefined)
+        };
+
+        mockPasskeyRepository = {
+            save: vi.fn().mockResolvedValue(undefined),
+            findByUserId: vi.fn().mockResolvedValue([
+                {
+                    userId: "user-123",
+                    webauthnUserId: "webauthn-user-123",
+                    credentialID: new Uint8Array([107, 101, 121, 49]),
+                    credentialPublicKey: new Uint8Array([100, 101, 118]),
+                    counter: 0,
+                    createdAt: new Date(),
+                    name: "test-passkey"
+                }
+            ]),
+            findByCredentialID: vi.fn().mockResolvedValue(null),
+            countByUserId: vi.fn().mockResolvedValue(1),
+            updateCounter: vi.fn().mockResolvedValue(undefined)
         };
 
         mockForensicIntentRepository = {
-            save: vi.fn().mockResolvedValue(undefined)
+            save: vi.fn().mockResolvedValue(undefined),
+            findById: vi.fn().mockResolvedValue(null),
+            markProcessing: vi.fn().mockResolvedValue(true),
+            markCompleted: vi.fn().mockResolvedValue(undefined),
+            markRetry: vi.fn().mockResolvedValue(undefined)
         };
         mockTaskManager = {
-            schedule: vi.fn().mockResolvedValue({ id: "task-1" })
+            registerHandler: vi.fn(),
+            schedule: vi.fn().mockResolvedValue({ id: "task-1" }),
+            start: vi.fn(),
+            stop: vi.fn()
         };
 
         service = new TimelineServiceImpl(
@@ -59,8 +79,8 @@ describe("TimelineService", () => {
             new RealDateProvider(),
             new RealUuidProvider(),
             new MockCryptoService(),
-            mockFamilyModel as Model<IFamily>,
             mockChildRepository,
+            mockPasskeyRepository,
             mockForensicIntentRepository,
             mockTaskManager
         );

@@ -11,7 +11,7 @@ export const createChildController = (service: FamilyApiService) => new Elysia({
         try {
             return await service.getAllChildren(user);
         } catch (error) {
-            set.status = (error as any)?.status ?? 401;
+            set.status = (error as any)?.status ?? 500;
             return { error: formatErrorResponse(error) };
         }
     })

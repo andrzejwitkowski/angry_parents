@@ -5,6 +5,8 @@ import { RealDateProvider } from "../../../../shared/providers/RealDateProvider"
 import { RealUuidProvider } from "../../../../shared/providers/RealUuidProvider";
 import { InMemoryChildRepository } from "../../../../adapters/mongo/inmemory/family/InMemoryChildRepository";
 import type { CreateTimelineItemDto } from "../../model/TimelineItem";
+import type { PasskeyRepository } from "../../../auth/ports/PasskeyRepository";
+import { TaskStatus, TaskType } from "../../../shared/ports/TaskScheduler";
 
 describe("Timeline Audit System", () => {
     let service: TimelineServiceImpl;
@@ -28,26 +30,50 @@ describe("Timeline Audit System", () => {
             encryptRSA: async (text: string, key: string) => `rsa_encrypted_${text}_with_${key}`
         } as any;
 
-        const mockFamilyModel = {
-            findById: async () => ({
-                id: "family-1",
-                parentIds: ["mom-1", "dad-1"],
-                parents: [
-                    { id: "mom-1", role: "ADMIN", publicKeyParams: { x: "x1", y: "y1" } },
-                    { id: "dad-1", role: "USER", publicKeyParams: { x: "x2", y: "y2" } }
-                ],
-                parentPublicKeys: [
-                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-key" },
-                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-key" }
-                ]
-            })
-        } as any;
+        const passkeyRepository: PasskeyRepository = {
+            save: async () => { },
+            findByUserId: async () => [{
+                userId: "dad-1",
+                webauthnUserId: "webauthn-dad-1",
+                credentialID: new Uint8Array([107, 101, 121, 49]),
+                credentialPublicKey: new Uint8Array([100, 101, 118]),
+                counter: 0,
+                createdAt: new Date(),
+                name: "test-passkey"
+            }],
+            findByCredentialID: async () => null,
+            countByUserId: async () => 1,
+            updateCounter: async () => { }
+        };
 
         const forensicIntentRepository = {
             save: async () => { },
+            findById: async () => null,
+            markProcessing: async () => true,
+            markCompleted: async () => { },
+            markRetry: async () => { }
         } as any;
         const taskManager = {
-            schedule: async () => ({ id: "task-1" })
+            registerHandler: async () => { },
+            schedule: async (type: unknown, payload: unknown) => ({
+                id: "task-1",
+                type: type as TaskType,
+                payload,
+                payloadHash: "hash",
+                status: TaskStatus.NEW,
+                scheduledAt: new Date(),
+                retryCount: 0,
+                retryPolicy: { maxRetries: 3, initialDelayMinutes: 1 },
+                workerId: null,
+                lockedUntil: null,
+                processingStartedAt: null,
+                timeoutMinutes: 10,
+                error: null,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }),
+            start: async () => { },
+            stop: async () => { }
         } as any;
 
         service = new TimelineServiceImpl(
@@ -55,8 +81,8 @@ describe("Timeline Audit System", () => {
             new RealDateProvider(),
             new RealUuidProvider(),
             mockCryptoService,
-            mockFamilyModel,
             childRepo,
+            passkeyRepository,
             forensicIntentRepository,
             taskManager
         );

@@ -10,7 +10,7 @@ description: Senior-level guide for developing features using Hexagonal (Ports &
 
 ## Repo Mapping (angry_parents)
 
-- Aktualny backend w tym repo używa układu `domain/<context>/{model,ports,service}` zamiast historycznego `core/ + domain/service/`.
+- Aktualny backend w tym repo używa układu `domain/<context>/{model,ports,service}` zamiast historycznego `core/ + application/`.
 - HTTP (driving adapter) pozostaje w `adapters/rest/*`.
 - Persistencja i InMemory adaptery są pod `adapters/mongo/*`.
 - Adaptery techniczne są rozdzielone na `adapters/security`, `adapters/blockchain`, `adapters/observability`.
@@ -49,51 +49,28 @@ description: Senior-level guide for developing features using Hexagonal (Ports &
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Zasada zależności:** Strzałki wskazują kierunek importów. Core NIE importuje nic z adapters ani application.
+**Zasada zależności:** Strzałki wskazują kierunek importów. Warstwa `domain/*/{model,ports}` NIE importuje nic z adapterów.
 
 ---
 
 ## 2. Struktura Katalogów
 
-```
+```text
 backend/src/
-├── core/                         # 🔴 SERCE — zero zależności od frameworków
-│   ├── domain/                   # Encje, Value Objects, reguły biznesowe
-│   │   ├── child/                # Bounded context (subdomena)
-│   │   │   ├── Child.ts          # Encja
-│   │   │   └── ChildRules.ts     # Reguły walidacji
-│   │   ├── forensic/             # Bounded context
-│   │   ├── TimelineItem.ts       # Encja + DTO
-│   │   └── Passkey.ts            # Value Object
-│   └── ports/                    # Interfejsy (kontrakty)
-│       ├── ChildRepository.ts    # Port OUT (driven)
-│       ├── TimelineRepository.ts # Port OUT + Service Port
-│       ├── DateProvider.ts       # Port OUT (utility)
-│       ├── UuidProvider.ts       # Port OUT (utility)
-│       ├── ICryptoService.ts     # Port OUT
-│       └── IBlockchainAnchor.ts  # Port OUT
-├── domain/service/                  # 🟡 USE CASES — orkiestracja
-│   ├── ChildService.ts           # Implementacja use cases
-│   ├── ScheduleService.ts
-│   ├── TimelineService.ts
-│   ├── ForensicService.ts
-│   └── __tests__/                # Testy z InMemory adapterami
-├── adapters/                     # 🟢 INFRASTRUKTURA
-│   ├── primary/                  # Driving (wejście do systemu)
-│   │   ├── ChildController.ts    # HTTP routes → wywołuje Application Service
-│   │   ├── TimelineController.ts
-│   │   ├── AuthController.ts
-│   │   └── __tests__/
-│   └── secondary/                # Driven (wyjście z systemu)
-│       ├── MongoChildRepository.ts       # Implementacja produkcyjna
-│       ├── InMemoryChildRepository.ts    # Implementacja testowa
-│       ├── RealDateProvider.ts           # Implementacja produkcyjna
-│       ├── BunCryptoService.ts
-│       ├── MockBlockchainAnchor.ts       # Test double
-│       └── __tests__/
-├── lib/                          # Narzędzia techniczne (i18n, auth)
-├── models/                       # Mongoose schemas (TYLKO w adapters!)
-└── index.ts                      # Composition Root — wiring DI
+├── adapters/
+│   ├── rest/                     # HTTP controllers (thin)
+│   ├── mongo/                    # models + repositories + inmemory
+│   ├── security/
+│   ├── blockchain/
+│   └── observability/
+├── config/                       # composition root (wiring + scheduler)
+├── domain/
+│   └── <context>/
+│       ├── model/
+│       ├── ports/
+│       └── service/
+├── shared/providers/
+└── index.ts
 ```
 
 ---
@@ -194,11 +171,11 @@ export interface UuidProvider {
 
 ### Wzorzec — Application Service:
 ```typescript
-// domain/service/ChildService.ts
-import { Child } from "../domain/child/Child";
-import { ChildRepository } from "../domain/shared/ports/ChildRepository";
-import { TimelineRepository } from "../domain/shared/ports/TimelineRepository";
-import { UuidProvider } from "../domain/shared/ports/UuidProvider";
+// domain/family/service/ChildService.ts
+import { Child } from "../model/Child";
+import { ChildRepository } from "../ports/ChildRepository";
+import { TimelineRepository } from "../../events/ports/TimelineRepository";
+import { UuidProvider } from "../../shared/ports/UuidProvider";
 
 export class ChildService {
     constructor(
@@ -238,20 +215,20 @@ export class ChildService {
 
 ### Wzorzec — Primary Adapter (Controller):
 ```typescript
-// adapters/rest/ChildController.ts
+// adapters/rest/family/ChildController.ts
 import { Elysia } from "elysia";
-import { ChildService } from "../../domain/service/ChildService";
+import { FamilyApiService } from "../../../domain/family/service/FamilyApiService";
 
-export const createChildController = (childService: ChildService) => {
+export const createChildController = (service: FamilyApiService) => {
     return new Elysia({ prefix: "/api/children" })
         .get("/", async ({ query }) => {
             const { familyId } = query as { familyId: string };
-            return await childService.getAllChildren(familyId);
+            return await service.getAllChildren({ id: "u1", familyId } as any);
         })
         .post("/", async ({ body, set }) => {
             try {
                 const { familyId, ...childData } = body as any;
-                const child = await childService.addChild(familyId, childData);
+                const child = await service.addChild(childData, { id: "u1", familyId } as any);
                 set.status = 201;
                 return child;
             } catch (error) {
@@ -436,8 +413,8 @@ Kolejność implementacji (bottom-up):
 - [ ] **2. Port Interface** — `domain/shared/ports/[Feature]Repository.ts` — kontrakt
 - [ ] **3. InMemory Adapter** — `adapters/mongo/InMemory[Feature]Repository.ts` — do testów
 - [ ] **4. Unit Testy Domeny** — `domain/[feature]/__tests__/` — zero zależności
-- [ ] **5. Application Service** — `domain/service/[Feature]Service.ts` — use cases z DI
-- [ ] **6. Unit Testy Serwisu** — `domain/service/__tests__/[Feature]Service.test.ts` — z InMemory
+- [ ] **5. Application Service** — `domain/<context>/service/[Feature]Service.ts` — use cases z DI
+- [ ] **6. Unit Testy Serwisu** — `domain/<context>/service/__tests__/[Feature]Service.test.ts` — z InMemory
 - [ ] **7. Mongo Adapter** — `adapters/mongo/Mongo[Feature]Repository.ts` — implementacja prod
 - [ ] **8. Mongoose Model** — `models/[Feature].ts` — schema
 - [ ] **9. Primary Adapter** — `adapters/rest/[Feature]Controller.ts` — HTTP routes
@@ -469,7 +446,7 @@ src/
 ├── hooks/             # Custom hooks — logika UI
 ├── components/        # Prezentacja — shadcn/ui + Tailwind
 ├── pages/             # Orkiestracja route'ów
-└── types/             # Współdzielone typy (mogą być importowane z backend/core/domain)
+└── types/             # Współdzielone typy (mogą być importowane z backend/src/domain/*/model)
 ```
 
 **Zasada:** Komponenty React NIE wywołują `fetch` bezpośrednio. Używamy `lib/api/` klienta jako warstwy abstrakcji.

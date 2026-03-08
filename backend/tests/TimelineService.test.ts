@@ -3,6 +3,10 @@ import { TimelineServiceImpl } from "../src/domain/events/service/TimelineServic
 import { InMemoryTimelineRepository } from "../src/adapters/mongo/inmemory/events/InMemoryTimelineRepository";
 import { RealDateProvider } from "../src/shared/providers/RealDateProvider";
 import { RealUuidProvider } from "../src/shared/providers/RealUuidProvider";
+import type { ChildRepository } from "../src/domain/family/ports/ChildRepository";
+import type { PasskeyRepository } from "../src/domain/auth/ports/PasskeyRepository";
+import type { ForensicIntentRepository } from "../src/domain/forensic/ports/ForensicIntentRepository";
+import { TaskStatus, type ITaskManager } from "../src/domain/shared/ports/TaskScheduler";
 
 describe("TimelineService - getItemsByDateRange", () => {
     let service: TimelineServiceImpl;
@@ -14,21 +18,59 @@ describe("TimelineService - getItemsByDateRange", () => {
         encryptRSA: async (plaintext: string) => plaintext,
     } as any;
 
-    const mockFamilyModel = {
-        findById: async () => ({ parentPublicKeys: [] })
-    } as any;
+    const mockChildRepository: ChildRepository = {
+        save: async (child) => child,
+        findAllByFamilyId: async () => [],
+        findById: async () => ({ id: "child-1", familyId: "family-1", name: "Child", icon: "icon", color: "#fff" }),
+        delete: async () => undefined
+    };
 
-    const mockChildRepository = {
-        findById: async () => ({ id: "child-1", familyId: "family-1" })
-    } as any;
+    const mockPasskeyRepository: PasskeyRepository = {
+        save: async () => undefined,
+        findByUserId: async () => [{
+            userId: "user1",
+            webauthnUserId: "webauthn-user1",
+            credentialID: new Uint8Array([107, 101, 121, 49]),
+            credentialPublicKey: new Uint8Array([100, 101, 118]),
+            counter: 0,
+            createdAt: new Date(),
+            name: "test-passkey"
+        }],
+        findByCredentialID: async () => null,
+        countByUserId: async () => 1,
+        updateCounter: async () => undefined
+    };
 
-    const mockForensicIntentRepository = {
-        save: async () => undefined
-    } as any;
+    const mockForensicIntentRepository: ForensicIntentRepository = {
+        save: async () => undefined,
+        findById: async () => null,
+        markProcessing: async () => true,
+        markCompleted: async () => undefined,
+        markRetry: async () => undefined
+    };
 
-    const mockTaskManager = {
-        schedule: async () => ({ id: "task-1" })
-    } as any;
+    const mockTaskManager: ITaskManager = {
+        registerHandler: () => undefined,
+        schedule: async (type, payload) => ({
+            id: "task-1",
+            type,
+            payload,
+            payloadHash: "hash",
+            status: TaskStatus.NEW,
+            scheduledAt: new Date(),
+            retryCount: 0,
+            retryPolicy: { maxRetries: 3, initialDelayMinutes: 1 },
+            workerId: null,
+            lockedUntil: null,
+            processingStartedAt: null,
+            timeoutMinutes: 10,
+            error: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        }),
+        start: async () => undefined,
+        stop: async () => undefined
+    };
 
     const encrypted = (item: Record<string, unknown>) => ({
         ...item,
@@ -43,8 +85,8 @@ describe("TimelineService - getItemsByDateRange", () => {
             new RealDateProvider(),
             new RealUuidProvider(),
             mockCrypto,
-            mockFamilyModel,
             mockChildRepository,
+            mockPasskeyRepository,
             mockForensicIntentRepository,
             mockTaskManager
         );

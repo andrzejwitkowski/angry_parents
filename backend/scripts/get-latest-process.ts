@@ -10,4 +10,4 @@ if (!mongoose.connection.db) {
 const repo = new MongoRegistrationProcessRepository(mongoose.connection.db as any);
 const processes = await repo.findAll();
 console.log(JSON.stringify(processes[0] ?? null));
-process.exit(0);
+await mongoose.disconnect();

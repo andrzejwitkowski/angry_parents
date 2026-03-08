@@ -8,6 +8,7 @@ import { RealDateProvider } from "../src/shared/providers/RealDateProvider";
 import { ScheduleService } from "../src/domain/events/service/ScheduleService";
 import { PropagationService } from "../src/domain/events/service/PropagationService";
 import { CustodyApiService } from "../src/domain/events/service/CustodyApiService";
+import { signJwt } from "../src/lib/jwt";
 
 const repository = new InMemoryCustodyRepository();
 const scheduleRepository = new InMemoryScheduleRepository();
@@ -39,7 +40,8 @@ const testEntry = {
 const req = new Request("http://localhost:3000/api/custody", {
     method: "POST",
     headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        Cookie: `token=${await signJwt({ userId: "debug-user", familyId: "debug-family", role: "dad", gender: "dad" })}`
     },
     body: JSON.stringify([testEntry])
 });

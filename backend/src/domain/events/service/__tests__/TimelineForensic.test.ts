@@ -5,8 +5,11 @@ import { RealDateProvider } from "../../../../shared/providers/RealDateProvider"
 import { RealUuidProvider } from "../../../../shared/providers/RealUuidProvider";
 import type { CreateTimelineItemDto } from "../../model/TimelineItem";
 import type { ICryptoService } from "../../../shared/ports/ICryptoService";
-import type { Model } from "mongoose";
-import type { IFamily } from "../../../../adapters/mongo/models/FamilyModel";
+import type { PasskeyRepository } from "../../../auth/ports/PasskeyRepository";
+import type { ChildRepository } from "../../../family/ports/ChildRepository";
+import { TaskStatus, TaskType } from "../../../shared/ports/TaskScheduler";
+import type { ForensicIntentRepository } from "../../../forensic/ports/ForensicIntentRepository";
+import type { ITaskManager } from "../../../shared/ports/TaskScheduler";
 
 class MockCryptoService implements ICryptoService {
     async verifySignature(): Promise<boolean> { return true; }
@@ -24,32 +27,66 @@ describe("Timeline Forensic Integration", () => {
     beforeEach(() => {
         const repository = new InMemoryTimelineRepository();
 
-        const mockFamilyModel = {
-            findById: vi.fn().mockResolvedValue({
-                parentIds: ["mom-1", "dad-1"],
-                parentPublicKeys: [
-                    { parentId: "mom-1", role: "mom", rsaPublicKeyBase64: "mom-pub-key" },
-                    { parentId: "dad-1", role: "dad", rsaPublicKeyBase64: "dad-pub-key" }
-                ]
-            })
-        };
-
         forensicIntentSave = vi.fn().mockResolvedValue(undefined);
-        const mockForensicIntentRepository = {
-            save: forensicIntentSave
+        const mockForensicIntentRepository: ForensicIntentRepository = {
+            save: forensicIntentSave as unknown as ForensicIntentRepository["save"],
+            findById: vi.fn().mockResolvedValue(null),
+            markProcessing: vi.fn().mockResolvedValue(true),
+            markCompleted: vi.fn().mockResolvedValue(undefined),
+            markRetry: vi.fn().mockResolvedValue(undefined)
         };
-        scheduleTask = vi.fn().mockResolvedValue({ id: "task-1" });
-        const mockTaskManager = {
-            schedule: scheduleTask
+        scheduleTask = vi.fn().mockResolvedValue({
+            id: "task-1",
+            type: TaskType.PROCESS_FORENSIC_INTENT,
+            payload: { intentId: "intent-1" },
+            payloadHash: "hash",
+            status: TaskStatus.NEW,
+            scheduledAt: new Date(),
+            retryCount: 0,
+            retryPolicy: { maxRetries: 3, initialDelayMinutes: 1 },
+            workerId: null,
+            lockedUntil: null,
+            processingStartedAt: null,
+            timeoutMinutes: 10,
+            error: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+        const mockTaskManager: ITaskManager = {
+            registerHandler: vi.fn(),
+            schedule: scheduleTask as unknown as ITaskManager["schedule"],
+            start: vi.fn(),
+            stop: vi.fn()
         };
 
-        const mockChildRepository = {
+        const mockChildRepository: ChildRepository = {
+            save: vi.fn().mockImplementation(async (child) => child),
+            findAllByFamilyId: vi.fn().mockResolvedValue([]),
             findById: vi.fn().mockResolvedValue({
                 id: "child-1",
                 familyId: "family1",
                 momId: "mom-1",
                 dadId: "dad-1"
-            })
+            }),
+            delete: vi.fn().mockResolvedValue(undefined)
+        };
+
+        const mockPasskeyRepository: PasskeyRepository = {
+            save: vi.fn().mockResolvedValue(undefined),
+            findByUserId: vi.fn().mockResolvedValue([
+                {
+                    userId: "user-123",
+                    webauthnUserId: "webauthn-user-123",
+                    credentialID: new Uint8Array([107, 101, 121, 49]),
+                    credentialPublicKey: new Uint8Array([100, 101, 118]),
+                    counter: 0,
+                    createdAt: new Date(),
+                    name: "test-passkey"
+                }
+            ]),
+            findByCredentialID: vi.fn().mockResolvedValue(null),
+            countByUserId: vi.fn().mockResolvedValue(1),
+            updateCounter: vi.fn().mockResolvedValue(undefined)
         };
 
         service = new TimelineServiceImpl(
@@ -57,10 +94,10 @@ describe("Timeline Forensic Integration", () => {
             new RealDateProvider(),
             new RealUuidProvider(),
             new MockCryptoService(),
-            mockFamilyModel as unknown as Model<IFamily>,
-            mockChildRepository as any,
-            mockForensicIntentRepository as any,
-            mockTaskManager as any
+            mockChildRepository,
+            mockPasskeyRepository,
+            mockForensicIntentRepository,
+            mockTaskManager
         );
     });
 

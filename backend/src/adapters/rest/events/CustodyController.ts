@@ -1,10 +1,18 @@
 import { Elysia, t } from "elysia";
 import { CustodyApiService } from "../../../domain/events/service/CustodyApiService";
 import { formatErrorResponse } from "../common/errorMapper";
+import { resolveSessionUser } from "../common/authContext";
 
 export const createCustodyController = (service: CustodyApiService) => new Elysia({ prefix: "/api" })
-    .post("/custody/preview", ({ body, set }) => {
+    .derive(async ({ request }) => ({
+        user: await resolveSessionUser(request)
+    }))
+    .post("/custody/preview", ({ body, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return service.preview(body as any);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -28,8 +36,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             anchorDate: t.Optional(t.String())
         })
     })
-    .post("/custody", async ({ body, set }) => {
+    .post("/custody", async ({ body, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.saveEntries(body as any);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -48,8 +60,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             sourceRuleId: t.Optional(t.String())
         }))
     })
-    .get("/custody", async ({ query, set }) => {
+    .get("/custody", async ({ query, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.getResolvedCalendar(query as any);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -62,8 +78,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             childId: t.Optional(t.String())
         })
     })
-    .post("/rules", async ({ body, set }) => {
+    .post("/rules", async ({ body, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.createRule(body as any);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -87,8 +107,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             anchorDate: t.Optional(t.String())
         })
     })
-    .get("/rules", async ({ query, set }) => {
+    .get("/rules", async ({ query, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.getRules((query as any).childId);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -99,8 +123,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             childId: t.String()
         })
     })
-    .delete("/rules/:id", async ({ params, set }) => {
+    .delete("/rules/:id", async ({ params, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.deleteRule(params.id);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -111,8 +139,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             id: t.String()
         })
     })
-    .post("/rules/:id/reorder", async ({ params, body, set }) => {
+    .post("/rules/:id/reorder", async ({ params, body, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.reorderRule(params.id, (body as any).direction);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -126,8 +158,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             direction: t.Union([t.Literal("UP"), t.Literal("DOWN")])
         })
     })
-    .post("/rules/check-conflicts", async ({ body, set }) => {
+    .post("/rules/check-conflicts", async ({ body, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.checkConflicts((body as any).config, (body as any).excludeRuleId);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -155,8 +191,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             excludeRuleId: t.Optional(t.String())
         })
     })
-    .post("/rules/fill-gaps", async ({ body, set }) => {
+    .post("/rules/fill-gaps", async ({ body, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.fillGaps(body as any);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -169,8 +209,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             monthDate: t.String()
         })
     })
-    .post("/rules/propagate/dry-run", async ({ body, set }) => {
+    .post("/rules/propagate/dry-run", async ({ body, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.propagateDryRun(body as any);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
@@ -182,8 +226,12 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
             currentMonthDate: t.String()
         })
     })
-    .post("/rules/propagate", async ({ body, set }) => {
+    .post("/rules/propagate", async ({ body, set, user }) => {
         try {
+            if (!user) {
+                set.status = 401;
+                return { error: "Unauthorized" };
+            }
             return await service.propagate(body as any);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;

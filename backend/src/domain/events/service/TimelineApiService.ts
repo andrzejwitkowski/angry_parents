@@ -68,7 +68,12 @@ export class TimelineApiService {
     }
 
     async createItem(body: any, user: SessionUser | null) {
-        if (!isParentRole(user?.role)) {
+        if (!user) {
+            const error = new Error("Unauthorized");
+            (error as any).status = 401;
+            throw error;
+        }
+        if (!isParentRole(user.role)) {
             const error = new Error("Forbidden: parent role required");
             (error as any).status = 403;
             throw error;
@@ -80,8 +85,8 @@ export class TimelineApiService {
             throw error;
         }
 
-        const userId = user?.id || "anonymous";
-        const userName = user?.name || "Unknown";
+        const userId = user.id;
+        const userName = user.name || "Unknown";
 
         const item = await this.service.createItem({
             type: body.type,
@@ -97,7 +102,7 @@ export class TimelineApiService {
         } as any);
 
         const plainItem = (item as any).toObject ? (item as any).toObject() : item;
-        return selectSingleCiphertextForUser(plainItem, user.id);
+        return selectSingleCiphertextForUser(plainItem, userId);
     }
 
     async updateItem(id: string, body: any, user: SessionUser | null) {
