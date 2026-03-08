@@ -44,15 +44,15 @@ describe("TimelineService", () => {
 
         mockPasskeyRepository = {
             save: vi.fn().mockResolvedValue(undefined),
-            findByUserId: vi.fn().mockResolvedValue([
+            findByUserId: vi.fn().mockImplementation(async (userId: string) => [
                 {
-                    userId: "user-123",
-                    webauthnUserId: "webauthn-user-123",
+                    userId,
+                    webauthnUserId: `webauthn-${userId}`,
                     credentialID: new Uint8Array([107, 101, 121, 49]),
                     credentialPublicKey: new Uint8Array([100, 101, 118]),
                     counter: 0,
                     createdAt: new Date(),
-                    name: "test-passkey"
+                    name: `test-passkey-${userId}`
                 }
             ]),
             findByCredentialID: vi.fn().mockResolvedValue(null),

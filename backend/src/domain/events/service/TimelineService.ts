@@ -49,6 +49,48 @@ export class TimelineServiceImpl {
         private readonly taskManager: ITaskManager
     ) { }
 
+    private async filterItemsByFamily(
+        items: EncryptedTimelineItem[],
+        familyId?: string
+    ): Promise<EncryptedTimelineItem[]> {
+        if (!familyId) {
+            return items;
+        }
+
+        const childFamilyCache = new Map<string, string | null>();
+        const resolveChildFamilyId = async (childId: string): Promise<string | null> => {
+            if (childFamilyCache.has(childId)) {
+                return childFamilyCache.get(childId) ?? null;
+            }
+            const child = await this.childRepository.findById(childId);
+            const resolvedFamilyId = child?.familyId ?? null;
+            childFamilyCache.set(childId, resolvedFamilyId);
+            return resolvedFamilyId;
+        };
+
+        const scopedItems: EncryptedTimelineItem[] = [];
+        for (const item of items) {
+            if (!Array.isArray(item.childIds) || item.childIds.length === 0) {
+                continue;
+            }
+
+            let allChildrenBelongToFamily = true;
+            for (const childId of item.childIds) {
+                const childFamilyId = await resolveChildFamilyId(childId);
+                if (childFamilyId !== familyId) {
+                    allChildrenBelongToFamily = false;
+                    break;
+                }
+            }
+
+            if (allChildrenBelongToFamily) {
+                scopedItems.push(item);
+            }
+        }
+
+        return scopedItems;
+    }
+
     private async saveWithForensicIntent(
         persist: (session?: unknown) => Promise<EncryptedTimelineItem | void>,
         intent: ForensicIntentRecord
@@ -169,7 +211,7 @@ export class TimelineServiceImpl {
         ) as Promise<EncryptedTimelineItem>;
     }
 
-    async getItemsByDate(date: string): Promise<EncryptedTimelineItem[]> {
+    async getItemsByDate(date: string, familyId?: string): Promise<EncryptedTimelineItem[]> {
         // Validate date format
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             throw new Error("Invalid date format. Expected YYYY-MM-DD");
@@ -177,14 +219,15 @@ export class TimelineServiceImpl {
 
         const allItems = await this.repository.findByDate(date);
         const items = allItems.filter(item => !item.isDeleted);
+        const scopedItems = await this.filterItemsByFamily(items, familyId);
 
         // Sort by creation time (newest first)
-        return items.sort((a, b) =>
+        return scopedItems.sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
     }
 
-    async getItemsByDateRange(from: string, to: string): Promise<EncryptedTimelineItem[]> {
+    async getItemsByDateRange(from: string, to: string, familyId?: string): Promise<EncryptedTimelineItem[]> {
         // Validate date formats
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(from) || !dateRegex.test(to)) {
@@ -193,9 +236,10 @@ export class TimelineServiceImpl {
 
         const allItems = await this.repository.findByDateRange(from, to);
         const items = allItems.filter(item => !item.isDeleted);
+        const scopedItems = await this.filterItemsByFamily(items, familyId);
 
         // Sort by date (ascending) then by creation time (newest first)
-        return items.sort((a, b) => {
+        return scopedItems.sort((a, b) => {
             if (a.date !== b.date) {
                 return a.date.localeCompare(b.date);
             }

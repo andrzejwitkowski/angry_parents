@@ -41,7 +41,12 @@ export class FamilyApiService {
             (error as any).status = 403;
             throw error;
         }
-        return this.childService.updateChild(id, body as any);
+        const safeUpdates = {
+            name: typeof body.name === "string" ? body.name : undefined,
+            icon: typeof body.icon === "string" ? body.icon : undefined,
+            color: typeof body.color === "string" ? body.color : undefined
+        };
+        return this.childService.updateChild(id, safeUpdates);
     }
 
     async deleteChild(id: string, user: SessionUser | null) {

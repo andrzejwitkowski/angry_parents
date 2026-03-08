@@ -7,13 +7,13 @@ export const createCustodyController = (service: CustodyApiService) => new Elysi
     .derive(async ({ request }) => ({
         user: await resolveSessionUser(request)
     }))
-    .post("/custody/preview", ({ body, set, user }) => {
+    .post("/custody/preview", async ({ body, set, user }) => {
         try {
             if (!user) {
                 set.status = 401;
                 return { error: "Unauthorized" };
             }
-            return service.preview(body as any);
+            return await service.preview(body as any);
         } catch (error) {
             set.status = (error as any)?.status ?? 500;
             return { error: formatErrorResponse(error) };

@@ -48,7 +48,12 @@ export class TimelineApiService {
             (error as any).status = 403;
             throw error;
         }
-        const items = await this.service.getItemsByDate(date);
+        if (!user.familyId) {
+            const error = new Error("Unauthorized: No family assigned");
+            (error as any).status = 401;
+            throw error;
+        }
+        const items = await this.service.getItemsByDate(date, user.familyId);
         return { items: selectCiphertextForUser(items, user.id) };
     }
 
@@ -63,7 +68,12 @@ export class TimelineApiService {
             (error as any).status = 403;
             throw error;
         }
-        const items = await this.service.getItemsByDateRange(from, to);
+        if (!user.familyId) {
+            const error = new Error("Unauthorized: No family assigned");
+            (error as any).status = 401;
+            throw error;
+        }
+        const items = await this.service.getItemsByDateRange(from, to, user.familyId);
         return { items: selectCiphertextForUser(items, user.id) };
     }
 
@@ -79,8 +89,8 @@ export class TimelineApiService {
             throw error;
         }
 
-        if (!body.signatureBase64 || !body.timestamp || !body.keyId) {
-            const error = new Error("signatureBase64, timestamp, and keyId are required for data integrity");
+        if (!body.childId || !body.signatureBase64 || !body.timestamp || !body.keyId) {
+            const error = new Error("childId, signatureBase64, timestamp, and keyId are required for data integrity");
             (error as any).status = 400;
             throw error;
         }

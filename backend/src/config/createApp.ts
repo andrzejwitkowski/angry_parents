@@ -12,14 +12,15 @@ import { createChildController } from "../adapters/rest/family/ChildController";
 import { createAdminController } from "../adapters/rest/auth/AdminController";
 import { wireDependencies } from "./wireDependencies";
 import { registerSchedulerHandlers } from "./registerSchedulerHandlers";
-
-const enableTestEndpoints =
-    process.env.NODE_ENV === "test" ||
-    process.env.E2E_TEST === "true" ||
-    process.env.INTEGRATION_TEST === "true" ||
-    process.env.ENABLE_TEST_ENDPOINTS === "true";
+import { TaskType } from "../domain/shared/ports/TaskScheduler";
 
 export async function createApp() {
+    const enableTestEndpoints =
+        process.env.NODE_ENV === "test" ||
+        process.env.E2E_TEST === "true" ||
+        process.env.INTEGRATION_TEST === "true" ||
+        process.env.ENABLE_TEST_ENDPOINTS === "true";
+
     const deps = await wireDependencies();
 
     const timelineController = createTimelineController(deps.timelineApiService);
@@ -119,7 +120,7 @@ export async function createApp() {
             .get("/api/test", () => "test-ok")
             .post("/api/test/trigger-sync", async ({ body }: { body: any }) => {
                 const { userId } = body as { userId: string };
-                await taskManager.schedule("SYNC_USER_PENDING_DOCS" as any, { userId });
+                await taskManager.schedule(TaskType.SYNC_USER_PENDING_DOCS, { userId });
                 return { status: "triggered" };
             })
             .post("/api/test/process-tasks", async () => {
