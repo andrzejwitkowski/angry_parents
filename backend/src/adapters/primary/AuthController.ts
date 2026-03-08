@@ -89,9 +89,10 @@ async function consumeAuthChallenge(kind: AuthChallengeKind, key: string): Promi
             expiresAt: { $gt: new Date() }
         });
 
-        if (result?.challenge) {
+        const doc = result?.value as { challenge?: string } | null | undefined;
+        if (doc?.challenge) {
             fallbackChallenges.delete(challengeCacheKey(kind, key));
-            return result.challenge;
+            return doc.challenge;
         }
 
         return null;
