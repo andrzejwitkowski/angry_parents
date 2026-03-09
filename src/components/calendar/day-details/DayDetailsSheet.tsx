@@ -49,7 +49,7 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, activeChildId: ex
     const displayDate = date ? format(date, "EEEE, do LLLL yyyy", { locale: currentLocale }) : "";
 
     const fetchItems = useCallback(async () => {
-        if (!formattedDate) return;
+        if (!formattedDate || isLocked) return;
         const fetchVersion = ++fetchVersionRef.current;
         setLoading(true);
         setError(null);
@@ -71,10 +71,10 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, activeChildId: ex
     }, [formattedDate, isLocked]);
 
     useEffect(() => {
-        if (isOpen && formattedDate) {
+        if (isOpen && formattedDate && !isLocked) {
             fetchItems();
         }
-    }, [isOpen, formattedDate, fetchItems]);
+    }, [isOpen, formattedDate, isLocked, fetchItems]);
 
     useEffect(() => {
         if (!isLocked) {
