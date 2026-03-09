@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  test-stack:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval \"db.adminCommand('ping')\""
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate branch version mode
+        if: ${{ github.ref_name != 'main' }}
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: bun run version:check
+
+      - name: Build application
+        run: bun run build
+
+      - name: Run unit tests
+        run: bun run test
+
+      - name: Run integration tests
+        run: bun run test:integration
+
+      - name: Run backend e2e tests
+        run: bun run test:e2e

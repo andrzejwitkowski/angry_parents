@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+
+BRANCH_NAME=$(git branch --show-current)
+
+if [ -z "$BRANCH_NAME" ]; then
+  echo "Skipping version mode check because the current HEAD is detached."
+  exit 0
+fi
+
+bun run version:check --branch "$BRANCH_NAME"
