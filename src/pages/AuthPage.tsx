@@ -11,7 +11,8 @@ import { authApi, type Gender } from '@/lib/api/auth';
 import { loginWithPasskey, registerPasskey } from '@/lib/webauthn-client';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 import { useSecurity } from '@/context/SecurityContext';
-import { hasStoredPrivateKey } from '@/lib/e2ee-session';
+import { bootstrapDevSessionKey, hasStoredPrivateKey } from '@/lib/e2ee-session';
+import { isDevEnvironment } from '@/lib/environment';
 
 export default function AuthPage() {
     const { t } = useTranslation();
@@ -104,8 +105,9 @@ export default function AuthPage() {
         try {
             const result = await authApi.devMockLogin();
             if (result.verified) {
-                const refreshed = await refreshE2eeSessionState();
                 const userId = getCurrentUserId();
+                await bootstrapDevSessionKey(userId);
+                const refreshed = await refreshE2eeSessionState();
                 if (refreshed && await hasStoredPrivateKey(userId)) {
                     unlockSession();
                     clearExpiryFlag();
@@ -164,7 +166,7 @@ export default function AuthPage() {
                                     {t("auth.loginWithKey")}
                                 </Button>
 
-                                {import.meta.env.DEV && (
+                                {isDevEnvironment() && (
                                     <Button
                                         variant="outline"
                                         className="w-full border-dashed border-slate-300"
@@ -262,7 +264,7 @@ export default function AuthPage() {
                                         {isLoading ? t("auth.registering") : t("auth.registerWithKey")}
                                     </Button>
 
-                                    {import.meta.env.DEV && (
+                                    {isDevEnvironment() && (
                                         <Button
                                             variant="outline"
                                             className="w-full border-dashed border-slate-300"
@@ -283,8 +285,9 @@ export default function AuthPage() {
                                                         token: token || undefined
                                                     });
                                                     if (result.verified) {
-                                                        const refreshed = await refreshE2eeSessionState();
                                                         const userId = getCurrentUserId();
+                                                        await bootstrapDevSessionKey(userId);
+                                                        const refreshed = await refreshE2eeSessionState();
                                                         if (refreshed && await hasStoredPrivateKey(userId)) {
                                                             unlockSession();
                                                             clearExpiryFlag();

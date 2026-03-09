@@ -1,10 +1,12 @@
 import { describe, test, expect, beforeEach, jest, mock } from "bun:test";
 
 const getPrivateKeyMock = jest.fn().mockResolvedValue({ type: "private" } as any);
+const savePrivateKeyMock = jest.fn().mockResolvedValue(undefined);
 
 mock.module("@/lib/idb-crypto", () => ({
     getPrivateKey: getPrivateKeyMock,
     clearPrivateKey: jest.fn().mockResolvedValue(undefined),
+    savePrivateKey: savePrivateKeyMock,
 }));
 
 mock.module("@/lib/api/auth", () => ({
@@ -28,5 +30,13 @@ describe("e2ee-session", () => {
 
         expect(key).toBeNull();
         expect(getPrivateKeyMock).not.toHaveBeenCalled();
+    });
+
+    test("bootstrapDevSessionKey stores a dev key for the current user", async () => {
+        const session = await import("./e2ee-session");
+
+        await session.bootstrapDevSessionKey("user-1");
+
+        expect(savePrivateKeyMock).toHaveBeenCalledWith("user-1", expect.anything());
     });
 });

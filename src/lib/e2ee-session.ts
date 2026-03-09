@@ -1,4 +1,4 @@
-import { clearPrivateKey, getPrivateKey } from "@/lib/idb-crypto";
+import { clearPrivateKey, getPrivateKey, savePrivateKey } from "@/lib/idb-crypto";
 import { authApi } from "@/lib/api/auth";
 
 let cachedTimelinePrivateKey: CryptoKey | null = null;
@@ -71,6 +71,29 @@ export async function clearActivePrivateKey(userId?: string | null): Promise<voi
     }
 
     await clearPrivateKey(resolvedUserId);
+}
+
+export async function bootstrapDevSessionKey(userId?: string | null): Promise<string | null> {
+    const resolvedUserId = userId ?? await resolveActiveUserId();
+    if (!resolvedUserId) {
+        return null;
+    }
+
+    const devPrivateKey = await window.crypto.subtle.generateKey(
+        {
+            name: "RSA-OAEP",
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash: "SHA-256",
+        },
+        false,
+        ["decrypt", "unwrapKey"]
+    );
+
+    await savePrivateKey(resolvedUserId, devPrivateKey.privateKey);
+    setActiveE2eeUserId(resolvedUserId);
+    markE2eeSessionUnlocked();
+    return resolvedUserId;
 }
 
 export async function getTimelinePrivateKey(): Promise<CryptoKey | null> {

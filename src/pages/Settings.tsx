@@ -21,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
 import { loginWithPasskey } from "@/lib/webauthn-client";
 import { useSecurity } from "@/context/SecurityContext";
-import { hasStoredPrivateKey } from "@/lib/e2ee-session";
+import { bootstrapDevSessionKey, hasStoredPrivateKey } from "@/lib/e2ee-session";
+import { isDevEnvironment } from "@/lib/environment";
 
 interface UserProfile {
     id: string;
@@ -100,6 +101,26 @@ export default function Settings() {
         } catch (e) {
             setUnlockError(e instanceof Error ? e.message : t('settings.encryption.locked'));
             console.error("Unlock failed", e);
+        } finally {
+            setIsUnlocking(false);
+        }
+    };
+
+    const handleDevUnlock = async () => {
+        if (!user) return;
+        setIsUnlocking(true);
+        setUnlockError(null);
+        try {
+            await bootstrapDevSessionKey(user.id);
+            const refreshed = await refreshE2eeSessionState();
+            if (refreshed && await hasStoredPrivateKey(user.id)) {
+                unlockSession();
+                clearExpiryFlag();
+            } else {
+                setUnlockError(t('common.privateKeyMissing'));
+            }
+        } catch (e) {
+            setUnlockError(e instanceof Error ? e.message : t('settings.encryption.locked'));
         } finally {
             setIsUnlocking(false);
         }
@@ -202,6 +223,19 @@ export default function Settings() {
                                             <Lock className="w-4 h-4 mr-2" />
                                             {isUnlocking ? t("settings.encryption.unlocking") : t('settings.encryption.unlockButton')}
                                         </Button>
+                                        {isDevEnvironment() && (
+                                            <Button
+                                                data-testid="dev-unlock-button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="w-full mt-2 border-dashed border-slate-300"
+                                                onClick={handleDevUnlock}
+                                                disabled={isUnlocking}
+                                            >
+                                                <ShieldCheck className="w-4 h-4 mr-2" />
+                                                {t('passkey.devSimulateKey')}
+                                            </Button>
+                                        )}
                                         {unlockError && (
                                             <p className="mt-2 text-xs text-red-600" data-testid="settings-unlock-error">{unlockError}</p>
                                         )}
