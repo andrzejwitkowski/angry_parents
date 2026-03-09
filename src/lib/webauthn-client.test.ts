@@ -47,15 +47,14 @@ mock.module("./idb-crypto", () => ({
   savePrivateKey: savePrivateKeyMock,
 }));
 
-mock.module("./crypto-utils", () => ({
-  generateRSAKeyPair: generateRSAKeyPairMock,
-  deriveMasterKey: deriveMasterKeyMock,
-  wrapPrivateKey: wrapPrivateKeyMock,
-  unwrapPrivateKey: unwrapPrivateKeyMock,
-  bytesToBase64: bytesToBase64Mock,
-}));
-
-import { isPrfSupported, checkHasPasskey, loginWithPasskey, registerPasskeyForLoggedInUser } from "./webauthn-client";
+import {
+  __resetWebauthnClientDepsForTests,
+  __setWebauthnClientDepsForTests,
+  checkHasPasskey,
+  isPrfSupported,
+  loginWithPasskey,
+  registerPasskeyForLoggedInUser,
+} from "./webauthn-client";
 
 describe("isPrfSupported", () => {
   const originalPublicKeyCredential = (window as any).PublicKeyCredential;
@@ -72,11 +71,23 @@ describe("isPrfSupported", () => {
     savePrivateKeyMock.mockClear();
     deriveMasterKeyMock.mockClear();
     wrapPrivateKeyMock.mockClear();
+    unwrapPrivateKeyMock.mockClear();
+    generateRSAKeyPairMock.mockClear();
+    bytesToBase64Mock.mockClear();
+
+    __setWebauthnClientDepsForTests({
+      generateRSAKeyPair: generateRSAKeyPairMock as any,
+      deriveMasterKey: deriveMasterKeyMock as any,
+      wrapPrivateKey: wrapPrivateKeyMock as any,
+      unwrapPrivateKey: unwrapPrivateKeyMock as any,
+      bytesToBase64: bytesToBase64Mock as any,
+    });
   });
 
   afterEach(() => {
     (window as any).PublicKeyCredential = originalPublicKeyCredential;
     globalThis.fetch = originalFetch;
+    __resetWebauthnClientDepsForTests();
   });
 
   it("returns true when PRF capability is reported directly", async () => {

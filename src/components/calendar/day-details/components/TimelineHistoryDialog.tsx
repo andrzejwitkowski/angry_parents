@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -44,6 +45,9 @@ export function TimelineHistoryDialog({ item, trigger }: TimelineHistoryDialogPr
                         <History className="w-5 h-5" />
                         {t("timeline.auditLog")}
                     </DialogTitle>
+                    <DialogDescription className="sr-only">
+                        {t("timeline.auditLogDescription")}
+                    </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="pr-4 mt-4">
                     <div className="space-y-6 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">

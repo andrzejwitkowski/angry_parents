@@ -44,6 +44,7 @@
         "incident.confirmDelete": "Czy na pewno chcesz usunąć ten incydent?",
         "vacation.confirmDelete": "Czy na pewno chcesz usunąć te wakacje?",
         "timeline.auditLog": "Historia Zmian",
+        "timeline.auditLogDescription": "Pokazuje pełną historię zmian dla tego elementu osi czasu.",
         "timeline.clickToShowHistory": "Kliknij, aby pokazać pełną historię",
         "timeline.fieldChanges": "Zmienione pola",
         "timeline.action.CREATED": "Utworzono",

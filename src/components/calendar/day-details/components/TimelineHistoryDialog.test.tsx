@@ -101,4 +101,35 @@ describe('TimelineHistoryDialog', () => {
         // Check for "No children assigned" text
         expect(screen.getAllByText('No children assigned').length).toBeGreaterThan(0);
     });
+
+    it('renders an accessible dialog description', async () => {
+        render(
+            <I18nextProvider i18n={i18n}>
+                <TimelineHistoryDialog item={mockItem} trigger={<button>Open History</button>} />
+            </I18nextProvider>
+        );
+
+        fireEvent.click(screen.getByText('Open History'));
+
+        await waitFor(() => {
+            const dialog = screen.getByRole('dialog');
+            const describedBy = dialog.getAttribute('aria-describedby');
+
+            expect(describedBy).toBeTruthy();
+            const descriptionIds = describedBy!.split(/\s+/).filter(Boolean);
+            const descriptions = descriptionIds
+                .map(id => document.getElementById(id) as HTMLElement | null)
+                .filter((el): el is HTMLElement => el !== null);
+
+            expect(descriptions.length).toBeGreaterThan(0);
+
+            const matchingDescription = descriptions.find(el =>
+                el.textContent?.includes(i18n.t('timeline.auditLogDescription'))
+            );
+
+            expect(matchingDescription).toBeTruthy();
+            expect(matchingDescription).toHaveTextContent(i18n.t('timeline.auditLogDescription'));
+            expect(matchingDescription).toHaveClass('sr-only');
+        }, { timeout: 2000 });
+    });
 });

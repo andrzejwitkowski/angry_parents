@@ -43,6 +43,7 @@
         "incident.confirmDelete": "Are you sure you want to delete this incident?",
         "vacation.confirmDelete": "Are you sure you want to delete this vacation?",
         "timeline.auditLog": "Modification History",
+        "timeline.auditLogDescription": "Shows the full audit trail for this timeline item.",
         "timeline.clickToShowHistory": "Click to show full history",
         "timeline.fieldChanges": "Changed fields",
         "timeline.action.CREATED": "Created",
