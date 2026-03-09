@@ -59,10 +59,12 @@ function renderDialog() {
 
 describe("SessionExpiredDialog", () => {
     let consoleErrorSpy: ReturnType<typeof jest.spyOn>;
+    let getMeMock: jest.Mock;
 
     beforeEach(() => {
         jest.clearAllMocks();
         consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => { });
+        getMeMock = require("@/lib/api/auth").authApi.getMe as jest.Mock;
         securityState.isLocked = false;
         securityState.isE2eeUnlocked = true;
         securityState.hasJustExpired = false;
@@ -78,6 +80,7 @@ describe("SessionExpiredDialog", () => {
         });
 
         expect(screen.queryByRole("dialog", { name: "Session Expired" })).toBeNull();
+        expect(getMeMock).not.toHaveBeenCalled();
     });
 
     test("opens when session just expired", async () => {

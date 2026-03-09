@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TimelineFeed } from "./TimelineFeed";
@@ -11,7 +11,6 @@ import { Loader2 } from "lucide-react";
 import type { User } from '@/types/user';
 import { useChildren } from "@/hooks/useChildren";
 import { useSecurity } from "@/context/SecurityContext";
-import { useRef } from "react";
 
 interface DayDetailsSheetProps {
     date: Date | null;

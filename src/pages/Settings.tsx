@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
 import { loginWithPasskey } from "@/lib/webauthn-client";
 import { useSecurity } from "@/context/SecurityContext";
-import { bootstrapDevSessionKey, hasStoredPrivateKey } from "@/lib/e2ee-session";
+import { bootstrapDevSessionKey } from "@/lib/e2ee-session";
 import { isDevEnvironment } from "@/lib/environment";
 
 interface UserProfile {
@@ -43,7 +43,6 @@ export default function Settings() {
         updateConfig,
         isLocked,
         isE2eeUnlocked,
-        unlockSession,
         clearExpiryFlag,
         refreshE2eeSessionState,
     } = useSecurity();
@@ -89,14 +88,11 @@ export default function Settings() {
                 setUnlockError(t('security.notification.actionLocked.desc'));
                 return;
             }
-            if (success) {
-                const refreshed = await refreshE2eeSessionState();
-                if (refreshed && await hasStoredPrivateKey(user.id)) {
-                    unlockSession();
-                    clearExpiryFlag();
-                } else {
-                    setUnlockError(t('common.privateKeyMissing'));
-                }
+            const refreshed = await refreshE2eeSessionState();
+            if (refreshed) {
+                clearExpiryFlag();
+            } else {
+                setUnlockError(t('common.privateKeyMissing'));
             }
         } catch (e) {
             setUnlockError(e instanceof Error ? e.message : t('settings.encryption.locked'));
@@ -113,8 +109,7 @@ export default function Settings() {
         try {
             await bootstrapDevSessionKey(user.id);
             const refreshed = await refreshE2eeSessionState();
-            if (refreshed && await hasStoredPrivateKey(user.id)) {
-                unlockSession();
+            if (refreshed) {
                 clearExpiryFlag();
             } else {
                 setUnlockError(t('common.privateKeyMissing'));

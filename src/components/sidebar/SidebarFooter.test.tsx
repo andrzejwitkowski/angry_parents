@@ -60,10 +60,9 @@ describe("SidebarFooter", () => {
         expect(authApi.logout).toHaveBeenCalled();
     });
 
-    test("logout still calls server logout when local key cleanup fails", async () => {
+    test("logout still clears local user state when server logout fails", async () => {
         const { authApi } = await import("@/lib/api/auth");
-        const { clearActivePrivateKey } = await import("@/lib/e2ee-session");
-        (clearActivePrivateKey as jest.Mock).mockRejectedValueOnce(new Error("cleanup failed"));
+        (authApi.logout as jest.Mock).mockRejectedValueOnce(new Error("logout failed"));
 
         render(
             <I18nextProvider i18n={i18n}>

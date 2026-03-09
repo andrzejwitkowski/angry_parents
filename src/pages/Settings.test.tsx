@@ -113,15 +113,14 @@ describe("Settings", () => {
 
         expect(loginWithPasskey).toHaveBeenCalledWith("mom@example.com");
         expect(securityState.refreshE2eeSessionState).toHaveBeenCalled();
-        expect(securityState.unlockSession).toHaveBeenCalled();
+        expect(securityState.unlockSession).not.toHaveBeenCalled();
         expect(securityState.clearExpiryFlag).toHaveBeenCalled();
     });
 
-    test("shows error when unlock does not restore key", async () => {
-        const { hasStoredPrivateKey } = await import("@/lib/e2ee-session");
+    test("shows error when refreshE2eeSessionState reports failed unlock", async () => {
         securityState.isLocked = true;
         securityState.isE2eeUnlocked = false;
-        (hasStoredPrivateKey as jest.Mock).mockResolvedValueOnce(false);
+        securityState.refreshE2eeSessionState.mockResolvedValueOnce(false);
 
         await act(async () => {
             renderSettings();
@@ -165,6 +164,24 @@ describe("Settings", () => {
 
         expect(bootstrapDevSessionKey).toHaveBeenCalledWith("user-1");
         expect(securityState.refreshE2eeSessionState).toHaveBeenCalled();
-        expect(securityState.unlockSession).toHaveBeenCalled();
+        expect(securityState.unlockSession).not.toHaveBeenCalled();
+    });
+
+    test("DEV simulated unlock shows error when refreshE2eeSessionState reports failure", async () => {
+        const { isDevEnvironment } = await import("@/lib/environment");
+        (isDevEnvironment as jest.Mock).mockReturnValue(true);
+        securityState.isLocked = true;
+        securityState.isE2eeUnlocked = false;
+        securityState.refreshE2eeSessionState.mockResolvedValueOnce(false);
+
+        await act(async () => {
+            renderSettings();
+        });
+
+        await act(async () => {
+            fireEvent.click(screen.getByTestId("dev-unlock-button"));
+        });
+
+        expect(screen.getByTestId("settings-unlock-error")).toBeInTheDocument();
     });
 });

@@ -26,6 +26,10 @@ export function SessionExpiredDialog() {
     } = useSecurity();
 
     useEffect(() => {
+        if (!(isLocked && hasJustExpired)) {
+            return;
+        }
+
         authApi.getMe()
             .then((me) => {
                 setUserEmail(me?.user?.email || null);
