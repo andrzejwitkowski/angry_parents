@@ -3,12 +3,25 @@ import { generateRSAKeyPair, deriveMasterKey, wrapPrivateKey, unwrapPrivateKey, 
 import { savePrivateKey } from "./idb-crypto";
 import { authApi, type Gender } from "./api/auth";
 
-export const webauthnClientDeps = {
+const defaultWebauthnClientDeps = {
     generateRSAKeyPair,
     deriveMasterKey,
     wrapPrivateKey,
     unwrapPrivateKey,
     bytesToBase64,
+};
+
+let webauthnClientDeps = { ...defaultWebauthnClientDeps };
+
+export const __setWebauthnClientDepsForTests = (overrides: Partial<typeof defaultWebauthnClientDeps>) => {
+    webauthnClientDeps = {
+        ...webauthnClientDeps,
+        ...overrides,
+    };
+};
+
+export const __resetWebauthnClientDepsForTests = () => {
+    webauthnClientDeps = { ...defaultWebauthnClientDeps };
 };
 
 export const isPrfSupported = async () => {

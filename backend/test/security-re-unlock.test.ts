@@ -2,19 +2,41 @@ import { describe, it, expect, beforeAll, afterAll, mock } from "bun:test";
 import { Elysia } from "elysia";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
-process.env.SUPPRESS_JEST_WARNINGS = "true";
+async function loadSecurityReunlockDeps() {
+    const mongoose = (await import("mongoose")).default;
+    const { Family } = await import("../src/adapters/mongo/models/FamilyModel");
+    const { createAuthController } = await import("../src/adapters/rest/auth/AuthController");
+    const { MongoRegistrationProcessRepository } = await import("../src/adapters/mongo/repositories/auth/MongoRegistrationProcessRepository");
 
-const mongoose = (await import("mongoose")).default;
-const { Family } = await import("../src/adapters/mongo/models/FamilyModel");
-const { createAuthController } = await import("../src/adapters/rest/auth/AuthController");
-const { MongoRegistrationProcessRepository } = await import("../src/adapters/mongo/repositories/auth/MongoRegistrationProcessRepository");
+    return {
+        mongoose,
+        Family,
+        createAuthController,
+        MongoRegistrationProcessRepository,
+    };
+}
 
 // Mocking simplewebauthn/server
 mock.module("@simplewebauthn/server", () => ({
+    generateRegistrationOptions: async () => ({
+        challenge: "mock-registration-challenge",
+        rp: { name: "Test RP", id: "localhost" },
+        user: { id: "mock-user", name: "user@example.com", displayName: "User" },
+    }),
     generateAuthenticationOptions: async (options: any) => ({
         challenge: "mock-challenge",
         allowCredentials: [{ id: "mock-credential-id", type: "public-key" }],
         extensions: options.extensions?.prf ? { prf: { eval: options.extensions.prf.eval } } : undefined
+    }),
+    verifyRegistrationResponse: async () => ({
+        verified: true,
+        registrationInfo: {
+            credential: {
+                id: "mock-credential-id",
+                publicKey: new Uint8Array([1, 2, 3]),
+                counter: 0,
+            },
+        },
     }),
     verifyAuthenticationResponse: async () => ({
         verified: true,
@@ -27,8 +49,15 @@ mock.module("@simplewebauthn/server", () => ({
 describe("Security Re-Unlock Integration", () => {
     let app: any;
     let mongod: MongoMemoryServer;
+    let mongoose: Awaited<ReturnType<typeof loadSecurityReunlockDeps>>["mongoose"];
+    let Family: Awaited<ReturnType<typeof loadSecurityReunlockDeps>>["Family"];
+    let createAuthController: Awaited<ReturnType<typeof loadSecurityReunlockDeps>>["createAuthController"];
+    let MongoRegistrationProcessRepository: Awaited<ReturnType<typeof loadSecurityReunlockDeps>>["MongoRegistrationProcessRepository"];
+    const previousSuppressJestWarnings = process.env.SUPPRESS_JEST_WARNINGS;
 
     beforeAll(async () => {
+        process.env.SUPPRESS_JEST_WARNINGS = "true";
+        ({ mongoose, Family, createAuthController, MongoRegistrationProcessRepository } = await loadSecurityReunlockDeps());
         mongod = await MongoMemoryServer.create();
         const uri = mongod.getUri();
         await mongoose.connect(uri);
@@ -38,8 +67,18 @@ describe("Security Re-Unlock Integration", () => {
     });
 
     afterAll(async () => {
-        await mongoose.connection.close();
-        await mongod.stop();
+        if (mongoose?.connection?.readyState) {
+            await mongoose.connection.close();
+        }
+        if (mongod) {
+            await mongod.stop();
+        }
+
+        if (previousSuppressJestWarnings === undefined) {
+            delete process.env.SUPPRESS_JEST_WARNINGS;
+        } else {
+            process.env.SUPPRESS_JEST_WARNINGS = previousSuppressJestWarnings;
+        }
     });
 
     it("should allow a registered user to re-authenticate and receive E2EE keys (Unlock flow)", async () => {

@@ -45,8 +45,8 @@ export function TimelineHistoryDialog({ item, trigger }: TimelineHistoryDialogPr
                         <History className="w-5 h-5" />
                         {t("timeline.auditLog")}
                     </DialogTitle>
-                    <DialogDescription>
-                        {t("timeline.auditLog")}
+                    <DialogDescription className="sr-only">
+                        {t("timeline.auditLogDescription")}
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="pr-4 mt-4">

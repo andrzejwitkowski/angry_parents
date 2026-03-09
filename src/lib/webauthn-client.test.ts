@@ -47,13 +47,14 @@ mock.module("./idb-crypto", () => ({
   savePrivateKey: savePrivateKeyMock,
 }));
 
-import { isPrfSupported, checkHasPasskey, loginWithPasskey, registerPasskeyForLoggedInUser, webauthnClientDeps } from "./webauthn-client";
-
-const baseGenerateRSAKeyPair = webauthnClientDeps.generateRSAKeyPair;
-const baseDeriveMasterKey = webauthnClientDeps.deriveMasterKey;
-const baseWrapPrivateKey = webauthnClientDeps.wrapPrivateKey;
-const baseUnwrapPrivateKey = webauthnClientDeps.unwrapPrivateKey;
-const baseBytesToBase64 = webauthnClientDeps.bytesToBase64;
+import {
+  __resetWebauthnClientDepsForTests,
+  __setWebauthnClientDepsForTests,
+  checkHasPasskey,
+  isPrfSupported,
+  loginWithPasskey,
+  registerPasskeyForLoggedInUser,
+} from "./webauthn-client";
 
 describe("isPrfSupported", () => {
   const originalPublicKeyCredential = (window as any).PublicKeyCredential;
@@ -74,21 +75,19 @@ describe("isPrfSupported", () => {
     generateRSAKeyPairMock.mockClear();
     bytesToBase64Mock.mockClear();
 
-    webauthnClientDeps.generateRSAKeyPair = generateRSAKeyPairMock as unknown as typeof webauthnClientDeps.generateRSAKeyPair;
-    webauthnClientDeps.deriveMasterKey = deriveMasterKeyMock as unknown as typeof webauthnClientDeps.deriveMasterKey;
-    webauthnClientDeps.wrapPrivateKey = wrapPrivateKeyMock as unknown as typeof webauthnClientDeps.wrapPrivateKey;
-    webauthnClientDeps.unwrapPrivateKey = unwrapPrivateKeyMock as unknown as typeof webauthnClientDeps.unwrapPrivateKey;
-    webauthnClientDeps.bytesToBase64 = bytesToBase64Mock as unknown as typeof webauthnClientDeps.bytesToBase64;
+    __setWebauthnClientDepsForTests({
+      generateRSAKeyPair: generateRSAKeyPairMock as any,
+      deriveMasterKey: deriveMasterKeyMock as any,
+      wrapPrivateKey: wrapPrivateKeyMock as any,
+      unwrapPrivateKey: unwrapPrivateKeyMock as any,
+      bytesToBase64: bytesToBase64Mock as any,
+    });
   });
 
   afterEach(() => {
     (window as any).PublicKeyCredential = originalPublicKeyCredential;
     globalThis.fetch = originalFetch;
-    webauthnClientDeps.generateRSAKeyPair = baseGenerateRSAKeyPair;
-    webauthnClientDeps.deriveMasterKey = baseDeriveMasterKey;
-    webauthnClientDeps.wrapPrivateKey = baseWrapPrivateKey;
-    webauthnClientDeps.unwrapPrivateKey = baseUnwrapPrivateKey;
-    webauthnClientDeps.bytesToBase64 = baseBytesToBase64;
+    __resetWebauthnClientDepsForTests();
   });
 
   it("returns true when PRF capability is reported directly", async () => {

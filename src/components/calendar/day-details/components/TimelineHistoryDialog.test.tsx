@@ -116,7 +116,11 @@ describe('TimelineHistoryDialog', () => {
             const describedBy = dialog.getAttribute('aria-describedby');
 
             expect(describedBy).toBeTruthy();
-            expect(document.getElementById(describedBy!)).toBeTruthy();
+            const description = document.getElementById(describedBy!);
+
+            expect(description).toBeTruthy();
+            expect(description).toHaveTextContent('Shows the full audit trail for this timeline item.');
+            expect(description).toHaveClass('sr-only');
         }, { timeout: 2000 });
     });
 });
