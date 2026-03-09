@@ -377,6 +377,43 @@ describe("SecurityContext", () => {
         expect(screen.getByTestId('locked').textContent).toBe('true');
     });
 
+    test("initial auth hydration does not restore user after local clear", async () => {
+        const { authApi } = await import('@/lib/api/auth');
+        const getMeDeferred = new Promise<{ user: { id: string } }>((resolve) => {
+            (globalThis as typeof globalThis & { __resolveGetMe?: (value: { user: { id: string } }) => void }).__resolveGetMe = resolve;
+        });
+        (authApi.getMe as jest.Mock).mockImplementationOnce(() => getMeDeferred);
+
+        const Consumer = () => {
+            const { clearCurrentUserId, getCurrentUserId } = useSecurity();
+            return (
+                <div>
+                    <div data-testid="current-user">{getCurrentUserId() ?? 'null'}</div>
+                    <button data-testid="clear-user" onClick={clearCurrentUserId}>Clear user</button>
+                </div>
+            );
+        };
+
+        await act(async () => {
+            render(
+                <SecurityProvider>
+                    <Consumer />
+                </SecurityProvider>
+            );
+        });
+
+        await act(async () => {
+            screen.getByTestId('clear-user').click();
+        });
+
+        await act(async () => {
+            (globalThis as typeof globalThis & { __resolveGetMe?: (value: { user: { id: string } }) => void }).__resolveGetMe?.({ user: { id: 'late-user' } });
+            await Promise.resolve();
+        });
+
+        expect(screen.getByTestId('current-user').textContent).toBe('null');
+    });
+
     test("resets timer when resetTimer is called", async () => {
         storedKeyExists = true;
 

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useSecurity } from "@/context/SecurityContext";
 import { authApi } from "@/lib/api/auth";
 import { loginWithPasskey } from "@/lib/webauthn-client";
-import { clearActivePrivateKey, hasStoredPrivateKey } from "@/lib/e2ee-session";
+import { clearActivePrivateKey } from "@/lib/e2ee-session";
 
 export function SessionExpiredDialog() {
     const navigate = useNavigate();
@@ -20,7 +20,6 @@ export function SessionExpiredDialog() {
         isLocked,
         hasJustExpired,
         refreshE2eeSessionState,
-        unlockSession,
         lockForLogout,
         clearExpiryFlag,
         clearCurrentUserId,
@@ -58,8 +57,7 @@ export function SessionExpiredDialog() {
             }
 
             const refreshed = await refreshE2eeSessionState();
-            if (refreshed && await hasStoredPrivateKey(userId)) {
-                unlockSession();
+            if (refreshed) {
                 clearExpiryFlag();
                 setOpen(false);
             } else {

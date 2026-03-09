@@ -40,7 +40,7 @@ describe("SidebarFooter", () => {
         consoleErrorSpy.mockRestore();
     });
 
-    test("logout clears local E2EE session before redirect", async () => {
+    test("logout relies on lockForLogout for local E2EE cleanup", async () => {
         const { authApi } = await import("@/lib/api/auth");
         const { clearActivePrivateKey, markE2eeSessionLocked } = await import("@/lib/e2ee-session");
 
@@ -56,7 +56,7 @@ describe("SidebarFooter", () => {
 
         expect(securityState.lockForLogout).toHaveBeenCalled();
         expect(markE2eeSessionLocked).not.toHaveBeenCalled();
-        expect(clearActivePrivateKey).toHaveBeenCalled();
+        expect(clearActivePrivateKey).not.toHaveBeenCalled();
         expect(authApi.logout).toHaveBeenCalled();
     });
 

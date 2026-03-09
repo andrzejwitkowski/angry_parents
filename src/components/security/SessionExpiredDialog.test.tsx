@@ -109,16 +109,15 @@ describe("SessionExpiredDialog", () => {
 
         expect(loginWithPasskey).toHaveBeenCalledWith("mom@example.com");
         expect(securityState.refreshE2eeSessionState).toHaveBeenCalled();
-        expect(securityState.unlockSession).toHaveBeenCalled();
+        expect(securityState.unlockSession).not.toHaveBeenCalled();
         expect(securityState.clearExpiryFlag).toHaveBeenCalled();
     });
 
-    test("does not unlock session when key restoration check fails", async () => {
-        const { hasStoredPrivateKey } = await import("@/lib/e2ee-session");
+    test("shows error when refreshE2eeSessionState reports failed unlock", async () => {
         securityState.isLocked = true;
         securityState.isE2eeUnlocked = false;
         securityState.hasJustExpired = true;
-        (hasStoredPrivateKey as jest.Mock).mockResolvedValueOnce(false);
+        securityState.refreshE2eeSessionState.mockResolvedValueOnce(false);
 
         await act(async () => {
             renderDialog();
@@ -129,6 +128,7 @@ describe("SessionExpiredDialog", () => {
         });
 
         expect(securityState.unlockSession).not.toHaveBeenCalled();
+        expect(screen.getByTestId("session-expired-error")).toBeInTheDocument();
     });
 
     test("shows error when unlock fails", async () => {

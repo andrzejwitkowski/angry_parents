@@ -86,6 +86,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const refreshRequestIdRef = useRef(0);
     const lockCleanupPromiseRef = useRef<Promise<void> | null>(null);
     const lockCleanupFailedRef = useRef(false);
+    const hydrationRequestIdRef = useRef(0);
 
     const isLocked = isSessionLocked || !isE2eeUnlocked;
 
@@ -167,11 +168,23 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Initial load: get user to know whose key to clear later
     useEffect(() => {
+        const requestId = ++hydrationRequestIdRef.current;
+        let isActive = true;
+
         authApi.getMe().then(me => {
+            if (!isActive || requestId !== hydrationRequestIdRef.current) {
+                return;
+            }
+
             const nextUserId = me?.user?.id || null;
             setActiveE2eeUserId(nextUserId);
             setCurrentUserId(nextUserId);
         }).catch(() => { });
+
+        return () => {
+            isActive = false;
+            hydrationRequestIdRef.current += 1;
+        };
     }, []);
 
     const lockSession = useCallback(() => {
@@ -290,6 +303,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             refreshE2eeSessionState,
             getCurrentUserId: () => currentUserId,
             clearCurrentUserId: () => {
+                hydrationRequestIdRef.current += 1;
                 setCurrentUserId(null);
                 setActiveE2eeUserId(null);
             },
