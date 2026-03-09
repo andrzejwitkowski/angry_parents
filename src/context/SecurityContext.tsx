@@ -44,6 +44,31 @@ const getInitialTimeout = (): number => {
     return parsed;
 };
 
+/**
+ * Starts asynchronous private-key scrubbing for the current user and preserves failure state
+ * so later refresh attempts cannot silently reopen the session on stale key material.
+ */
+function startLockCleanup(
+    userId: string | null,
+    lockCleanupPromiseRef: React.MutableRefObject<Promise<void> | null>,
+    lockCleanupFailedRef: React.MutableRefObject<boolean>
+) {
+    lockCleanupFailedRef.current = false;
+
+    const cleanupPromise = clearActivePrivateKey(userId).catch((error) => {
+        lockCleanupFailedRef.current = true;
+        throw error;
+    });
+
+    void cleanupPromise.then(() => {
+            if (lockCleanupPromiseRef.current === cleanupPromise) {
+                lockCleanupPromiseRef.current = null;
+            }
+        }, () => { });
+
+    lockCleanupPromiseRef.current = cleanupPromise;
+}
+
 export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { toast } = useToast();
     const { t } = useTranslation();
@@ -72,12 +97,21 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             try {
                 await lockCleanupPromiseRef.current;
             } catch {
+                lockCleanupFailedRef.current = true;
                 if (requestId === refreshRequestIdRef.current) {
                     setIsE2eeUnlocked(false);
                     setIsSessionLocked(true);
                 }
                 return false;
             }
+        }
+
+        if (lockCleanupFailedRef.current) {
+            if (requestId === refreshRequestIdRef.current) {
+                setIsE2eeUnlocked(false);
+                setIsSessionLocked(true);
+            }
+            return false;
         }
 
         if (!resolvedUserId) {
@@ -129,8 +163,6 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
             return false;
         }
-
-        return false;
     }, [configTimeout, currentUserId]);
 
     // Initial load: get user to know whose key to clear later
@@ -144,7 +176,6 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const lockSession = useCallback(() => {
         refreshRequestIdRef.current += 1;
-        lockCleanupFailedRef.current = false;
 
         // ALWAYS lock the session state immediately
         setIsSessionLocked(true);
@@ -159,21 +190,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             variant: 'destructive',
         });
 
-        // Fire-and-forget the key clearing
-        if (currentUserId) {
-            const cleanupPromise = clearActivePrivateKey(currentUserId)
-                .catch(err => {
-                    lockCleanupFailedRef.current = true;
-                    console.error('Error clearing private key during lock:', err);
-                })
-                .finally(() => {
-                    if (lockCleanupPromiseRef.current === cleanupPromise) {
-                        lockCleanupPromiseRef.current = null;
-                    }
-                });
-
-            lockCleanupPromiseRef.current = cleanupPromise;
-        }
+        startLockCleanup(currentUserId, lockCleanupPromiseRef, lockCleanupFailedRef);
     }, [t, toast, currentUserId]);
 
     const resetTimer = useCallback(() => {
@@ -200,7 +217,8 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setIsE2eeUnlocked(false);
         markE2eeSessionLocked();
         timelineApi.clearDecryptionCaches();
-    }, []);
+        startLockCleanup(currentUserId, lockCleanupPromiseRef, lockCleanupFailedRef);
+    }, [currentUserId]);
 
     const updateConfig = useCallback((seconds: number) => {
         setConfigTimeout(seconds);

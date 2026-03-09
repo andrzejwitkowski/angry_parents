@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useSecurity } from "@/context/SecurityContext";
 import { authApi } from "@/lib/api/auth";
 import { loginWithPasskey } from "@/lib/webauthn-client";
-import { clearActivePrivateKey, hasStoredPrivateKey, setActiveE2eeUserId } from "@/lib/e2ee-session";
+import { clearActivePrivateKey, hasStoredPrivateKey } from "@/lib/e2ee-session";
 
 export function SessionExpiredDialog() {
     const navigate = useNavigate();
@@ -74,15 +74,19 @@ export function SessionExpiredDialog() {
 
     const handleLogout = async () => {
         lockForLogout();
-        await clearActivePrivateKey(userId).catch((error) => {
-            console.error("Failed to clear local E2EE session during session-expired logout", error);
-        });
-        await authApi.logout();
-        clearExpiryFlag();
-        setOpen(false);
-        setActiveE2eeUserId(null);
-        clearCurrentUserId();
-        navigate("/auth");
+        try {
+            await clearActivePrivateKey(userId).catch((error) => {
+                console.error("Failed to clear local E2EE session during session-expired logout", error);
+            });
+            await authApi.logout();
+        } catch (error) {
+            console.error("Failed to log out after session expiry", error);
+        } finally {
+            clearExpiryFlag();
+            setOpen(false);
+            clearCurrentUserId();
+            navigate("/auth");
+        }
     };
 
     return (

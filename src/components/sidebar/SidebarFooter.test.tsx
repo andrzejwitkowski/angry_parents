@@ -55,7 +55,7 @@ describe("SidebarFooter", () => {
         });
 
         expect(securityState.lockForLogout).toHaveBeenCalled();
-        expect(markE2eeSessionLocked).toHaveBeenCalled();
+        expect(markE2eeSessionLocked).not.toHaveBeenCalled();
         expect(clearActivePrivateKey).toHaveBeenCalled();
         expect(authApi.logout).toHaveBeenCalled();
     });

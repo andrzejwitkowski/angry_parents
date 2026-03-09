@@ -39,6 +39,7 @@ const TestComponent = () => {
         hasJustExpired,
         isE2eeUnlocked,
         resetTimer,
+        lockForLogout,
         updateConfig,
         ensureUnlocked,
         refreshE2eeSessionState,
@@ -55,6 +56,7 @@ const TestComponent = () => {
             <div data-testid="e2ee-unlocked">{isE2eeUnlocked.toString()}</div>
             <div data-testid="guard-result">{guardResult}</div>
             <button onClick={resetTimer} data-testid="reset">Reset</button>
+            <button onClick={lockForLogout} data-testid="logout-lock">Logout lock</button>
             <button onClick={() => updateConfig(30)} data-testid="config">Config</button>
             <button onClick={() => setGuardResult(ensureUnlocked().toString())} data-testid="guard">Guard</button>
             <button onClick={() => void refreshE2eeSessionState()} data-testid="refresh-state">Refresh state</button>
@@ -275,10 +277,9 @@ describe("SecurityContext", () => {
         expect(screen.getByTestId("e2ee-unlocked").textContent).toBe("true");
     });
 
-    test("refreshE2eeSessionState can recover after lock cleanup failure once key is restored", async () => {
+    test("refreshE2eeSessionState stays locked after timeout cleanup failure", async () => {
         const { clearActivePrivateKey } = await import('@/lib/e2ee-session');
         storedKeyExists = true;
-        (clearActivePrivateKey as jest.Mock).mockRejectedValueOnce(new Error('cleanup failed'));
 
         await act(async () => {
             render(
@@ -293,6 +294,18 @@ describe("SecurityContext", () => {
                 await Promise.resolve();
             });
         }
+
+        await act(async () => {
+            screen.getByTestId('refresh-state').click();
+        });
+
+        for (let i = 0; i < 3; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        (clearActivePrivateKey as jest.Mock).mockRejectedValueOnce(new Error('cleanup failed'));
 
         await act(async () => {
             jest.advanceTimersByTime(610000);
@@ -310,8 +323,58 @@ describe("SecurityContext", () => {
             });
         }
 
-        expect(screen.getByTestId('e2ee-unlocked').textContent).toBe('true');
-        expect(screen.getByTestId('locked').textContent).toBe('false');
+        expect(screen.getByTestId('e2ee-unlocked').textContent).toBe('false');
+        expect(screen.getByTestId('locked').textContent).toBe('true');
+    });
+
+    test("refreshE2eeSessionState stays locked after logout cleanup failure", async () => {
+        const { clearActivePrivateKey } = await import('@/lib/e2ee-session');
+        storedKeyExists = true;
+
+        await act(async () => {
+            render(
+                <SecurityProvider>
+                    <TestComponent />
+                </SecurityProvider>
+            );
+        });
+
+        for (let i = 0; i < 5; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        await act(async () => {
+            screen.getByTestId('refresh-state').click();
+        });
+
+        for (let i = 0; i < 3; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        (clearActivePrivateKey as jest.Mock).mockRejectedValueOnce(new Error('cleanup failed'));
+
+        await act(async () => {
+            screen.getByTestId('logout-lock').click();
+        });
+
+        storedKeyExists = true;
+
+        await act(async () => {
+            screen.getByTestId('refresh-state').click();
+        });
+
+        for (let i = 0; i < 3; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        expect(screen.getByTestId('e2ee-unlocked').textContent).toBe('false');
+        expect(screen.getByTestId('locked').textContent).toBe('true');
     });
 
     test("resets timer when resetTimer is called", async () => {

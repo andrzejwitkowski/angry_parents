@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { authApi } from "@/lib/api/auth";
 import { useTranslation } from "react-i18next";
 import { SecurityTimer } from "../security/SecurityTimer";
-import { clearActivePrivateKey, markE2eeSessionLocked } from "@/lib/e2ee-session";
+import { clearActivePrivateKey } from "@/lib/e2ee-session";
 import { useSecurity } from "@/context/SecurityContext";
 
 interface SidebarFooterProps {
@@ -17,7 +17,6 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
 
     const handleLogout = async () => {
         lockForLogout();
-        markE2eeSessionLocked();
         await clearActivePrivateKey().catch((error) => {
             console.error("Failed to clear local E2EE session during logout", error);
         });

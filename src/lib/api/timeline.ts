@@ -42,9 +42,10 @@ const PROTECTED_FIELDS = new Set([
 
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
     const privateKey = await getTimelinePrivateKey();
-    const currentUserId = await getActiveE2eeUserId();
 
     if (!privateKey) return items;
+
+    const currentUserId = await getActiveE2eeUserId();
 
     return Promise.all(items.map(async (item) => {
         if (item.encryption === "PLAINTEXT") return item;
@@ -96,6 +97,9 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
     }));
 }
 
+/**
+ * Clears in-memory decryption caches after logout or session lock transitions.
+ */
 function clearDecryptionCaches() {
     clearTimelinePrivateKeyCache();
 }

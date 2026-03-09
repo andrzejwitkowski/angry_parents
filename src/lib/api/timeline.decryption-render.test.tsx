@@ -149,6 +149,7 @@ describe("timelineApi decryption rendering", () => {
         const items = await timelineApi.getByDate("2026-03-05");
 
         expect(getTimelinePrivateKey).toHaveBeenCalled();
+        expect(getActiveE2eeUserId).not.toHaveBeenCalled();
         expect(decryptRSA).not.toHaveBeenCalled();
         expect(items[0].encryption).toBe("ENCRYPTED");
     });
