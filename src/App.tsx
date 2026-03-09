@@ -7,6 +7,7 @@ import Settings from './pages/Settings';
 import AdminPage from './pages/AdminPage';
 import AdminRegistrationDetails from './pages/AdminRegistrationDetails';
 import AdminRoute from './components/auth/AdminRoute';
+import { SessionExpiredDialog } from './components/security/SessionExpiredDialog';
 import { SecurityProvider } from './context/SecurityContext';
 import { Toaster } from './components/ui/toaster';
 import './i18n';
@@ -15,6 +16,7 @@ function App() {
   return (
     <SecurityProvider>
       <Router>
+        <SessionExpiredDialog />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/auth" element={<AuthPage />} />

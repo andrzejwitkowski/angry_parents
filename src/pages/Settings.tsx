@@ -19,9 +19,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
-import { getPrivateKey } from "@/lib/idb-crypto";
 import { loginWithPasskey } from "@/lib/webauthn-client";
 import { useSecurity } from "@/context/SecurityContext";
+import { hasStoredPrivateKey } from "@/lib/e2ee-session";
 
 interface UserProfile {
     id: string;
@@ -32,20 +32,28 @@ interface UserProfile {
 
 export default function Settings() {
     const { t, i18n } = useTranslation();
-    const [localUnlocked, setLocalUnlocked] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
+    const [unlockError, setUnlockError] = useState<string | null>(null);
     const [parentStatuses, setParentStatuses] = useState({ mom: false, dad: false, current: false });
     const [user, setUser] = useState<UserProfile | null>(null);
 
-    const { configTimeout, updateConfig, isLocked, resetTimer, clearExpiryFlag } = useSecurity();
+    const {
+        configTimeout,
+        updateConfig,
+        isLocked,
+        isE2eeUnlocked,
+        unlockSession,
+        clearExpiryFlag,
+        refreshE2eeSessionState,
+    } = useSecurity();
+
+    const localUnlocked = isE2eeUnlocked && !isLocked;
 
     useEffect(() => {
         const fetchStatus = async () => {
             try {
                 const { user: me, family } = await authApi.getMe();
                 setUser(me);
-                const pk = await getPrivateKey(me.id);
-                setLocalUnlocked(!!pk);
                 if (family) {
                     const statuses = {
                         mom: family.parentPublicKeys.some(k => k.role === 'mom'),
@@ -57,7 +65,6 @@ export default function Settings() {
                     setParentStatuses({ mom: false, dad: false, current: false });
                 }
             } catch (e) {
-                setLocalUnlocked(false);
                 setParentStatuses({ mom: false, dad: false, current: false });
                 console.error("Failed to fetch settings status", e);
             }
@@ -73,21 +80,25 @@ export default function Settings() {
     const handleUnlock = async () => {
         if (!user) return;
         setIsUnlocking(true);
+        setUnlockError(null);
         try {
             // Re-trigger login with PRF to unlock
             const success = await loginWithPasskey(user.email);
+            if (!success) {
+                setUnlockError(t('security.notification.actionLocked.desc'));
+                return;
+            }
             if (success) {
-                const pk = await getPrivateKey(user.id);
-                setLocalUnlocked(!!pk);
-                if (pk) {
-                    resetTimer();
+                const refreshed = await refreshE2eeSessionState();
+                if (refreshed && await hasStoredPrivateKey(user.id)) {
+                    unlockSession();
                     clearExpiryFlag();
+                } else {
+                    setUnlockError(t('common.privateKeyMissing'));
                 }
-            } else {
-                setLocalUnlocked(false);
             }
         } catch (e) {
-            setLocalUnlocked(false);
+            setUnlockError(e instanceof Error ? e.message : t('settings.encryption.locked'));
             console.error("Unlock failed", e);
         } finally {
             setIsUnlocking(false);
@@ -180,16 +191,21 @@ export default function Settings() {
                                     </span>
                                 </div>
                                 {!localUnlocked && parentStatuses.current && (
-                                    <Button
-                                        data-testid="unlock-button"
-                                        size="sm"
-                                        className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700"
-                                        onClick={handleUnlock}
-                                        disabled={isUnlocking}
-                                    >
-                                        <Lock className="w-4 h-4 mr-2" />
-                                        {isUnlocking ? t("settings.encryption.unlocking") : t('settings.encryption.unlockButton')}
-                                    </Button>
+                                    <>
+                                        <Button
+                                            data-testid="unlock-button"
+                                            size="sm"
+                                            className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700"
+                                            onClick={handleUnlock}
+                                            disabled={isUnlocking}
+                                        >
+                                            <Lock className="w-4 h-4 mr-2" />
+                                            {isUnlocking ? t("settings.encryption.unlocking") : t('settings.encryption.unlockButton')}
+                                        </Button>
+                                        {unlockError && (
+                                            <p className="mt-2 text-xs text-red-600" data-testid="settings-unlock-error">{unlockError}</p>
+                                        )}
+                                    </>
                                 )}
                                 {!parentStatuses.current && (
                                     <Button

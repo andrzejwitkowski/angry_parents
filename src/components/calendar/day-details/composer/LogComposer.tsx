@@ -10,6 +10,7 @@ import { NoteForm } from "./forms/NoteForm";
 import { VacationForm } from "./forms/VacationForm";
 import { timelineApi } from "@/lib/api/timeline";
 import type { CreateTimelineItemDto } from "@/types/timeline.types";
+import { useSecurity } from "@/context/SecurityContext";
 
 interface LogComposerProps {
     date: string; // YYYY-MM-DD
@@ -20,6 +21,7 @@ interface LogComposerProps {
 
 export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposerProps) {
     const { t } = useTranslation();
+    const { ensureUnlocked } = useSecurity();
     const [selectedMode, setSelectedMode] = useState<ActionMode | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,6 +31,7 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
         if (!selectedMode) return;
+        if (!ensureUnlocked()) return;
 
         setIsSubmitting(true);
         try {

@@ -8,6 +8,7 @@ import { VacationCard } from "./cards/VacationCard";
 import { AttachmentCard } from "./cards/AttachmentCard";
 import { EncryptedItemCard } from "./cards/EncryptedItemCard";
 import type { User } from '@/types/user';
+import { useSecurity } from '@/context/SecurityContext';
 
 interface TimelineItemFactoryProps {
     item: TimelineItem;
@@ -17,9 +18,11 @@ interface TimelineItemFactoryProps {
 }
 
 export function TimelineItemFactory({ item, onUpdate, onDelete, user }: TimelineItemFactoryProps) {
+    const { isE2eeUnlocked } = useSecurity();
+
     // Guard: if decryption failed, show a dedicated encrypted placeholder
     if (item.encryption === "ENCRYPTED") {
-        return <EncryptedItemCard item={item} />;
+        return <EncryptedItemCard item={item} hasPrivateKey={isE2eeUnlocked} />;
     }
 
     // After the guard, item is narrowed to PlainTimelineItem
@@ -55,4 +58,3 @@ export function TimelineItemFactory({ item, onUpdate, onDelete, user }: Timeline
         }
     }
 }
-

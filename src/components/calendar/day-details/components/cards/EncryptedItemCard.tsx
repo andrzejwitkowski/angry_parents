@@ -2,18 +2,15 @@ import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import type { EncryptedTimelineItem } from "@/types/timeline.types";
-import { getPrivateKeyFromStorage } from "@/lib/crypto-utils";
 import { AuditIndicator } from "../AuditIndicator";
 
 interface EncryptedItemCardProps {
     item: EncryptedTimelineItem;
+    hasPrivateKey?: boolean;
 }
 
-export function EncryptedItemCard({ item }: EncryptedItemCardProps) {
+export function EncryptedItemCard({ item, hasPrivateKey = false }: EncryptedItemCardProps) {
     const { t } = useTranslation();
-    const storedKey = getPrivateKeyFromStorage();
-    const devKey = import.meta.env.DEV ? import.meta.env.VITE_DEV_RSA_PRIVATE_KEY : null;
-    const hasPrivateKey = Boolean(storedKey || devKey);
 
     return (
         <Card className="border-2 border-slate-200 bg-slate-50 shadow-sm opacity-80">

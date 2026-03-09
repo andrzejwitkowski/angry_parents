@@ -2,10 +2,27 @@ import { expect, test, describe, beforeEach, afterEach, jest, mock } from "bun:t
 import React from 'react';
 import { render, act, screen, cleanup } from '@testing-library/react';
 import { SecurityProvider, useSecurity } from './SecurityContext';
+import { timelineApi } from '@/lib/api/timeline';
 
 // Mock dependencies
+let storedKeyExists = false;
+
 mock.module('@/lib/idb-crypto', () => ({
+    getPrivateKey: jest.fn().mockResolvedValue(null),
     clearPrivateKey: jest.fn().mockResolvedValue(undefined),
+}));
+
+mock.module('@/lib/e2ee-session', () => ({
+    hasStoredPrivateKey: jest.fn(async (userId?: string | null) => Boolean(userId) && storedKeyExists),
+    clearActivePrivateKey: jest.fn(async (userId?: string | null) => {
+        const { clearPrivateKey } = await import('@/lib/idb-crypto');
+        if (!userId) return;
+        storedKeyExists = false;
+        await (clearPrivateKey as jest.Mock)(userId);
+    }),
+    markE2eeSessionLocked: jest.fn(),
+    markE2eeSessionUnlocked: jest.fn(),
+    setActiveE2eeUserId: jest.fn(),
 }));
 
 mock.module('@/lib/api/auth', () => ({
@@ -16,26 +33,49 @@ mock.module('@/lib/api/auth', () => ({
 
 // Dummy component to test the context
 const TestComponent = () => {
-    const { timeRemaining, isLocked, resetTimer, updateConfig, ensureUnlocked } = useSecurity();
+    const {
+        timeRemaining,
+        isLocked,
+        hasJustExpired,
+        isE2eeUnlocked,
+        resetTimer,
+        updateConfig,
+        ensureUnlocked,
+        refreshE2eeSessionState,
+    } = useSecurity() as ReturnType<typeof useSecurity> & {
+        isE2eeUnlocked: boolean;
+        refreshE2eeSessionState: () => Promise<void>;
+    };
+    const [guardResult, setGuardResult] = React.useState<string>('untouched');
     return (
         <div>
             <div data-testid="time">{timeRemaining}</div>
             <div data-testid="locked">{isLocked.toString()}</div>
+            <div data-testid="expired">{hasJustExpired.toString()}</div>
+            <div data-testid="e2ee-unlocked">{isE2eeUnlocked.toString()}</div>
+            <div data-testid="guard-result">{guardResult}</div>
             <button onClick={resetTimer} data-testid="reset">Reset</button>
             <button onClick={() => updateConfig(30)} data-testid="config">Config</button>
-            <button onClick={ensureUnlocked} data-testid="guard">Guard</button>
+            <button onClick={() => setGuardResult(ensureUnlocked().toString())} data-testid="guard">Guard</button>
+            <button onClick={() => void refreshE2eeSessionState()} data-testid="refresh-state">Refresh state</button>
         </div>
     );
 };
 
 describe("SecurityContext", () => {
+    let clearDecryptionCachesSpy: ReturnType<typeof jest.spyOn>;
+
     beforeEach(() => {
         localStorage.clear();
         jest.useFakeTimers();
+        jest.clearAllMocks();
+        storedKeyExists = false;
+        clearDecryptionCachesSpy = jest.spyOn(timelineApi, 'clearDecryptionCaches').mockImplementation(() => { });
     });
 
     afterEach(() => {
         cleanup();
+        jest.restoreAllMocks();
         jest.useRealTimers();
     });
 
@@ -48,16 +88,50 @@ describe("SecurityContext", () => {
             );
         });
         expect(screen.getByTestId("time").textContent).toBe("600");
-        expect(screen.getByTestId("locked").textContent).toBe("false");
+        expect(screen.getByTestId("locked").textContent).toBe("true");
+        expect(screen.getByTestId("e2ee-unlocked").textContent).toBe("false");
     });
 
-    test("decrements timer every second", async () => {
+    test("does not auto-unlock on startup even if private key exists in IndexedDB", async () => {
+        storedKeyExists = true;
+
         await act(async () => {
             render(
                 <SecurityProvider>
                     <TestComponent />
                 </SecurityProvider>
             );
+        });
+
+        for (let i = 0; i < 5; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        expect(screen.getByTestId("e2ee-unlocked").textContent).toBe("false");
+        expect(screen.getByTestId("locked").textContent).toBe("true");
+    });
+
+    test("decrements timer every second", async () => {
+        storedKeyExists = true;
+
+        await act(async () => {
+            render(
+                <SecurityProvider>
+                    <TestComponent />
+                </SecurityProvider>
+            );
+        });
+
+        for (let i = 0; i < 5; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        await act(async () => {
+            screen.getByTestId('refresh-state').click();
         });
 
         await act(async () => {
@@ -73,6 +147,7 @@ describe("SecurityContext", () => {
 
     test("locks session when timer reaches zero", async () => {
         const { clearPrivateKey } = await import('@/lib/idb-crypto');
+        storedKeyExists = true;
 
         await act(async () => {
             render(
@@ -90,6 +165,12 @@ describe("SecurityContext", () => {
         }
 
         await act(async () => {
+            screen.getByTestId('refresh-state').click();
+        });
+
+        expect(screen.getByTestId("e2ee-unlocked").textContent).toBe("true");
+
+        await act(async () => {
             jest.advanceTimersByTime(610000); // 10 minutes
         });
 
@@ -100,6 +181,8 @@ describe("SecurityContext", () => {
 
         expect(screen.getByTestId("time").textContent).toBe("0");
         expect(screen.getByTestId("locked").textContent).toBe("true");
+        expect(screen.getByTestId("expired").textContent).toBe("true");
+        expect(screen.getByTestId("e2ee-unlocked").textContent).toBe("false");
 
         // Final flush for fire-and-forget clearPrivateKey
         await act(async () => {
@@ -107,15 +190,149 @@ describe("SecurityContext", () => {
         });
 
         expect(clearPrivateKey).toHaveBeenCalled();
+        expect(clearDecryptionCachesSpy).toHaveBeenCalled();
     });
 
-    test("resets timer when resetTimer is called", async () => {
+    test("refreshE2eeSessionState marks session unlocked after key restoration", async () => {
         await act(async () => {
             render(
                 <SecurityProvider>
                     <TestComponent />
                 </SecurityProvider>
             );
+        });
+
+        for (let i = 0; i < 5; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        expect(screen.getByTestId("e2ee-unlocked").textContent).toBe("false");
+        storedKeyExists = true;
+
+        await act(async () => {
+            screen.getByTestId("refresh-state").click();
+        });
+
+        for (let i = 0; i < 3; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        expect(screen.getByTestId("e2ee-unlocked").textContent).toBe("true");
+        expect(screen.getByTestId("locked").textContent).toBe("false");
+    });
+
+    test("refreshE2eeSessionState clears expiry flag and restores timer after lock", async () => {
+        storedKeyExists = true;
+
+        await act(async () => {
+            render(
+                <SecurityProvider>
+                    <TestComponent />
+                </SecurityProvider>
+            );
+        });
+
+        for (let i = 0; i < 5; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        await act(async () => {
+            screen.getByTestId('refresh-state').click();
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(610000);
+        });
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(screen.getByTestId("locked").textContent).toBe("true");
+        expect(screen.getByTestId("expired").textContent).toBe("true");
+        expect(screen.getByTestId("time").textContent).toBe("0");
+        storedKeyExists = true;
+
+        await act(async () => {
+            screen.getByTestId("refresh-state").click();
+        });
+
+        for (let i = 0; i < 3; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        expect(screen.getByTestId("locked").textContent).toBe("false");
+        expect(screen.getByTestId("expired").textContent).toBe("false");
+        expect(screen.getByTestId("time").textContent).toBe("600");
+        expect(screen.getByTestId("e2ee-unlocked").textContent).toBe("true");
+    });
+
+    test("refreshE2eeSessionState can recover after lock cleanup failure once key is restored", async () => {
+        const { clearActivePrivateKey } = await import('@/lib/e2ee-session');
+        storedKeyExists = true;
+        (clearActivePrivateKey as jest.Mock).mockRejectedValueOnce(new Error('cleanup failed'));
+
+        await act(async () => {
+            render(
+                <SecurityProvider>
+                    <TestComponent />
+                </SecurityProvider>
+            );
+        });
+
+        for (let i = 0; i < 5; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        await act(async () => {
+            jest.advanceTimersByTime(610000);
+        });
+
+        storedKeyExists = true;
+
+        await act(async () => {
+            screen.getByTestId('refresh-state').click();
+        });
+
+        for (let i = 0; i < 3; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        expect(screen.getByTestId('e2ee-unlocked').textContent).toBe('true');
+        expect(screen.getByTestId('locked').textContent).toBe('false');
+    });
+
+    test("resets timer when resetTimer is called", async () => {
+        storedKeyExists = true;
+
+        await act(async () => {
+            render(
+                <SecurityProvider>
+                    <TestComponent />
+                </SecurityProvider>
+            );
+        });
+
+        for (let i = 0; i < 5; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        await act(async () => {
+            screen.getByTestId('refresh-state').click();
         });
 
         await act(async () => {
@@ -146,12 +363,18 @@ describe("SecurityContext", () => {
     });
 
     test("ensureUnlocked resets timer if not locked", async () => {
+        storedKeyExists = true;
+
         await act(async () => {
             render(
                 <SecurityProvider>
                     <TestComponent />
                 </SecurityProvider>
             );
+        });
+
+        await act(async () => {
+            screen.getByTestId('refresh-state').click();
         });
 
         await act(async () => {
@@ -163,5 +386,29 @@ describe("SecurityContext", () => {
             screen.getByTestId("guard").click();
         });
         expect(screen.getByTestId("time").textContent).toBe("600");
+        expect(screen.getByTestId("guard-result").textContent).toBe("true");
+    });
+
+    test("ensureUnlocked blocks access when E2EE key is unavailable", async () => {
+        await act(async () => {
+            render(
+                <SecurityProvider>
+                    <TestComponent />
+                </SecurityProvider>
+            );
+        });
+
+        for (let i = 0; i < 5; i++) {
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
+        await act(async () => {
+            screen.getByTestId("guard").click();
+        });
+
+        expect(screen.getByTestId("guard-result").textContent).toBe("false");
+        expect(screen.getByTestId("locked").textContent).toBe("true");
     });
 });

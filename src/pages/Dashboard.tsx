@@ -21,6 +21,8 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
+    DialogTitle,
 } from "@/components/ui/dialog";
 import { useSecurity } from '@/context/SecurityContext';
 
@@ -31,7 +33,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
-    const { ensureUnlocked } = useSecurity();
+    const { ensureUnlocked, isLocked } = useSecurity();
 
     const { children, refresh: refreshChildren } = useChildren();
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -71,6 +73,15 @@ export default function Dashboard() {
         };
         checkAuth();
     }, [navigate]);
+
+    useEffect(() => {
+        if (!isLocked) {
+            return;
+        }
+
+        setIsWizardOpen(false);
+        setIsSheetOpen(false);
+    }, [isLocked]);
 
     if (loading) {
         return (
@@ -153,6 +164,8 @@ export default function Dashboard() {
                                     setIsWizardOpen(open);
                                 }}>
                                     <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                                        <DialogTitle className="sr-only">{t('dashboard.inputCourtSchedule')}</DialogTitle>
+                                        <DialogDescription className="sr-only">{t('dashboard.inputCourtScheduleDesc')}</DialogDescription>
                                         <CustodyScheduler onSave={handleScheduleSaved} />
                                     </DialogContent>
                                 </Dialog>

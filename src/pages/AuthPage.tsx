@@ -10,10 +10,13 @@ import { motion } from 'framer-motion';
 import { authApi, type Gender } from '@/lib/api/auth';
 import { loginWithPasskey, registerPasskey } from '@/lib/webauthn-client';
 import { KeyRound, ShieldCheck } from 'lucide-react';
+import { useSecurity } from '@/context/SecurityContext';
+import { hasStoredPrivateKey } from '@/lib/e2ee-session';
 
 export default function AuthPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const { refreshE2eeSessionState, unlockSession, clearExpiryFlag, getCurrentUserId } = useSecurity();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +83,12 @@ export default function AuthPage() {
                 setError(t("auth.loginFailed"));
                 return;
             }
+            const refreshed = await refreshE2eeSessionState();
+            const userId = getCurrentUserId();
+            if (refreshed && await hasStoredPrivateKey(userId)) {
+                unlockSession();
+                clearExpiryFlag();
+            }
             navigate('/dashboard');
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : t("auth.loginFailed");
@@ -95,6 +104,12 @@ export default function AuthPage() {
         try {
             const result = await authApi.devMockLogin();
             if (result.verified) {
+                const refreshed = await refreshE2eeSessionState();
+                const userId = getCurrentUserId();
+                if (refreshed && await hasStoredPrivateKey(userId)) {
+                    unlockSession();
+                    clearExpiryFlag();
+                }
                 navigate('/dashboard');
             }
         } catch (err: unknown) {
@@ -268,6 +283,12 @@ export default function AuthPage() {
                                                         token: token || undefined
                                                     });
                                                     if (result.verified) {
+                                                        const refreshed = await refreshE2eeSessionState();
+                                                        const userId = getCurrentUserId();
+                                                        if (refreshed && await hasStoredPrivateKey(userId)) {
+                                                            unlockSession();
+                                                            clearExpiryFlag();
+                                                        }
                                                         navigate('/dashboard');
                                                     }
                                                 } catch (err: unknown) {
