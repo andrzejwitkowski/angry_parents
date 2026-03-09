@@ -1,8 +1,15 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach, mock } from "bun:test";
 import { createAuthController } from "../src/adapters/rest/auth/AuthController";
+import { createChildController } from "../src/adapters/rest/family/ChildController";
 import { Family } from "../src/adapters/mongo/models/FamilyModel";
 import { Invitation } from "../src/adapters/mongo/models/InvitationModel";
 import { MongoRegistrationProcessRepository } from "../src/adapters/mongo/repositories/auth/MongoRegistrationProcessRepository";
+import { MongoChildRepository } from "../src/adapters/mongo/repositories/family/MongoChildRepository";
+import { ChildService } from "../src/domain/family/service/ChildService";
+import { FamilyApiService } from "../src/domain/family/service/FamilyApiService";
+import { InMemoryTimelineRepository } from "../src/adapters/mongo/inmemory/events/InMemoryTimelineRepository";
+import { RealUuidProvider } from "../src/shared/providers/RealUuidProvider";
+import { signJwt } from "../src/lib/jwt";
 import mongoose from "mongoose";
 import { Elysia } from "elysia";
 import { ensureMongo } from "./utils/ensureMongo";
@@ -37,8 +44,13 @@ describe.skipIf(!process.env.INTEGRATION_TEST)("Auth Controller Integration", ()
         if (mongoose.connection.db) {
             repo = new MongoRegistrationProcessRepository(mongoose.connection.db as any);
             const authController = createAuthController(repo);
+            const childRepository = new MongoChildRepository();
+            const childService = new ChildService(childRepository, new InMemoryTimelineRepository(), new RealUuidProvider());
+            const familyApiService = new FamilyApiService(childService);
+            const childController = createChildController(familyApiService);
             app = new Elysia()
-                .group("/api/auth", (group) => group.use(authController));
+                .group("/api/auth", (group) => group.use(authController))
+                .use(childController);
 
             // Set global app for internal handle calls
             (globalThis as any).app = app;
@@ -52,6 +64,38 @@ describe.skipIf(!process.env.INTEGRATION_TEST)("Auth Controller Integration", ()
             );
 
             expect(response.status).toBe(401);
+        });
+
+        it("should return the same children as /api/children for the current family", async () => {
+            const familyId = new mongoose.Types.ObjectId().toString();
+            await Family.create({
+                _id: familyId,
+                name: "Family One",
+                parentIds: ["user-1"],
+                parentPublicKeys: [],
+                children: [
+                    { id: "child-1", name: "dziecko 1", icon: "user", color: "#FFC0CB" },
+                    { id: "child-2", name: "dziecko 2", icon: "user", color: "#302843" }
+                ],
+                custodyPatterns: []
+            });
+
+            const token = await signJwt({ userId: "user-1", role: "dad", gender: "dad", familyId });
+
+            const meResponse = await app.handle(new Request("http://localhost/api/auth/me", {
+                headers: { Cookie: `token=${token}` }
+            }));
+            const childrenResponse = await app.handle(new Request("http://localhost/api/children", {
+                headers: { Cookie: `token=${token}` }
+            }));
+
+            expect(meResponse.status).toBe(200);
+            expect(childrenResponse.status).toBe(200);
+
+            const meJson = await meResponse.json() as { family: { children: Array<{ id: string; name: string }> } };
+            const childrenJson = await childrenResponse.json() as Array<{ id: string; name: string }>;
+
+            expect(meJson.family.children).toEqual(childrenJson);
         });
     });
 

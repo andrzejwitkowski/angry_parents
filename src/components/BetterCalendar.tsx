@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { addMonths, subMonths, startOfMonth, endOfMonth, format } from "date-fns";
 import { getCalendarDays } from "@/lib/calendar-utils";
 import { CalendarHeader } from "./calendar/CalendarHeader";
@@ -9,6 +9,7 @@ import { timelineApi } from "@/lib/api/timeline";
 import type { TimelineItem } from "@/types/timeline.types";
 import type { User } from '@/types/user';
 import type { CustodyEntry } from "@/types/custody";
+import { useSecurity } from "@/context/SecurityContext";
 
 import type { Child } from "@/lib/api/children";
 
@@ -39,12 +40,19 @@ export function BetterCalendar({
     setIsSheetOpen,
     onDataChange
 }: BetterCalendarProps) {
+    const { isLocked } = useSecurity();
     const [monthEvents, setMonthEvents] = useState<TimelineItem[]>([]);
     const [custodyEntries, setCustodyEntries] = useState<CustodyEntry[]>([]);
+    const fetchVersionRef = useRef(0);
 
     const daysInMonth = getCalendarDays(currentDate);
 
     const fetchMonthData = useCallback(async () => {
+        if (isLocked) {
+            return;
+        }
+
+        const fetchVersion = ++fetchVersionRef.current;
         const start = format(startOfMonth(currentDate), "yyyy-MM-dd");
         const end = format(endOfMonth(currentDate), "yyyy-MM-dd");
 
@@ -55,12 +63,16 @@ export function BetterCalendar({
                 fetch(`http://localhost:3000/api/custody?start=${start}&end=${end}`).then(res => res.ok ? res.json() : [])
             ]);
 
+            if (isLocked || fetchVersion !== fetchVersionRef.current) {
+                return;
+            }
+
             setMonthEvents(events);
             setCustodyEntries(custody as CustodyEntry[]);
         } catch (error) {
             console.error("Failed to fetch month data:", error);
         }
-    }, [currentDate]);
+    }, [currentDate, isLocked]);
 
     useEffect(() => {
         // eslint-disable-next-line
@@ -74,9 +86,25 @@ export function BetterCalendar({
     };
 
     const handleDayClick = (date: Date) => {
+        if (isLocked) {
+            return;
+        }
+
         setSelectedDateForSheet(date);
         setIsSheetOpen(true);
     };
+
+    useEffect(() => {
+        if (!isLocked) {
+            return;
+        }
+
+        setMonthEvents([]);
+        setCustodyEntries([]);
+        setSelectedDateForSheet(null);
+        setIsSheetOpen(false);
+        fetchVersionRef.current += 1;
+    }, [isLocked, setIsSheetOpen, setSelectedDateForSheet]);
 
     return (
         <div className="flex flex-col h-full overflow-hidden bg-transparent">

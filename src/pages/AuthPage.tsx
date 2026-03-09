@@ -10,10 +10,14 @@ import { motion } from 'framer-motion';
 import { authApi, type Gender } from '@/lib/api/auth';
 import { loginWithPasskey, registerPasskey } from '@/lib/webauthn-client';
 import { KeyRound, ShieldCheck } from 'lucide-react';
+import { useSecurity } from '@/context/SecurityContext';
+import { bootstrapDevSessionKey } from '@/lib/e2ee-session';
+import { isDevEnvironment } from '@/lib/environment';
 
 export default function AuthPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const { refreshE2eeSessionState, getCurrentUserId } = useSecurity();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +84,7 @@ export default function AuthPage() {
                 setError(t("auth.loginFailed"));
                 return;
             }
+            await refreshE2eeSessionState();
             navigate('/dashboard');
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : t("auth.loginFailed");
@@ -95,6 +100,8 @@ export default function AuthPage() {
         try {
             const result = await authApi.devMockLogin();
             if (result.verified) {
+                await bootstrapDevSessionKey(getCurrentUserId(), result.devPrivateKeyBase64);
+                await refreshE2eeSessionState();
                 navigate('/dashboard');
             }
         } catch (err: unknown) {
@@ -149,7 +156,7 @@ export default function AuthPage() {
                                     {t("auth.loginWithKey")}
                                 </Button>
 
-                                {import.meta.env.DEV && (
+                                {isDevEnvironment() && (
                                     <Button
                                         variant="outline"
                                         className="w-full border-dashed border-slate-300"
@@ -247,7 +254,7 @@ export default function AuthPage() {
                                         {isLoading ? t("auth.registering") : t("auth.registerWithKey")}
                                     </Button>
 
-                                    {import.meta.env.DEV && (
+                                    {isDevEnvironment() && (
                                         <Button
                                             variant="outline"
                                             className="w-full border-dashed border-slate-300"
@@ -268,6 +275,8 @@ export default function AuthPage() {
                                                         token: token || undefined
                                                     });
                                                     if (result.verified) {
+                                                        await bootstrapDevSessionKey(getCurrentUserId(), result.devPrivateKeyBase64);
+                                                        await refreshE2eeSessionState();
                                                         navigate('/dashboard');
                                                     }
                                                 } catch (err: unknown) {

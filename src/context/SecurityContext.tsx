@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { clearPrivateKey } from '@/lib/idb-crypto';
+import {
+    clearActivePrivateKey,
+    hasStoredPrivateKey,
+    markE2eeSessionLocked,
+    markE2eeSessionUnlocked,
+    setActiveE2eeUserId,
+} from '@/lib/e2ee-session';
+import { timelineApi } from '@/lib/api/timeline';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { authApi } from '@/lib/api/auth';
@@ -7,12 +14,18 @@ import { authApi } from '@/lib/api/auth';
 interface SecurityContextType {
     timeRemaining: number;
     isLocked: boolean;
+    isE2eeUnlocked: boolean;
     configTimeout: number;
     hasJustExpired: boolean;
     resetTimer: () => void;
+    unlockSession: () => void;
+    lockForLogout: () => void;
     updateConfig: (seconds: number) => void;
     clearExpiryFlag: () => void;
     ensureUnlocked: () => boolean;
+    refreshE2eeSessionState: () => Promise<boolean>;
+    getCurrentUserId: () => string | null;
+    clearCurrentUserId: () => void;
 }
 
 const SecurityContext = createContext<SecurityContextType | undefined>(undefined);
@@ -31,6 +44,31 @@ const getInitialTimeout = (): number => {
     return parsed;
 };
 
+/**
+ * Starts asynchronous private-key scrubbing for the current user and preserves failure state
+ * so later refresh attempts cannot silently reopen the session on stale key material.
+ */
+function startLockCleanup(
+    userId: string | null,
+    lockCleanupPromiseRef: React.MutableRefObject<Promise<void> | null>,
+    lockCleanupFailedRef: React.MutableRefObject<boolean>
+) {
+    lockCleanupFailedRef.current = false;
+
+    const cleanupPromise = clearActivePrivateKey(userId).catch((error) => {
+        lockCleanupFailedRef.current = true;
+        throw error;
+    });
+
+    void cleanupPromise.then(() => {
+            if (lockCleanupPromiseRef.current === cleanupPromise) {
+                lockCleanupPromiseRef.current = null;
+            }
+        }, () => { });
+
+    lockCleanupPromiseRef.current = cleanupPromise;
+}
+
 export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { toast } = useToast();
     const { t } = useTranslation();
@@ -39,23 +77,125 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [configTimeout, setConfigTimeout] = useState(getInitialTimeout);
 
     const [timeRemaining, setTimeRemaining] = useState(configTimeout);
-    const [isLocked, setIsLocked] = useState(false);
+    const [isSessionLocked, setIsSessionLocked] = useState(false);
     const [hasJustExpired, setHasJustExpired] = useState(false);
+    const [isE2eeUnlocked, setIsE2eeUnlocked] = useState(false);
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const timerRef = useRef<any>(null);
+    const refreshRequestIdRef = useRef(0);
+    const lockCleanupPromiseRef = useRef<Promise<void> | null>(null);
+    const lockCleanupFailedRef = useRef(false);
+    const hydrationRequestIdRef = useRef(0);
+
+    const isLocked = isSessionLocked || !isE2eeUnlocked;
+
+    const refreshE2eeSessionState = useCallback(async () => {
+        const requestId = ++refreshRequestIdRef.current;
+        let resolvedUserId = currentUserId;
+
+        if (lockCleanupPromiseRef.current) {
+            try {
+                await lockCleanupPromiseRef.current;
+            } catch {
+                lockCleanupFailedRef.current = true;
+                if (requestId === refreshRequestIdRef.current) {
+                    setIsE2eeUnlocked(false);
+                    setIsSessionLocked(true);
+                }
+                return false;
+            }
+        }
+
+        if (lockCleanupFailedRef.current) {
+            if (requestId === refreshRequestIdRef.current) {
+                setIsE2eeUnlocked(false);
+                setIsSessionLocked(true);
+            }
+            return false;
+        }
+
+        if (!resolvedUserId) {
+            try {
+                const me = await authApi.getMe();
+                resolvedUserId = me?.user?.id || null;
+
+                if (requestId !== refreshRequestIdRef.current) {
+                    return false;
+                }
+
+                setCurrentUserId(resolvedUserId);
+                setActiveE2eeUserId(resolvedUserId);
+            } catch {
+                if (requestId === refreshRequestIdRef.current) {
+                    setIsE2eeUnlocked(false);
+                    markE2eeSessionLocked();
+                    setIsSessionLocked(true);
+                }
+                return false;
+            }
+        }
+
+        try {
+            const hasKey = await hasStoredPrivateKey(resolvedUserId);
+            if (requestId !== refreshRequestIdRef.current) {
+                return false;
+            }
+
+            setIsE2eeUnlocked(hasKey);
+
+            if (hasKey) {
+                lockCleanupFailedRef.current = false;
+                markE2eeSessionUnlocked();
+                setIsSessionLocked(false);
+                setHasJustExpired(false);
+                setTimeRemaining(configTimeout);
+                return true;
+            } else {
+                markE2eeSessionLocked();
+                setIsSessionLocked(true);
+                return false;
+            }
+        } catch {
+            if (requestId === refreshRequestIdRef.current) {
+                setIsE2eeUnlocked(false);
+                markE2eeSessionLocked();
+                setIsSessionLocked(true);
+            }
+            return false;
+        }
+    }, [configTimeout, currentUserId]);
 
     // Initial load: get user to know whose key to clear later
     useEffect(() => {
+        const requestId = ++hydrationRequestIdRef.current;
+        let isActive = true;
+
         authApi.getMe().then(me => {
-            if (me?.user?.id) setCurrentUserId(me.user.id);
+            if (!isActive || requestId !== hydrationRequestIdRef.current) {
+                return;
+            }
+
+            const nextUserId = me?.user?.id || null;
+            setActiveE2eeUserId(nextUserId);
+            setCurrentUserId(nextUserId);
         }).catch(() => { });
+
+        return () => {
+            isActive = false;
+            hydrationRequestIdRef.current += 1;
+        };
     }, []);
 
     const lockSession = useCallback(() => {
+        refreshRequestIdRef.current += 1;
+
         // ALWAYS lock the session state immediately
-        setIsLocked(true);
+        setIsSessionLocked(true);
         setHasJustExpired(true);
+        setIsE2eeUnlocked(false);
+        markE2eeSessionLocked();
+        timelineApi.clearDecryptionCaches();
 
         toast({
             title: t('security.notification.expired.title'),
@@ -63,19 +203,35 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             variant: 'destructive',
         });
 
-        // Fire-and-forget the key clearing
-        if (currentUserId) {
-            clearPrivateKey(currentUserId).catch(err =>
-                console.error('Error clearing private key during lock:', err)
-            );
-        }
+        startLockCleanup(currentUserId, lockCleanupPromiseRef, lockCleanupFailedRef);
     }, [t, toast, currentUserId]);
 
     const resetTimer = useCallback(() => {
         setTimeRemaining(configTimeout);
-        setIsLocked(false);
+        setIsSessionLocked(!isE2eeUnlocked);
         setHasJustExpired(false);
+        if (isE2eeUnlocked) {
+            markE2eeSessionUnlocked();
+        }
+    }, [configTimeout, isE2eeUnlocked]);
+
+    const unlockSession = useCallback(() => {
+        setTimeRemaining(configTimeout);
+        setIsSessionLocked(false);
+        setHasJustExpired(false);
+        markE2eeSessionUnlocked();
     }, [configTimeout]);
+
+    const lockForLogout = useCallback(() => {
+        refreshRequestIdRef.current += 1;
+        setTimeRemaining(0);
+        setIsSessionLocked(true);
+        setHasJustExpired(false);
+        setIsE2eeUnlocked(false);
+        markE2eeSessionLocked();
+        timelineApi.clearDecryptionCaches();
+        startLockCleanup(currentUserId, lockCleanupPromiseRef, lockCleanupFailedRef);
+    }, [currentUserId]);
 
     const updateConfig = useCallback((seconds: number) => {
         setConfigTimeout(seconds);
@@ -88,7 +244,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const ensureUnlocked = useCallback(() => {
-        if (isLocked) {
+        if (isLocked || !isE2eeUnlocked) {
             toast({
                 title: t('security.notification.actionLocked.title'),
                 description: t('security.notification.actionLocked.desc'),
@@ -98,7 +254,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
         resetTimer(); // Also reset timer on successful interaction
         return true;
-    }, [isLocked, t, toast, resetTimer]);
+    }, [isLocked, isE2eeUnlocked, t, toast, resetTimer]);
 
     useEffect(() => {
         if (isLocked) return;
@@ -135,12 +291,22 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         <SecurityContext.Provider value={{
             timeRemaining,
             isLocked,
+            isE2eeUnlocked,
             configTimeout,
             hasJustExpired,
             resetTimer,
+            unlockSession,
+            lockForLogout,
             updateConfig,
             clearExpiryFlag,
-            ensureUnlocked
+            ensureUnlocked,
+            refreshE2eeSessionState,
+            getCurrentUserId: () => currentUserId,
+            clearCurrentUserId: () => {
+                hydrationRequestIdRef.current += 1;
+                setCurrentUserId(null);
+                setActiveE2eeUserId(null);
+            },
         }}>
             {children}
         </SecurityContext.Provider>

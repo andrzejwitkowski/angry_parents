@@ -110,13 +110,13 @@ export const authApi = {
         }),
 
     devMockRegister: (data: { email: string; name: string; gender: Gender; token?: string }) =>
-        fetchApi<{ verified: boolean; role: string }>(
+        fetchApi<{ verified: boolean; role: string; devPrivateKeyBase64?: string }>(
             "/mock-register",
             { method: "POST", body: JSON.stringify(data) }
         ),
 
     devMockLogin: (userId?: string) =>
-        fetchApi<{ verified: boolean }>(
+        fetchApi<{ verified: boolean; devPrivateKeyBase64?: string }>(
             "/mock-login",
             { method: "POST", body: JSON.stringify({ userId }) }
         ),

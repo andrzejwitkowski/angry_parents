@@ -24,23 +24,16 @@ const mockItem: EncryptedTimelineItem = {
 };
 
 describe('EncryptedItemCard', () => {
-    beforeEach(() => {
-        localStorage.clear();
-    });
-
     it('renders lock icon and encryption messages', () => {
-        localStorage.setItem("zk_private_key", "dummy-key");
         render(
             <I18nextProvider i18n={i18n}>
-                <EncryptedItemCard item={mockItem} />
+                <EncryptedItemCard item={mockItem} hasPrivateKey />
             </I18nextProvider>
         );
 
         // Check for "Encrypted Entry" title (daylog.encryptedEntry)
         expect(screen.getByText('Encrypted Entry')).toBeInTheDocument();
 
-        // Check for "Decryption failed (check your keys)." (common.decryptionFailed)
-        // Note: We just updated this to sentence style in en.json
         expect(screen.getByText('Decryption failed (check your keys).')).toBeInTheDocument();
 
         // Check for notice message (daylog.encryptedContentNotice)
@@ -59,5 +52,15 @@ describe('EncryptedItemCard', () => {
 
         // AuditIndicator is rendered in the card footer
         expect(screen.getByTestId('audit-indicator')).toBeInTheDocument();
+    });
+
+    it('renders missing-key messaging when no session key is available', () => {
+        render(
+            <I18nextProvider i18n={i18n}>
+                <EncryptedItemCard item={mockItem} hasPrivateKey={false} />
+            </I18nextProvider>
+        );
+
+        expect(screen.getByText('Private key missing (unlock with your passphrase).')).toBeInTheDocument();
     });
 });

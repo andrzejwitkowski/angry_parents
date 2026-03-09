@@ -16,6 +16,8 @@ export interface IFamily extends Document {
     children: {
         id: string;
         name: string;
+        icon: string;
+        color: string;
         birthDate?: Date;
     }[];
     custodyPatterns: Record<string, unknown>[];
@@ -26,6 +28,8 @@ export interface IFamily extends Document {
 const FamilyChildSchema = new Schema({
     id: { type: String, required: true },
     name: { type: String, required: true },
+    icon: { type: String, required: true },
+    color: { type: String, required: true },
     birthDate: { type: Date },
 }, { _id: false });
 

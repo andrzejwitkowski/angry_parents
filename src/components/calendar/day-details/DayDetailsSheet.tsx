@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TimelineFeed } from "./TimelineFeed";
@@ -10,6 +10,7 @@ import { enUS, pl } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
 import type { User } from '@/types/user';
 import { useChildren } from "@/hooks/useChildren";
+import { useSecurity } from "@/context/SecurityContext";
 
 interface DayDetailsSheetProps {
     date: Date | null;
@@ -23,11 +24,13 @@ interface DayDetailsSheetProps {
 export function DayDetailsSheet({ date, isOpen, onClose, user, activeChildId: externalChildId, onUpdate }: DayDetailsSheetProps) {
     const { t, i18n } = useTranslation();
     const currentLocale = i18n.language === 'pl' ? pl : enUS;
+    const { isLocked } = useSecurity();
 
     const [items, setItems] = useState<TimelineItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [internalChildId, setInternalChildId] = useState<string | null>(null);
+    const fetchVersionRef = useRef(0);
 
     const { children } = useChildren();
 
@@ -46,24 +49,44 @@ export function DayDetailsSheet({ date, isOpen, onClose, user, activeChildId: ex
     const displayDate = date ? format(date, "EEEE, do LLLL yyyy", { locale: currentLocale }) : "";
 
     const fetchItems = useCallback(async () => {
-        if (!formattedDate) return;
+        if (!formattedDate || isLocked) return;
+        const fetchVersion = ++fetchVersionRef.current;
         setLoading(true);
         setError(null);
         try {
             const data = await timelineApi.getByDate(formattedDate);
+            if (isLocked || fetchVersion !== fetchVersionRef.current) {
+                return;
+            }
             setItems(data);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to load events");
+            if (!isLocked && fetchVersion === fetchVersionRef.current) {
+                setError(err instanceof Error ? err.message : "Failed to load events");
+            }
         } finally {
-            setLoading(false);
+            if (!isLocked && fetchVersion === fetchVersionRef.current) {
+                setLoading(false);
+            }
         }
-    }, [formattedDate]);
+    }, [formattedDate, isLocked]);
 
     useEffect(() => {
-        if (isOpen && formattedDate) {
+        if (isOpen && formattedDate && !isLocked) {
             fetchItems();
         }
-    }, [isOpen, formattedDate, fetchItems]);
+    }, [isOpen, formattedDate, isLocked, fetchItems]);
+
+    useEffect(() => {
+        if (!isLocked) {
+            return;
+        }
+
+        setItems([]);
+        setError(null);
+        setLoading(false);
+        fetchVersionRef.current += 1;
+        onClose();
+    }, [isLocked, onClose]);
 
     const handleItemUpdate = (updatedItem: TimelineItem) => {
         if (!updatedItem?.id) return;

@@ -970,11 +970,12 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 gender: finalGender,
                 familyId: familyIdToUse
             });
+            const devKeyPair = await getDevKeyPair();
 
             set.headers["Set-Cookie"] = setCookie(jwtToken);
             set.headers["Content-Type"] = "application/json";
 
-            return { verified: true, role: finalGender };
+            return { verified: true, role: finalGender, devPrivateKeyBase64: devKeyPair.privateKey };
         })
         .post("/mock-login", async ({ body, set }) => {
             const isDev = process.env.NODE_ENV !== "production";
@@ -1052,10 +1053,11 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
                 role: "dad",
                 gender: "dad",
             });
+            const devKeyPair = await getDevKeyPair();
             console.log(`[MockLogin] Mock login for userId: ${finalUserId}, familyId: ${finalFamilyId}`);
             set.headers["Set-Cookie"] = setCookie(token);
             set.headers["Content-Type"] = "application/json";
-            return { verified: true };
+            return { verified: true, devPrivateKeyBase64: devKeyPair.privateKey };
         })
         .all("/*", async ({ request }) => {
             console.log(`[BetterAuth Fallback] Hit for ${request.url}`);

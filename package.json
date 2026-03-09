@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:frontend": "vite",
     "dev:backend": "bun --watch backend/src/index.ts",
-    "dev:all": "bash scripts/start-db.sh && bun run dev & bun run dev:backend",
-    "dev:stop": "bash scripts/stop-db.sh",
+    "dev:all": "bun scripts/dev-all.ts",
+    "dev:stop": "bun scripts/db-compose.ts down",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "bun test --exclude tests/e2e-backend",

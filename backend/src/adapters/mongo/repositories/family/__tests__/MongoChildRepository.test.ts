@@ -1,85 +1,135 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from "bun:test";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import mongoose, { Connection, Model, Schema } from "mongoose";
 import { MongoChildRepository } from "../MongoChildRepository";
-import { ChildModel } from "../../../models/ChildModel";
 import type { Child } from "../../../../../domain/family/model/Child";
-import { connectMongoMemory, disconnectMongoMemory } from "../../../__tests__/mongoMemoryServer";
+
+interface TestFamilyDocument extends mongoose.Document {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+    parentIds: string[];
+    parentPublicKeys: unknown[];
+    children: Array<{
+        id: string;
+        name: string;
+        icon: string;
+        color: string;
+    }>;
+    custodyPatterns: unknown[];
+}
+
+const FamilyChildSchema = new Schema({
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    icon: { type: String, required: true },
+    color: { type: String, required: true },
+}, { _id: false });
+
+const FamilySchema = new Schema<TestFamilyDocument>({
+    name: { type: String, required: true },
+    parentIds: [{ type: String }],
+    parentPublicKeys: [{ type: Schema.Types.Mixed }],
+    children: [FamilyChildSchema],
+    custodyPatterns: [{ type: Schema.Types.Mixed }],
+});
 
 describe("MongoChildRepository", () => {
     let repository: MongoChildRepository;
     let mongoServer: MongoMemoryServer;
+    let connection: Connection;
+    let Family: Model<TestFamilyDocument>;
+    let familyOneId: string;
+    let familyTwoId: string;
 
     beforeAll(async () => {
-        mongoServer = await connectMongoMemory();
-        repository = new MongoChildRepository();
+        mongoServer = await MongoMemoryServer.create();
+        connection = await mongoose.createConnection(mongoServer.getUri()).asPromise();
+        Family = connection.model<TestFamilyDocument>("Family", FamilySchema);
+        repository = new MongoChildRepository(Family);
     });
 
     afterAll(async () => {
-        await disconnectMongoMemory(mongoServer);
+        await connection.close();
+        await mongoServer.stop();
     });
 
     beforeEach(async () => {
-        await ChildModel.deleteMany({});
+        familyOneId = new mongoose.Types.ObjectId().toString();
+        familyTwoId = new mongoose.Types.ObjectId().toString();
+
+        await Family.deleteMany({});
+        await Family.create({
+            _id: familyOneId,
+            name: "Family One",
+            parentIds: ["parent-1"],
+            parentPublicKeys: [],
+            children: [],
+            custodyPatterns: []
+        });
+        await Family.create({
+            _id: familyTwoId,
+            name: "Family Two",
+            parentIds: ["parent-2"],
+            parentPublicKeys: [],
+            children: [],
+            custodyPatterns: []
+        });
     });
 
-    const mockChild: Child = {
+    const createChild = (overrides: Partial<Child> = {}): Child => ({
         id: "child-123",
         name: "Test Child",
         icon: "user",
         color: "#FF0000",
-        familyId: "family-123"
-    };
-
-    it("should save and retrieve a child", async () => {
-        const saved = await repository.save(mockChild);
-        expect(saved.id).toBe(mockChild.id);
-        expect(saved.name).toBe(mockChild.name);
-
-        const found = await repository.findById(mockChild.id);
-        expect(found).not.toBeNull();
-        expect(found?.name).toBe(mockChild.name);
-        expect(found?.icon).toBe(mockChild.icon);
-        expect(found?.color).toBe(mockChild.color);
+        familyId: familyOneId,
+        ...overrides,
     });
 
-    it("should return null for non-existent child", async () => {
-        const found = await repository.findById("non-existent");
-        expect(found).toBeNull();
+    it("saves and retrieves children from Family.children", async () => {
+        const child = createChild();
+
+        const saved = await repository.save(child);
+        const found = await repository.findById(child.id);
+        const family = await Family.findById(familyOneId).lean();
+
+        expect(saved).toEqual(child);
+        expect(found).toEqual(child);
+        expect(family?.children).toEqual([
+            {
+                id: child.id,
+                name: child.name,
+                icon: child.icon,
+                color: child.color,
+            }
+        ]);
     });
 
-    it("should update an existing child", async () => {
-        await repository.save(mockChild);
+    it("updates an existing embedded child", async () => {
+        await repository.save(createChild());
 
-        const updatedChild = { ...mockChild, name: "Updated Name" };
-        await repository.save(updatedChild);
+        await repository.save(createChild({ name: "Updated Name", color: "#00FF00" }));
 
-        const found = await repository.findById(mockChild.id);
+        const found = await repository.findById("child-123");
         expect(found?.name).toBe("Updated Name");
+        expect(found?.color).toBe("#00FF00");
     });
 
-    it("should find all children by familyId", async () => {
-        await repository.save(mockChild);
+    it("finds all children by family id", async () => {
+        await repository.save(createChild());
+        await repository.save(createChild({ id: "child-456", name: "Second Child" }));
+        await repository.save(createChild({ id: "child-999", familyId: familyTwoId, name: "Other Family Child" }));
 
-        const child2: Child = { ...mockChild, id: "child-456", name: "Second Child", familyId: "family-123" };
-        await repository.save(child2);
-
-        const diffFamilyChild: Child = { ...mockChild, id: "child-999", name: "Diff Family Child", familyId: "family-999" };
-        await repository.save(diffFamilyChild);
-
-        const all = await repository.findAllByFamilyId("family-123");
-        expect(all.length).toBe(2);
-
-        const ids = all.map(c => c.id);
-        expect(ids).toContain("child-123");
-        expect(ids).toContain("child-456");
-        expect(ids).not.toContain("child-999");
+        const all = await repository.findAllByFamilyId(familyOneId);
+        expect(all).toHaveLength(2);
+        expect(all.map(child => child.id)).toEqual(["child-123", "child-456"]);
     });
 
-    it("should delete a child", async () => {
-        await repository.save(mockChild);
-        await repository.delete(mockChild.id);
+    it("deletes an embedded child", async () => {
+        await repository.save(createChild());
 
-        const found = await repository.findById(mockChild.id);
-        expect(found).toBeNull();
+        await repository.delete("child-123");
+
+        expect(await repository.findById("child-123")).toBeNull();
+        expect(await repository.findAllByFamilyId(familyOneId)).toEqual([]);
     });
 });

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { authApi } from "@/lib/api/auth";
 import { useTranslation } from "react-i18next";
 import { SecurityTimer } from "../security/SecurityTimer";
+import { useSecurity } from "@/context/SecurityContext";
 
 interface SidebarFooterProps {
     isCollapsed: boolean;
@@ -11,10 +12,18 @@ interface SidebarFooterProps {
 
 export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
     const { t } = useTranslation();
+    const { clearCurrentUserId, lockForLogout } = useSecurity();
 
     const handleLogout = async () => {
-        await authApi.logout();
-        window.location.href = "/auth";
+        lockForLogout();
+        try {
+            await authApi.logout();
+        } catch (error) {
+            console.error("Failed to log out from server during sidebar logout", error);
+        } finally {
+            clearCurrentUserId();
+            window.location.assign("/auth");
+        }
     };
 
     return (

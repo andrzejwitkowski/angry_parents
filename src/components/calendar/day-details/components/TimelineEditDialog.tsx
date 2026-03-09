@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -16,6 +17,7 @@ import { NoteForm } from "../composer/forms/NoteForm";
 import { VacationForm } from "../composer/forms/VacationForm";
 import { timelineApi } from "@/lib/api/timeline";
 import type { TimelineItem } from "@/types/timeline.types";
+import { useSecurity } from "@/context/SecurityContext";
 
 interface TimelineEditDialogProps {
     item: TimelineItem;
@@ -26,9 +28,14 @@ interface TimelineEditDialogProps {
 
 export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: TimelineEditDialogProps) {
     const { t } = useTranslation();
+    const { ensureUnlocked } = useSecurity();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
+        if (!ensureUnlocked()) {
+            return;
+        }
+
         const childId = item.childIds[0];
         if (!childId) {
             console.warn("Cannot edit item: missing childId");
@@ -62,6 +69,7 @@ export function TimelineEditDialog({ item, open, onOpenChange, onSuccess }: Time
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>{t("daylog.editEntry")}</DialogTitle>
+                    <DialogDescription className="sr-only">{t("daylog.editEntry")}</DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
                     {item.type === "MEDICAL_VISIT" && (

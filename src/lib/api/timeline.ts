@@ -1,5 +1,6 @@
 import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types";
-import { decryptRSA, importPrivateKey, getPrivateKeyFromStorage, importPublicKey, encryptRSA } from "@/lib/crypto-utils";
+import { decryptRSA, importPublicKey, encryptRSA } from "@/lib/crypto-utils";
+import { getActiveE2eeUserId, getTimelinePrivateKey, clearTimelinePrivateKeyCache } from "@/lib/e2ee-session";
 import type { MutationSignature } from "@/lib/signature-provider";
 import { authApi } from "./auth";
 
@@ -35,35 +36,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
     return response.json();
 }
 
-let cachedPrivateKey: CryptoKey | null = null;
-let cachedPrivateKeySource: string | null = null;
 const PROTECTED_FIELDS = new Set([
     "id", "date", "type", "createdAt", "createdBy", "createdByName", "auditTrail", "isDeleted", "childIds", "encryptedPayload", "ciphertext", "encryption"
 ]);
 
-function resolvePrivateKeyBase64(): string | null {
-    const storedKey = getPrivateKeyFromStorage();
-    if (storedKey) return storedKey;
-    if (import.meta.env.DEV) return import.meta.env.VITE_DEV_RSA_PRIVATE_KEY || null;
-    return null;
-}
-
 async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem[]> {
-    const privateKeyBase64 = resolvePrivateKeyBase64();
+    const privateKey = await getTimelinePrivateKey();
 
-    if (!privateKeyBase64) return items;
+    if (!privateKey) return items;
 
-    if (!cachedPrivateKey || cachedPrivateKeySource !== privateKeyBase64) {
-        try {
-            cachedPrivateKey = await importPrivateKey(privateKeyBase64);
-            cachedPrivateKeySource = privateKeyBase64;
-        } catch (error) {
-            console.warn(
-                `[TimelineApi] Could not import private key: ${error instanceof Error ? error.message : String(error)}`
-            );
-            return items;
-        }
-    }
+    const currentUserId = await getActiveE2eeUserId();
 
     return Promise.all(items.map(async (item) => {
         if (item.encryption === "PLAINTEXT") return item;
@@ -72,30 +54,8 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
         // Otherwise, try to find it in the encryptedPayload if we know who we are.
         let ciphertext = item.ciphertext;
 
-        if (!ciphertext && item.encryptedPayload) {
-            const now = Date.now();
-            if (!cachedMeData || now - cachedMeTimestamp > ME_CACHE_TTL_MS) {
-                if (!cachedMePromise) {
-                    cachedMePromise = authApi.getMe().then(data => {
-                        cachedMeData = data;
-                        cachedMeTimestamp = Date.now();
-                        cachedMePromise = null;
-                        return data;
-                    }).catch(e => {
-                        cachedMePromise = null;
-                        throw e;
-                    });
-                }
-                try {
-                    await cachedMePromise;
-                } catch (e) {
-                    console.warn("[TimelineApi] Could not fetch user data for decryption fallback:", e);
-                }
-            }
-            const currentUserId = cachedMeData?.user?.id;
-            if (currentUserId) {
-                ciphertext = item.encryptedPayload[currentUserId];
-            }
+        if (!ciphertext && item.encryptedPayload && currentUserId) {
+            ciphertext = item.encryptedPayload[currentUserId];
         }
 
         if (!ciphertext) {
@@ -107,7 +67,6 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
         }
 
         try {
-            const privateKey = cachedPrivateKey!;
             const decrypted = await decryptRSA(ciphertext, privateKey);
             const decryptedFields = JSON.parse(decrypted);
 
@@ -138,17 +97,11 @@ async function decryptTimelineItems(items: TimelineItem[]): Promise<TimelineItem
     }));
 }
 
-// Browser-side cache for getMe() — safe as module-level variable since there's
-// only one authenticated user per browser tab (same pattern as cachedPrivateKey).
-let cachedMeData: Awaited<ReturnType<typeof authApi.getMe>> | null = null;
-let cachedMePromise: Promise<Awaited<ReturnType<typeof authApi.getMe>>> | null = null;
-let cachedMeTimestamp = 0;
-const ME_CACHE_TTL_MS = 30_000; // 30 seconds
-
-export function invalidateMeCache() {
-    cachedMeData = null;
-    cachedMeTimestamp = 0;
-    cachedMePromise = null;
+/**
+ * Clears in-memory decryption caches after logout or session lock transitions.
+ */
+function clearDecryptionCaches() {
+    clearTimelinePrivateKeyCache();
 }
 
 
@@ -156,7 +109,7 @@ export function invalidateMeCache() {
  * Encrypts a timeline item's sensitive fields for all parents in the family.
  */
 async function encryptTimelineItem(
-    type: string,
+    _type: string,
     contentFields: Record<string, any>
 ): Promise<Record<string, string>> {
     const { family } = await authApi.getMe();
@@ -181,6 +134,7 @@ async function encryptTimelineItem(
 }
 
 export const timelineApi = {
+    clearDecryptionCaches,
     async getByDate(date: string): Promise<TimelineItem[]> {
         const response = await fetch(`${API_BASE_URL}/calendar/${date}/timeline`, {
             method: "GET",
