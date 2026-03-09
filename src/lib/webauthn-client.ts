@@ -3,6 +3,14 @@ import { generateRSAKeyPair, deriveMasterKey, wrapPrivateKey, unwrapPrivateKey, 
 import { savePrivateKey } from "./idb-crypto";
 import { authApi, type Gender } from "./api/auth";
 
+export const webauthnClientDeps = {
+    generateRSAKeyPair,
+    deriveMasterKey,
+    wrapPrivateKey,
+    unwrapPrivateKey,
+    bytesToBase64,
+};
+
 export const isPrfSupported = async () => {
     if (!window.PublicKeyCredential) return false;
     try {
@@ -10,7 +18,6 @@ export const isPrfSupported = async () => {
         const caps = await window.PublicKeyCredential.getClientCapabilities?.();
         return !!caps?.["prf"] || !!caps?.["extension:prf"];
     } catch (e) {
-        // Fallback to basic check if getClientCapabilities is not supported
         const uvpa = (window as any).PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable;
         if (typeof uvpa === "function") {
             return !!(await uvpa());
@@ -28,10 +35,8 @@ export const registerPasskey = async (params: {
 }) => {
     const { email, name, username, gender, token } = params;
 
-    // 1. Get options
     const options = await authApi.registerOptions({ email, name, username, gender });
 
-    // Generate random salt for PRF during registration
     const salt = window.crypto.getRandomValues(new Uint8Array(32));
     const optionsWithPrf = options as any;
     optionsWithPrf.extensions = {
@@ -39,7 +44,6 @@ export const registerPasskey = async (params: {
         prf: { eval: { first: salt } }
     };
 
-    // 2. Start registration (Browser prompts user)
     let registrationResponse;
     try {
         registrationResponse = await startRegistration({ optionsJSON: optionsWithPrf });
@@ -50,22 +54,17 @@ export const registerPasskey = async (params: {
         throw error;
     }
 
-    // 3. Generate RSA Keypair
-    const { publicKeyBase64, privateKey: extractablePrivateKey } = await generateRSAKeyPair();
+    const { publicKeyBase64, privateKey: extractablePrivateKey } = await webauthnClientDeps.generateRSAKeyPair();
 
-    // 4. Derive Master Key from PRF results
     const prfResults = (registrationResponse as any).clientExtensionResults?.prf;
     if (!prfResults || !prfResults.results?.first) {
         console.warn("PRF extension not returned by authenticator - device might not support PRF. Registration cannot continue without PRF support.");
         throw new Error("Your YubiKey/Browser does not support the required PRF encryption extension.");
     }
 
-    const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
+    const masterKey = await webauthnClientDeps.deriveMasterKey(new Uint8Array(prfResults.results.first));
+    const encryptedRsaPrivateKeyBase64 = await webauthnClientDeps.wrapPrivateKey(extractablePrivateKey, masterKey);
 
-    // 5. Wrap (Encrypt) RSA Private Key while the source key is still extractable.
-    const encryptedRsaPrivateKeyBase64 = await wrapPrivateKey(extractablePrivateKey, masterKey);
-
-    // Re-import the key as non-extractable before saving it locally.
     const privateKeyArrayBuffer = await window.crypto.subtle.exportKey("pkcs8", extractablePrivateKey);
     const nonExtractablePrivateKey = await window.crypto.subtle.importKey(
         "pkcs8",
@@ -74,13 +73,12 @@ export const registerPasskey = async (params: {
             name: "RSA-OAEP",
             hash: "SHA-256",
         },
-        false, // non-extractable
+        false,
         ["decrypt", "unwrapKey"]
     );
 
-    const prfSaltBase64 = bytesToBase64(salt);
+    const prfSaltBase64 = await webauthnClientDeps.bytesToBase64(salt);
 
-    // 6. Verify with server
     const verificationJSON = await authApi.registerVerify({
         registrationResponse,
         rsaPublicKeyBase64: publicKeyBase64,
@@ -94,7 +92,6 @@ export const registerPasskey = async (params: {
     });
 
     if (verificationJSON && verificationJSON.verified) {
-        // Also save the private key locally for immediate use
         if (verificationJSON.userId) {
             await savePrivateKey(verificationJSON.userId, nonExtractablePrivateKey);
         }
@@ -163,15 +160,15 @@ export const registerPasskeyForLoggedInUser = async () => {
         throw error;
     }
 
-    const { publicKeyBase64, privateKey: extractablePrivateKey } = await generateRSAKeyPair();
+    const { publicKeyBase64, privateKey: extractablePrivateKey } = await webauthnClientDeps.generateRSAKeyPair();
 
     const prfResults = (registrationResponse as any).clientExtensionResults?.prf;
     if (!prfResults || !prfResults.results?.first) {
         throw new Error("Your YubiKey/Browser does not support the required PRF encryption extension.");
     }
 
-    const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
-    const encryptedRsaPrivateKeyBase64 = await wrapPrivateKey(extractablePrivateKey, masterKey);
+    const masterKey = await webauthnClientDeps.deriveMasterKey(new Uint8Array(prfResults.results.first));
+    const encryptedRsaPrivateKeyBase64 = await webauthnClientDeps.wrapPrivateKey(extractablePrivateKey, masterKey);
 
     const privateKeyArrayBuffer = await window.crypto.subtle.exportKey("pkcs8", extractablePrivateKey);
     const nonExtractablePrivateKey = await window.crypto.subtle.importKey(
@@ -185,7 +182,7 @@ export const registerPasskeyForLoggedInUser = async () => {
         ["decrypt", "unwrapKey"]
     );
 
-    const prfSaltBase64 = bytesToBase64(salt);
+    const prfSaltBase64 = await webauthnClientDeps.bytesToBase64(salt);
 
     const verifyResp = await fetch(`/api/auth/webauthn/register/verify`, {
         method: "POST",
@@ -219,11 +216,9 @@ export const registerPasskeyForLoggedInUser = async () => {
 };
 
 export const loginWithPasskey = async (email?: string) => {
-    // 1. Get options
     const options = await authApi.loginOptions({ email });
     const { prfSaltBase64: _ignoredPrfSaltBase64, ...authenticationOptions } = options as any;
 
-    // 2. Start authentication
     let authenticationResponse;
     try {
         authenticationResponse = await startAuthentication({ optionsJSON: authenticationOptions });
@@ -234,7 +229,6 @@ export const loginWithPasskey = async (email?: string) => {
         throw error;
     }
 
-    // 3. Verify on backend
     const result = await authApi.loginVerify({
         email: email || "",
         authenticationResponse
@@ -264,8 +258,8 @@ export const loginWithPasskey = async (email?: string) => {
             return false;
         }
 
-        const masterKey = await deriveMasterKey(new Uint8Array(prfResults.results.first));
-        const privateKey = await unwrapPrivateKey(result.encryptedRsaPrivateKeyBase64, masterKey, false);
+        const masterKey = await webauthnClientDeps.deriveMasterKey(new Uint8Array(prfResults.results.first));
+        const privateKey = await webauthnClientDeps.unwrapPrivateKey(result.encryptedRsaPrivateKeyBase64, masterKey, false);
         await savePrivateKey(result.userId, privateKey);
         console.log(`[Auth] Successfully decrypted and stored RSA private key for ${result.userId} from YubiKey PRF.`);
         return true;

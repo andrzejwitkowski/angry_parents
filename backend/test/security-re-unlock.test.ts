@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll, mock } from "bun:test";
 import { Elysia } from "elysia";
-import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { Family } from "../src/adapters/mongo/models/FamilyModel";
-import { createAuthController } from "../src/adapters/rest/auth/AuthController";
-import { MongoRegistrationProcessRepository } from "../src/adapters/mongo/repositories/auth/MongoRegistrationProcessRepository";
+
+process.env.SUPPRESS_JEST_WARNINGS = "true";
+
+const mongoose = (await import("mongoose")).default;
+const { Family } = await import("../src/adapters/mongo/models/FamilyModel");
+const { createAuthController } = await import("../src/adapters/rest/auth/AuthController");
+const { MongoRegistrationProcessRepository } = await import("../src/adapters/mongo/repositories/auth/MongoRegistrationProcessRepository");
 
 // Mocking simplewebauthn/server
 mock.module("@simplewebauthn/server", () => ({
