@@ -33,9 +33,9 @@ mock.module("@simplewebauthn/server", () => ({
         registrationInfo: {
             credential: {
                 id: "mock-credential-id",
-                publicKey: new Uint8Array([1, 2, 3]),
-                counter: 0,
             },
+            credentialPublicKey: new Uint8Array([1, 2, 3]),
+            counter: 0,
         },
     }),
     verifyAuthenticationResponse: async () => ({

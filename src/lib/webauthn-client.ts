@@ -15,7 +15,7 @@ let webauthnClientDeps = { ...defaultWebauthnClientDeps };
 
 export const __setWebauthnClientDepsForTests = (overrides: Partial<typeof defaultWebauthnClientDeps>) => {
     webauthnClientDeps = {
-        ...webauthnClientDeps,
+        ...defaultWebauthnClientDeps,
         ...overrides,
     };
 };
