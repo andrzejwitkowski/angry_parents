@@ -3,5 +3,5 @@ export interface Child {
     name: string;
     icon: string; // Lucide icon name or emoji
     color: string; // HEX color for calendar visualization
-    familyId: string;
+    familyId?: string;
 }

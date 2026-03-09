@@ -100,7 +100,7 @@ export default function AuthPage() {
         try {
             const result = await authApi.devMockLogin();
             if (result.verified) {
-                await bootstrapDevSessionKey(getCurrentUserId());
+                await bootstrapDevSessionKey(getCurrentUserId(), result.devPrivateKeyBase64);
                 await refreshE2eeSessionState();
                 navigate('/dashboard');
             }
@@ -275,7 +275,7 @@ export default function AuthPage() {
                                                         token: token || undefined
                                                     });
                                                     if (result.verified) {
-                                                        await bootstrapDevSessionKey(getCurrentUserId());
+                                                        await bootstrapDevSessionKey(getCurrentUserId(), result.devPrivateKeyBase64);
                                                         await refreshE2eeSessionState();
                                                         navigate('/dashboard');
                                                     }

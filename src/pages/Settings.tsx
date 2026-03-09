@@ -107,7 +107,8 @@ export default function Settings() {
         setIsUnlocking(true);
         setUnlockError(null);
         try {
-            await bootstrapDevSessionKey(user.id);
+            const result = await authApi.devMockLogin(user.id);
+            await bootstrapDevSessionKey(user.id, result.devPrivateKeyBase64);
             const refreshed = await refreshE2eeSessionState();
             if (refreshed) {
                 clearExpiryFlag();

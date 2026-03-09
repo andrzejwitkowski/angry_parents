@@ -25,7 +25,7 @@ mock.module("@/context/SecurityContext", () => ({
 mock.module("@/lib/api/auth", () => ({
     authApi: {
         getInvitation: jest.fn(),
-        devMockLogin: jest.fn().mockResolvedValue({ verified: true }),
+        devMockLogin: jest.fn().mockResolvedValue({ verified: true, devPrivateKeyBase64: "stable-dev-private-key" }),
     },
 }));
 
@@ -87,6 +87,25 @@ describe("AuthPage", () => {
         expect(hasStoredPrivateKey).not.toHaveBeenCalled();
         expect(securityState.unlockSession).not.toHaveBeenCalled();
         expect(securityState.clearExpiryFlag).not.toHaveBeenCalled();
+        expect(screen.getByTestId("location-probe").textContent).toBe("/dashboard");
+    });
+
+    test("dev mock login passes stable dev private key into bootstrapDevSessionKey", async () => {
+        const { bootstrapDevSessionKey } = await import("@/lib/e2ee-session");
+        const { authApi } = await import("@/lib/api/auth");
+        const { isDevEnvironment } = await import("@/lib/environment");
+        (isDevEnvironment as jest.Mock).mockReturnValue(true);
+
+        await act(async () => {
+            renderAuthPage();
+        });
+
+        await act(async () => {
+            fireEvent.click(screen.getByText("Dev: Simulate Login"));
+        });
+
+        expect(authApi.devMockLogin).toHaveBeenCalled();
+        expect(bootstrapDevSessionKey).toHaveBeenCalledWith("user-1", "stable-dev-private-key");
         expect(screen.getByTestId("location-probe").textContent).toBe("/dashboard");
     });
 });

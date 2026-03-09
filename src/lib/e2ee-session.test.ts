@@ -45,4 +45,5 @@ describe("e2ee-session", () => {
 
         expect(savePrivateKeyMock).toHaveBeenCalledWith("user-1", expect.anything());
     });
+
 });

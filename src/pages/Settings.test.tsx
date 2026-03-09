@@ -42,6 +42,7 @@ mock.module("@/lib/api/auth", () => ({
                 ],
             },
         }),
+        devMockLogin: jest.fn().mockResolvedValue({ verified: true, devPrivateKeyBase64: "stable-dev-private-key" }),
     },
 }));
 
@@ -162,7 +163,7 @@ describe("Settings", () => {
             fireEvent.click(screen.getByTestId("dev-unlock-button"));
         });
 
-        expect(bootstrapDevSessionKey).toHaveBeenCalledWith("user-1");
+        expect(bootstrapDevSessionKey).toHaveBeenCalledWith("user-1", "stable-dev-private-key");
         expect(securityState.refreshE2eeSessionState).toHaveBeenCalled();
         expect(securityState.unlockSession).not.toHaveBeenCalled();
     });

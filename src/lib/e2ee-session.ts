@@ -1,5 +1,6 @@
 import { clearPrivateKey, getPrivateKey, savePrivateKey } from "@/lib/idb-crypto";
 import { authApi } from "@/lib/api/auth";
+import { importPrivateKey } from "@/lib/crypto-utils";
 
 let cachedTimelinePrivateKey: CryptoKey | null = null;
 let cachedTimelinePrivateKeyUserId: string | null = null;
@@ -126,24 +127,26 @@ export async function clearActivePrivateKey(userId?: string | null): Promise<voi
 /**
  * Creates and stores a development-only private key so local E2EE flows can be exercised.
  */
-export async function bootstrapDevSessionKey(userId?: string | null): Promise<string | null> {
+export async function bootstrapDevSessionKey(userId?: string | null, privateKeyBase64?: string): Promise<string | null> {
     const resolvedUserId = userId ?? await resolveActiveUserId();
     if (!resolvedUserId) {
         return null;
     }
 
-    const devPrivateKey = await window.crypto.subtle.generateKey(
-        {
-            name: "RSA-OAEP",
-            modulusLength: 2048,
-            publicExponent: new Uint8Array([1, 0, 1]),
-            hash: "SHA-256",
-        },
-        false,
-        ["decrypt", "unwrapKey"]
-    );
+    const devPrivateKey = privateKeyBase64
+        ? await importPrivateKey(privateKeyBase64)
+        : (await window.crypto.subtle.generateKey(
+            {
+                name: "RSA-OAEP",
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([1, 0, 1]),
+                hash: "SHA-256",
+            },
+            false,
+            ["decrypt", "unwrapKey"]
+        )).privateKey;
 
-    await savePrivateKey(resolvedUserId, devPrivateKey.privateKey);
+    await savePrivateKey(resolvedUserId, devPrivateKey);
     setActiveE2eeUserId(resolvedUserId);
     markE2eeSessionUnlocked();
     return resolvedUserId;
