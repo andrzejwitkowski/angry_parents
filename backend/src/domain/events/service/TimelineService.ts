@@ -56,7 +56,18 @@ export class TimelineServiceImpl {
             TaskType.PUBLISH_EVENT_PROOF,
             { itemId, version },
             { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
-        );
+        ).catch((error) => {
+            console.error(
+                `[TimelineService] Failed to schedule event proof task`,
+                {
+                    itemId,
+                    version,
+                    errorType: error instanceof Error ? error.constructor.name : typeof error,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                    retryHint: `POST /api/events/${itemId}/proof/publish`
+                }
+            );
+        });
     }
 
     private async filterItemsByFamily(
