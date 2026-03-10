@@ -109,7 +109,6 @@ export async function wireDependencies() {
         passkeyRepository,
         forensicIntentRepository,
         taskManager,
-        timelineEventProofService
     );
     const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
     const propagationService = new PropagationService(scheduleRepository);

@@ -41,6 +41,7 @@ export async function createApp() {
         blockchainAnchor: deps.blockchainAnchor,
         forensicIntentRepository: deps.forensicIntentRepository,
         forensicService: deps.forensicService,
+        timelineEventProofService: deps.timelineEventProofService,
     });
 
     try {

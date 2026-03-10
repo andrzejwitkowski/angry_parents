@@ -115,7 +115,7 @@ describe("Timeline Forensic Integration", () => {
         await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(1);
-        expect(scheduleTask).toHaveBeenCalledTimes(1);
+        expect(scheduleTask).toHaveBeenCalledTimes(2);
     });
 
     it("update triggers forensic document creation", async () => {
@@ -136,7 +136,7 @@ describe("Timeline Forensic Integration", () => {
         }, "User");
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(2);
-        expect(scheduleTask).toHaveBeenCalledTimes(2);
+        expect(scheduleTask).toHaveBeenCalledTimes(4);
     });
 
     it("update forensic intent keeps proof history and adds a new versioned snapshot", async () => {
@@ -210,6 +210,6 @@ describe("Timeline Forensic Integration", () => {
         }, "User");
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(2);
-        expect(scheduleTask).toHaveBeenCalledTimes(2);
+        expect(scheduleTask).toHaveBeenCalledTimes(4);
     });
 });

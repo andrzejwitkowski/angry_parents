@@ -9,7 +9,7 @@ import type { PasskeyRepository } from "../../auth/ports/PasskeyRepository";
 import type { ForensicIntentRecord, ForensicIntentRepository } from "../../forensic/ports/ForensicIntentRepository";
 import type { ITaskManager } from "../../shared/ports/TaskScheduler";
 import { TaskType } from "../../shared/ports/TaskScheduler";
-import type { ProcessForensicIntentPayload } from "../../../scheduler/types";
+import type { ProcessForensicIntentPayload, PublishEventProofPayload } from "../../../scheduler/types";
 
 export type SignatureData = {
     signatureBase64: string;
@@ -49,32 +49,14 @@ export class TimelineServiceImpl {
         private readonly passkeyRepository: PasskeyRepository,
         private readonly forensicIntentRepository: ForensicIntentRepository,
         private readonly taskManager: ITaskManager,
-        private readonly eventProofPublisher?: { publishProof(id: string, version?: number, options?: { retryPending?: boolean }): Promise<unknown> }
     ) { }
 
-    private async publishEventProof(itemId: string, version: number): Promise<void> {
-        if (!this.eventProofPublisher) {
-            return;
-        }
-
-        try {
-            // retryPending: true so that transient RPC failures on a previous attempt
-            // do not permanently block automatic re-anchoring after create/update/delete.
-            await this.eventProofPublisher.publishProof(itemId, version, { retryPending: true });
-        } catch (error) {
-            // This failure is non-fatal: the item is already persisted.
-            // The proof can be manually re-published via POST /api/events/{itemId}/proof/publish.
-            console.error(
-                `[TimelineService] Failed to publish event proof`,
-                {
-                    itemId,
-                    version,
-                    errorType: error instanceof Error ? error.constructor.name : typeof error,
-                    errorMessage: error instanceof Error ? error.message : String(error),
-                    retryHint: `POST /api/events/${itemId}/proof/publish`
-                }
-            );
-        }
+    private scheduleEventProof(itemId: string, version: number): void {
+        void this.taskManager.schedule<PublishEventProofPayload>(
+            TaskType.PUBLISH_EVENT_PROOF,
+            { itemId, version },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
     }
 
     private async filterItemsByFamily(
@@ -302,7 +284,7 @@ export class TimelineServiceImpl {
             intent
         ) as EncryptedTimelineItem;
 
-        void this.publishEventProof(savedItem.id, savedItem.eventVersion);
+        this.scheduleEventProof(savedItem.id, savedItem.eventVersion);
         return savedItem;
     }
 
@@ -419,7 +401,7 @@ export class TimelineServiceImpl {
             intent
         ) as EncryptedTimelineItem;
 
-        void this.publishEventProof(savedItem.id, savedItem.eventVersion);
+        this.scheduleEventProof(savedItem.id, savedItem.eventVersion);
         return savedItem;
     }
 
@@ -476,7 +458,7 @@ export class TimelineServiceImpl {
             intent
         );
 
-        void this.publishEventProof(id, updated.eventVersion);
+        this.scheduleEventProof(id, updated.eventVersion);
     }
 
     /**

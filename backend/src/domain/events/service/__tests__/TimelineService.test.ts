@@ -9,6 +9,7 @@ import type { PasskeyRepository } from "../../../auth/ports/PasskeyRepository";
 import type { ChildRepository } from "../../../family/ports/ChildRepository";
 import type { ForensicIntentRepository } from "../../../forensic/ports/ForensicIntentRepository";
 import type { ITaskManager } from "../../../shared/ports/TaskScheduler";
+import { TaskType } from "../../../shared/ports/TaskScheduler";
 // Mock Crypto Service that just returns a predictable string
 class MockCryptoService implements ICryptoService {
     async verifySignature(): Promise<boolean> { return true; }
@@ -25,7 +26,6 @@ describe("TimelineService", () => {
     let mockPasskeyRepository: PasskeyRepository;
     let mockForensicIntentRepository: ForensicIntentRepository;
     let mockTaskManager: ITaskManager;
-    let mockEventProofPublisher: { publishProof: ReturnType<typeof vi.fn> };
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
@@ -73,9 +73,6 @@ describe("TimelineService", () => {
             start: vi.fn(),
             stop: vi.fn()
         };
-        mockEventProofPublisher = {
-            publishProof: vi.fn().mockResolvedValue(undefined)
-        } as unknown as { publishProof: ReturnType<typeof vi.fn> };
 
         service = new TimelineServiceImpl(
             repository,
@@ -86,7 +83,6 @@ describe("TimelineService", () => {
             mockPasskeyRepository,
             mockForensicIntentRepository,
             mockTaskManager,
-            mockEventProofPublisher as any
         );
     });
 
@@ -121,7 +117,11 @@ describe("TimelineService", () => {
             expect(item.type).toBe("MEDICAL_VISIT");
             expect(item.encryption).toBe("ENCRYPTED");
             expect(item.encryptedPayload["mom-1"]).toBe("encrypted-content-for-mom");
-            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id, 1, { retryPending: true });
+            expect(mockTaskManager.schedule).toHaveBeenCalledWith(
+                TaskType.PUBLISH_EVENT_PROOF,
+                { itemId: item.id, version: 1 },
+                { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+            );
         });
 
         it("passes the created version number to async proof publishing", async () => {
@@ -140,7 +140,11 @@ describe("TimelineService", () => {
                 createdByName: "Tester"
             } as any);
 
-            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id, 1, { retryPending: true });
+            expect(mockTaskManager.schedule).toHaveBeenCalledWith(
+                TaskType.PUBLISH_EVENT_PROOF,
+                { itemId: item.id, version: 1 },
+                { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+            );
         });
 
         it("should create a medication item", async () => {
