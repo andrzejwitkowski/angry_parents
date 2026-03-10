@@ -1,7 +1,7 @@
 {
   "name": "tmp_app",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.0-SNAPSHOT",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,10 +11,14 @@
     "dev:stop": "bun scripts/db-compose.ts down",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "prepare": "bun scripts/install-git-hooks.ts",
     "test": "bun test --exclude tests/e2e-backend",
     "test:integration": "INTEGRATION_TEST=true bun test backend/test/auth-integration.test.ts",
     "test:e2e": "E2E_TEST=true bun test tests/e2e-backend",
     "test:all": "E2E_TEST=true INTEGRATION_TEST=true bun test",
+    "commit:check": "bun scripts/release/commit-policy.ts check-head",
+    "version:check": "bun scripts/release/check-version-mode.ts",
+    "release:bump": "bun scripts/release/versioning.ts bump",
     "preview": "vite preview"
   },
   "dependencies": {

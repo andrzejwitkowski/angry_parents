@@ -115,4 +115,14 @@ export type CreateTimelineItemDto =
         encryptedPayload: Record<string, string>;
     };
 
+export type CreateTimelineItemInput = {
+    type: TimelineItemType;
+    date: string;
+    childId: string;
+    encryption: "PLAINTEXT";
+    createdBy?: string;
+    childIds?: string[];
+    [key: string]: unknown;
+};
+
 export type UpdateTimelineItemDto = Partial<CreateTimelineItemDto>;

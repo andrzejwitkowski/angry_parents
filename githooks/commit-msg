@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -eu
+
+bun scripts/release/commit-policy.ts check-file "$1"

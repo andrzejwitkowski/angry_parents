@@ -1,4 +1,4 @@
-import type { TimelineItem, CreateTimelineItemDto } from "@/types/timeline.types";
+import type { TimelineItem, CreateTimelineItemInput } from "@/types/timeline.types";
 import { decryptRSA, importPublicKey, encryptRSA } from "@/lib/crypto-utils";
 import { getActiveE2eeUserId, getTimelinePrivateKey, clearTimelinePrivateKeyCache } from "@/lib/e2ee-session";
 import type { MutationSignature } from "@/lib/signature-provider";
@@ -168,7 +168,7 @@ export const timelineApi = {
      * Create a new timeline item
      */
     async create(
-        dto: CreateTimelineItemDto & { childId: string },
+        dto: CreateTimelineItemInput,
         signatureData: MutationSignature
     ): Promise<TimelineItem> {
         // Perform client-side encryption of all sensitive fields
