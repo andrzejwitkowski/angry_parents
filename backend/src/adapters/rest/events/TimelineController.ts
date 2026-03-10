@@ -44,6 +44,38 @@ export function createTimelineController(service: TimelineApiService) {
                 }),
             }
         )
+        .get(
+            "/events/:id/proof",
+            async ({ params, user, set }) => {
+                try {
+                    return await service.getEventProof(params.id, user);
+                } catch (error) {
+                    set.status = (error as any)?.status ?? mapErrorToStatus(error);
+                    return { error: formatErrorResponse(error) };
+                }
+            },
+            {
+                params: t.Object({
+                    id: t.String(),
+                }),
+            }
+        )
+        .post(
+            "/events/:id/proof/publish",
+            async ({ params, user, set }) => {
+                try {
+                    return await service.publishEventProof(params.id, user);
+                } catch (error) {
+                    set.status = (error as any)?.status ?? mapErrorToStatus(error);
+                    return { error: formatErrorResponse(error) };
+                }
+            },
+            {
+                params: t.Object({
+                    id: t.String(),
+                }),
+            }
+        )
         .post(
             "/timeline",
             async ({ body, user, set }) => {

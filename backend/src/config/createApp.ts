@@ -10,9 +10,11 @@ import { createAuthController } from "../adapters/rest/auth/AuthController";
 import { createForensicController } from "../adapters/rest/forensic/ForensicController";
 import { createChildController } from "../adapters/rest/family/ChildController";
 import { createAdminController } from "../adapters/rest/auth/AdminController";
+import { formatErrorResponse, mapErrorToStatus } from "../adapters/rest/common/errorMapper";
 import { wireDependencies } from "./wireDependencies";
 import { registerSchedulerHandlers } from "./registerSchedulerHandlers";
 import { TaskType } from "../domain/shared/ports/TaskScheduler";
+import { TimelineEventProofService } from "../domain/events/service/TimelineEventProofService";
 
 export async function createApp() {
     const enableTestEndpoints =
@@ -20,6 +22,9 @@ export async function createApp() {
         process.env.E2E_TEST === "true" ||
         process.env.INTEGRATION_TEST === "true" ||
         process.env.ENABLE_TEST_ENDPOINTS === "true";
+    const enableProofPublishTestEndpoint =
+        process.env.NODE_ENV === "test" ||
+        process.env.E2E_TEST === "true";
 
     const deps = await wireDependencies();
 
@@ -30,7 +35,6 @@ export async function createApp() {
     const authController = createAuthController(deps.registrationProcessRepository);
     const adminController = createAdminController(deps.registrationProcessRepository);
     const forensicController = createForensicController(deps.forensicApiService);
-
     registerSchedulerHandlers({
         forensicRepository: deps.forensicRepository,
         cryptoService: deps.cryptoService,
@@ -152,6 +156,29 @@ export async function createApp() {
             .get("/api/test/routes", () => {
                 return finalApp.routes;
             });
+
+        if (enableProofPublishTestEndpoint) {
+            finalApp.post("/api/test/events/publish-proof", async ({ body, set }) => {
+                try {
+                    const { id } = body as { id?: string };
+                    if (!id) {
+                        set.status = 400;
+                        return { error: "id is required" };
+                    }
+
+                    const timelineEventProofService = new TimelineEventProofService(
+                        deps.timelineRepository,
+                        deps.blockchainAnchor as any,
+                        deps.dateProvider
+                    );
+
+                    return await timelineEventProofService.publishProof(id);
+                } catch (error) {
+                    set.status = (error as any)?.status ?? mapErrorToStatus(error);
+                    return { error: formatErrorResponse(error) };
+                }
+            });
+        }
     }
 
     (globalThis as any).app = finalApp;

@@ -107,6 +107,38 @@ describe("Timeline Audit System", () => {
         expect(item.isDeleted).toBe(false);
     });
 
+    it("should initialize proof version metadata for a created encrypted item", async () => {
+        const dto: CreateTimelineItemDto = {
+            type: "NOTE",
+            date: "2026-02-03",
+            createdBy: "dad-1",
+            createdByName: "Alice",
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "encrypted-hello" },
+        } as any;
+
+        const item = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+
+        expect((item as any).eventVersion).toBe(1);
+        expect((item as any).versionHistory).toHaveLength(1);
+        expect((item as any).versionHistory[0]).toMatchObject({
+            version: 1,
+            proofHistory: [],
+            snapshot: {
+                id: item.id,
+                type: "NOTE",
+                date: "2026-02-03",
+                createdAt: item.createdAt,
+                createdBy: "dad-1",
+                createdByName: "Alice",
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "dad-1": "encrypted-hello" },
+                isDeleted: false,
+                childIds: ["child-1"],
+            }
+        });
+    });
+
     it("should track multiple updates in the audit trail", async () => {
         const dto = {
             type: "NOTE",
@@ -137,6 +169,58 @@ describe("Timeline Audit System", () => {
         expect(updated2.auditTrail[1].action).toBe("UPDATED");
         expect(updated2.auditTrail[1].changes).toEqual({ note: "Field-level changes hidden due to encryption" });
         expect(updated2.auditTrail[2].changes).toEqual({ note: "Field-level changes hidden due to encryption" });
+    });
+
+    it("should preserve prior proof history and append a new version snapshot on update", async () => {
+        const dto = {
+            type: "NOTE",
+            date: "2026-02-03",
+            createdBy: "dad-1",
+            createdByName: "Alice",
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "initial-encrypted" },
+        } as any;
+
+        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        const anchoredProof = {
+            version: 1,
+            hash: "hash-v1",
+            txHash: "0xabc",
+            blockNumber: 42,
+            anchoredAt: "2026-02-03T00:00:00.000Z"
+        };
+
+        await repository.update(created.id, {
+            versionHistory: [{
+                ...(created as any).versionHistory?.[0],
+                proofHistory: [anchoredProof]
+            }]
+        } as any);
+
+        const updated = await service.updateItem(created.id, {
+            ...dto,
+            id: created.id,
+            createdAt: created.createdAt,
+            auditTrail: created.auditTrail,
+            isDeleted: created.isDeleted,
+            encryptedPayload: { "dad-1": "updated-encrypted" }
+        } as any, "dad-1", "child-1", {
+            signatureBase64: "mock-sig",
+            timestamp: "2024-01-01T12:00:00.000Z",
+            keyId: "key1"
+        }, "Alice");
+
+        expect((updated as any).eventVersion).toBe(2);
+        expect((updated as any).versionHistory).toHaveLength(2);
+        expect((updated as any).versionHistory[0].proofHistory).toEqual([anchoredProof]);
+        expect((updated as any).versionHistory[0].snapshot.encryptedPayload).toEqual({ "dad-1": "initial-encrypted" });
+        expect((updated as any).versionHistory[1]).toMatchObject({
+            version: 2,
+            proofHistory: [],
+            snapshot: {
+                encryptedPayload: { "dad-1": "updated-encrypted" }
+            }
+        });
     });
 
     it("should track who made the update", async () => {
@@ -187,6 +271,15 @@ describe("Timeline Audit System", () => {
         const inRepo = await repository.findById(created.id);
         expect(inRepo).not.toBeNull();
         expect(inRepo?.isDeleted).toBe(true);
+        expect((inRepo as any)?.eventVersion).toBe(2);
+        expect((inRepo as any)?.versionHistory).toHaveLength(2);
+        expect((inRepo as any)?.versionHistory[1]).toMatchObject({
+            version: 2,
+            proofHistory: [],
+            snapshot: {
+                isDeleted: true
+            }
+        });
         expect(inRepo?.auditTrail).toHaveLength(2);
         expect(inRepo?.auditTrail[1].action).toBe("DELETED");
         expect(inRepo?.auditTrail[1].userName).toBe("Alice");

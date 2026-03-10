@@ -1,6 +1,7 @@
 import { IBlockchainAnchor } from "../../domain/shared/ports/IBlockchainAnchor";
+import { IEventBlockchainAnchor, type PublishedHashResult } from "../../domain/shared/ports/IEventBlockchainAnchor";
 
-export class MockBlockchainAnchor implements IBlockchainAnchor {
+export class MockBlockchainAnchor implements IBlockchainAnchor, IEventBlockchainAnchor {
     private anchors = new Map<string, string>();
     private readonly hashPrefix = "a".repeat(64);
 
@@ -15,6 +16,14 @@ export class MockBlockchainAnchor implements IBlockchainAnchor {
         this.anchors.set(hash, txHash);
         console.log(`[MockBlockchain] Anchored hash ${hash} with tx ${txHash}`);
         return txHash;
+    }
+
+    async publishHash(hash: string): Promise<PublishedHashResult> {
+        const txHash = await this.anchorHash(hash);
+        return {
+            txHash,
+            blockNumber: BigInt(`0x${txHash.slice(2, 18)}`)
+        };
     }
 
     async verifyAnchor(hash: string, txHash: string): Promise<boolean> {

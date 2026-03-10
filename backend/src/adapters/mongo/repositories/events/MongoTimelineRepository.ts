@@ -1,5 +1,5 @@
 import { TimelineRepository } from "../../../../domain/events/ports/TimelineRepository";
-import { EncryptedTimelineItem } from "../../../../domain/events/model/TimelineItem";
+import { EncryptedTimelineItem, EventProofRecord } from "../../../../domain/events/model/TimelineItem";
 import { TimelineItemModel } from "../../models/TimelineItemModel";
 import mongoose, { ClientSession } from "mongoose";
 
@@ -36,6 +36,12 @@ export class MongoTimelineRepository implements TimelineRepository {
         return item as unknown as EncryptedTimelineItem;
     }
 
+    async findByIdIncludingDeleted(id: string): Promise<EncryptedTimelineItem | null> {
+        const item = await TimelineItemModel.findOne({ id }).lean();
+        if (!item) return null;
+        return item as unknown as EncryptedTimelineItem;
+    }
+
     async update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
         const mongooseSession = session as ClientSession | undefined;
         const existing = await TimelineItemModel.findOne({ id, isDeleted: false }, null, { session: mongooseSession }).lean();
@@ -67,6 +73,44 @@ export class MongoTimelineRepository implements TimelineRepository {
         if (result.matchedCount === 0) {
             throw new Error(`Item with id ${id} not found`);
         }
+    }
+
+    async appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
+        const mongooseSession = session as ClientSession | undefined;
+        const existing = await TimelineItemModel.findOne({ id, "versionHistory.version": proof.version }, null, { session: mongooseSession }).lean();
+
+        if (!existing) {
+            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+        }
+
+        const timelineItem = existing as unknown as EncryptedTimelineItem;
+        const versionEntry = timelineItem.versionHistory.find((entry) => entry.version === proof.version);
+        if (!versionEntry) {
+            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+        }
+
+        const existingProofIndex = versionEntry.proofHistory.findIndex((existingProof) => existingProof.hash === proof.hash);
+        const nextProofHistory = existingProofIndex === -1
+            ? [...versionEntry.proofHistory, proof]
+            : versionEntry.proofHistory.map((existingProof, index) => index === existingProofIndex ? { ...existingProof, ...proof } : existingProof);
+
+        const nextVersionHistory = timelineItem.versionHistory.map((entry) => (
+            entry.version === proof.version
+                ? { ...entry, proofHistory: nextProofHistory }
+                : entry
+        ));
+
+        const result = await TimelineItemModel.findOneAndUpdate(
+            { id },
+            { $set: { versionHistory: nextVersionHistory } },
+            { returnDocument: "after", session: mongooseSession }
+        ).lean();
+
+        if (!result) {
+            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+        }
+
+        return result as unknown as EncryptedTimelineItem;
     }
 
     async countByChildId(childId: string): Promise<number> {

@@ -1,4 +1,4 @@
-import type { TimelineItem, CreateTimelineItemDto, EncryptedTimelineItem } from "../model/TimelineItem";
+import type { TimelineItem, CreateTimelineItemDto, EncryptedTimelineItem, EventProofRecord } from "../model/TimelineItem";
 
 /**
  * Repository Port (Interface)
@@ -30,6 +30,11 @@ export interface TimelineRepository {
     findById(id: string): Promise<EncryptedTimelineItem | null>;
 
     /**
+     * Find a timeline item by ID including deleted items.
+     */
+    findByIdIncludingDeleted(id: string): Promise<EncryptedTimelineItem | null>;
+
+    /**
      * Update an existing timeline item (with encrypted content)
      */
     update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem>;
@@ -38,6 +43,11 @@ export interface TimelineRepository {
      * Delete a timeline item
      */
     delete(id: string, session?: unknown): Promise<void>;
+
+    /**
+     * Append blockchain proof metadata to a stored event version.
+     */
+    appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem>;
 
     withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T>;
 

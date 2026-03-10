@@ -22,6 +22,22 @@ import { TimelineServiceImpl } from "../domain/events/service/TimelineService";
 import { ScheduleService } from "../domain/events/service/ScheduleService";
 import { PropagationService } from "../domain/events/service/PropagationService";
 import { ChildService } from "../domain/family/service/ChildService";
+import { TimelineEventProofService } from "../domain/events/service/TimelineEventProofService";
+
+export function createBlockchainAnchor(env: NodeJS.ProcessEnv = process.env) {
+    const useMockBlockchain =
+        env.USE_MOCK_BLOCKCHAIN === "true" ||
+        env.NODE_ENV === "test" ||
+        env.E2E_TEST === "true";
+
+    return useMockBlockchain
+        ? new MockBlockchainAnchor()
+        : new ViemBlockchainAnchor({
+            privateKey: env.BLOCKCHAIN_PRIVATE_KEY,
+            rpcUrl: env.BLOCKCHAIN_RPC_URL,
+            nodeEnv: env.NODE_ENV
+        });
+}
 
 export async function wireDependencies() {
     const mongoUri = process.env.MONGODB_URI;
@@ -61,14 +77,12 @@ export async function wireDependencies() {
     const passkeyRepository = new MongoPasskeyRepository();
 
     const cryptoService = new BunCryptoService();
-    const useMockBlockchain =
-        process.env.USE_MOCK_BLOCKCHAIN === "true" ||
-        process.env.NODE_ENV === "test" ||
-        process.env.E2E_TEST === "true";
-
-    const blockchainAnchor = useMockBlockchain
-        ? new MockBlockchainAnchor()
-        : new ViemBlockchainAnchor();
+    const blockchainAnchor = createBlockchainAnchor(process.env);
+    const timelineEventProofService = new TimelineEventProofService(
+        timelineRepository,
+        blockchainAnchor as any,
+        dateProvider
+    );
 
     const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService, taskManager);
     const timelineService = new TimelineServiceImpl(
@@ -79,13 +93,14 @@ export async function wireDependencies() {
         childRepository,
         passkeyRepository,
         forensicIntentRepository,
-        taskManager
+        taskManager,
+        timelineEventProofService
     );
     const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
     const propagationService = new PropagationService(scheduleRepository);
     const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
 
-    const timelineApiService = new TimelineApiService(timelineService, childRepository);
+    const timelineApiService = new TimelineApiService(timelineService, childRepository, timelineRepository, timelineEventProofService);
     const custodyApiService = new CustodyApiService(custodyRepository, scheduleService, propagationService, uuidProvider);
     const familyApiService = new FamilyApiService(childService);
     const forensicApiService = new ForensicApiService(forensicService, forensicRepository);
@@ -102,6 +117,7 @@ export async function wireDependencies() {
         passkeyRepository,
         cryptoService,
         blockchainAnchor,
+        timelineEventProofService,
         forensicService,
         timelineService,
         scheduleService,

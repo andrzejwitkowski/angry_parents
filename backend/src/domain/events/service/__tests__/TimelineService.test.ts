@@ -9,6 +9,7 @@ import type { PasskeyRepository } from "../../../auth/ports/PasskeyRepository";
 import type { ChildRepository } from "../../../family/ports/ChildRepository";
 import type { ForensicIntentRepository } from "../../../forensic/ports/ForensicIntentRepository";
 import type { ITaskManager } from "../../../shared/ports/TaskScheduler";
+import { TimelineEventProofService } from "../TimelineEventProofService";
 
 // Mock Crypto Service that just returns a predictable string
 class MockCryptoService implements ICryptoService {
@@ -26,6 +27,7 @@ describe("TimelineService", () => {
     let mockPasskeyRepository: PasskeyRepository;
     let mockForensicIntentRepository: ForensicIntentRepository;
     let mockTaskManager: ITaskManager;
+    let mockEventProofPublisher: Pick<TimelineEventProofService, "publishProof">;
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
@@ -73,6 +75,9 @@ describe("TimelineService", () => {
             start: vi.fn(),
             stop: vi.fn()
         };
+        mockEventProofPublisher = {
+            publishProof: vi.fn().mockResolvedValue(undefined)
+        };
 
         service = new TimelineServiceImpl(
             repository,
@@ -82,7 +87,8 @@ describe("TimelineService", () => {
             mockChildRepository,
             mockPasskeyRepository,
             mockForensicIntentRepository,
-            mockTaskManager
+            mockTaskManager,
+            mockEventProofPublisher
         );
     });
 
@@ -117,6 +123,7 @@ describe("TimelineService", () => {
             expect(item.type).toBe("MEDICAL_VISIT");
             expect(item.encryption).toBe("ENCRYPTED");
             expect(item.encryptedPayload["mom-1"]).toBe("encrypted-content-for-mom");
+            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id);
         });
 
         it("should create a medication item", async () => {
