@@ -14,7 +14,6 @@ function getCommitWeight(message: string): ReleaseBump {
     }
 
     const [header] = normalizedMessage.split(/\r?\n/, 1);
-    const lowerMessage = normalizedMessage.toLowerCase();
 
     if (BREAKING_HEADER_PATTERN.test(header) || BREAKING_FOOTER_PATTERN.test(normalizedMessage)) {
         return "major";
