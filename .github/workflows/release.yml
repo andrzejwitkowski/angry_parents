@@ -41,8 +41,14 @@ jobs:
       - name: Build application
         run: bun run build
 
-      - name: Run full test suite
-        run: bun run test:all
+      - name: Run unit tests
+        run: bun run test
+
+      - name: Run integration tests
+        run: bun run test:integration
+
+      - name: Run backend e2e tests
+        run: bun run test:e2e
 
       - name: Fetch latest tag
         id: latest-tag
