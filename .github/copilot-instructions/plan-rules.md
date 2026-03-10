@@ -77,3 +77,6 @@ Parsability: Code must be easy for AI to read and for Kibana to index.
 10. Always run all tests after feature is done - fix any errors in tests or in logic
 11. When new feature or a bug is fixed ALWAYS analyze if a new unit / integration test should be created and propose one
 12. After all changes are made you ALWAYS must execute 'bun test:all' - and all tests must pass - if not analyze and fix - you are not allowed to write that the feature/bug fix is done until all tests pass
+
+13. Prefer the skill `autonomous-angry-parents-execution` for implementation, debugging, CI/release, and review work in this repo.
+It assumes superpowers plus MCP tooling (`mgrep`, `Context7`, `github`, `sequential-thinking`, `memory`) and minimizes user questions unless blocked by secrets, destructive actions, or real architecture/security ambiguity.

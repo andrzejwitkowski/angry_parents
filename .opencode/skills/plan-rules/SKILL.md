@@ -97,3 +97,12 @@ Release automation MUST create annotated tags and push them explicitly with the 
 Release workflows on `main` MUST use GitHub Actions concurrency guards to avoid racing release commits or tags.
 
 Pre-push hooks and prechecks MUST validate the actual destination refs being pushed from hook stdin, not only `git branch --show-current`, because pushes like `HEAD:main` and multi-ref pushes must be checked correctly.
+
+14. Autonomous execution default
+For implementation, debugging, CI/release, and review work in this repo, prefer the skill `autonomous-angry-parents-execution` as the default execution governor.
+
+That skill assumes `superpowers` are installed and MCP tools are available (`mgrep`, `Context7`, `github`, `sequential-thinking`, `memory`).
+
+Default order: relevant superpowers skill first, repo evidence second, MCP/tooling third, user question last.
+
+Questions to the user MUST be minimized and only used when blocked by secrets, destructive actions, security/release ambiguity, or genuinely unresolved architecture decisions.

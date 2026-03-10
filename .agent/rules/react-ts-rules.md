@@ -70,3 +70,6 @@ Simplicity: Favor flat folder structures and "Prostota nad abstrakcję".
 For every new feature unit tests and e2e cypress tests MUST be created. All projects tests must pass 
 
 Parsability: Code must be easy for AI to read and for Kibana to index.
+
+9. Prefer the skill `autonomous-angry-parents-execution` for implementation, debugging, CI/release, and review work in this repo.
+Use it to minimize user questions while still enforcing superpowers-first execution, clean architecture, non-spaghetti React structure, and regression coverage for every bug fix.
