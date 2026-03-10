@@ -57,7 +57,8 @@ describe.skipIf(!process.env.E2E_TEST)("Event proof smoke e2e", () => {
         const proof = await proofRes.json();
 
         expect(proof.txHash).toMatch(/^0x[0-9a-f]+$/);
-        expect(typeof proof.blockNumber).toBe("number");
+        expect(typeof proof.blockNumber).toBe("string");
+        expect(proof.blockNumber).toMatch(/^\d+$/);
         expect(proof.hash).toMatch(/^[0-9a-f]{64}$/);
     });
 
