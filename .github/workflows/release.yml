@@ -114,7 +114,7 @@ jobs:
         if: ${{ steps.bump.outputs.value != 'none' }}
         env:
           NEXT_VERSION: ${{ steps.next-version.outputs.value }}
-        run: git tag -a "v${NEXT_VERSION}" -m "Release v${NEXT_VERSION}"
+        run: git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' tag -a "v${NEXT_VERSION}" -m "Release v${NEXT_VERSION}"
 
       - name: Push release commit and tag
         if: ${{ steps.bump.outputs.value != 'none' }}
