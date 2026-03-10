@@ -59,4 +59,47 @@ describe("LogComposer", () => {
         expect(securityState.ensureUnlocked).toHaveBeenCalled();
         expect(createSpy).not.toHaveBeenCalled();
     });
+
+    test("submits selected childIds while preserving the primary childId", async () => {
+        securityState.ensureUnlocked.mockReturnValue(true);
+
+        mock.module("./forms/NoteForm", () => ({
+            NoteForm: ({ onSubmit }: any) => (
+                <button
+                    data-testid="submit-note"
+                    onClick={() => onSubmit({ content: "hello", childIds: ["child-1", "child-2"] })}
+                >
+                    Submit
+                </button>
+            ),
+        }));
+
+        const onSuccess = jest.fn();
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <LogComposer date="2026-03-11" onSuccess={onSuccess} createdBy="user-1" childId="child-1" />
+            </I18nextProvider>
+        );
+
+        await act(async () => {
+            screen.getByTestId("mode-button").click();
+        });
+
+        await act(async () => {
+            screen.getByTestId("submit-note").click();
+        });
+
+        expect(createSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: "NOTE",
+                date: "2026-03-11",
+                createdBy: "user-1",
+                childId: "child-1",
+                childIds: ["child-1", "child-2"],
+            }),
+            { signature: "sig" },
+        );
+        expect(onSuccess).toHaveBeenCalled();
+    });
 });

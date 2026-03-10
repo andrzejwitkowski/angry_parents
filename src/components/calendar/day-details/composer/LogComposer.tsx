@@ -9,7 +9,7 @@ import { IncidentForm } from "./forms/IncidentForm";
 import { NoteForm } from "./forms/NoteForm";
 import { VacationForm } from "./forms/VacationForm";
 import { timelineApi } from "@/lib/api/timeline";
-import type { CreateTimelineItemDto } from "@/types/timeline.types";
+import type { CreateTimelineItemInput } from "@/types/timeline.types";
 import { useSecurity } from "@/context/SecurityContext";
 
 interface LogComposerProps {
@@ -35,12 +35,13 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
 
         setIsSubmitting(true);
         try {
-            const dto: CreateTimelineItemDto & { childId: string } = {
+            const dto: CreateTimelineItemInput = {
                 type: selectedMode,
                 date,
+                encryption: "PLAINTEXT",
                 createdBy,
                 childId,
-                ...(formData as Omit<CreateTimelineItemDto, "type" | "date" | "createdBy">),
+                ...(formData as Record<string, unknown>),
             };
 
             await timelineApi.create(dto, await getMutationSignature());
