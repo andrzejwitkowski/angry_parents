@@ -26,9 +26,7 @@ jobs:
           bun-version: 1.3.9
 
       - name: Install dependencies
-        env:
-          CYPRESS_INSTALL_BINARY: 0
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Validate branch version mode
         if: ${{ github.ref_name != 'main' }}
