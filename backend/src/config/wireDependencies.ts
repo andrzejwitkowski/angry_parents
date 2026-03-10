@@ -23,8 +23,12 @@ import { ScheduleService } from "../domain/events/service/ScheduleService";
 import { PropagationService } from "../domain/events/service/PropagationService";
 import { ChildService } from "../domain/family/service/ChildService";
 import { TimelineEventProofService } from "../domain/events/service/TimelineEventProofService";
+import type { IBlockchainAnchor } from "../domain/shared/ports/IBlockchainAnchor";
+import type { IEventBlockchainAnchor } from "../domain/shared/ports/IEventBlockchainAnchor";
 
-export function createBlockchainAnchor(env: NodeJS.ProcessEnv = process.env) {
+type CombinedBlockchainAnchor = IBlockchainAnchor & IEventBlockchainAnchor;
+
+export function createBlockchainAnchor(env: NodeJS.ProcessEnv = process.env): CombinedBlockchainAnchor {
     const useMockBlockchain =
         env.USE_MOCK_BLOCKCHAIN === "true" ||
         env.E2E_TEST === "true" ||
@@ -81,7 +85,7 @@ export async function wireDependencies() {
     const blockchainAnchor = createBlockchainAnchor(process.env);
     const timelineEventProofService = new TimelineEventProofService(
         timelineRepository,
-        blockchainAnchor as any,
+        blockchainAnchor,
         dateProvider
     );
 

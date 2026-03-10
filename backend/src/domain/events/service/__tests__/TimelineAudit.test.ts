@@ -186,7 +186,7 @@ describe("Timeline Audit System", () => {
             version: 1,
             hash: "hash-v1",
             txHash: "0xabc",
-            blockNumber: 42,
+            blockNumber: "42",
             anchoredAt: "2026-02-03T00:00:00.000Z"
         };
 

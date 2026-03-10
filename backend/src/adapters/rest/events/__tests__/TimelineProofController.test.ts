@@ -26,7 +26,7 @@ describe("TimelineProofController", () => {
     it("returns the latest anchored proof for an event", async () => {
         mockApiService.getEventProof.mockResolvedValue({
             txHash: "0xccc",
-            blockNumber: 201,
+            blockNumber: "201",
             hash: "hash-v3-latest"
         });
 
@@ -41,7 +41,7 @@ describe("TimelineProofController", () => {
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
             txHash: "0xccc",
-            blockNumber: 201,
+            blockNumber: "201",
             hash: "hash-v3-latest"
         });
         expect(mockApiService.getEventProof).toHaveBeenCalledWith("event-123", {
@@ -90,7 +90,7 @@ describe("TimelineProofController", () => {
     it("returns deleted-event proof when an anchored deleted item is requested", async () => {
         mockApiService.getEventProof.mockResolvedValue({
             txHash: "0xdeleted",
-            blockNumber: 404,
+            blockNumber: "404",
             hash: "deleted-hash"
         });
 
@@ -105,7 +105,7 @@ describe("TimelineProofController", () => {
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
             txHash: "0xdeleted",
-            blockNumber: 404,
+            blockNumber: "404",
             hash: "deleted-hash"
         });
     });
@@ -164,7 +164,7 @@ describe("TimelineProofController", () => {
     it("allows authenticated proof recovery publishing through a normal route", async () => {
         mockApiService.publishEventProof.mockResolvedValue({
             txHash: "0xfeedface",
-            blockNumber: 123,
+            blockNumber: "123",
             hash: "hash-v2"
         });
 
@@ -180,7 +180,7 @@ describe("TimelineProofController", () => {
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
             txHash: "0xfeedface",
-            blockNumber: 123,
+            blockNumber: "123",
             hash: "hash-v2"
         });
         expect(mockApiService.publishEventProof).toHaveBeenCalledWith("event-123", expect.objectContaining({ id: "user-123" }));

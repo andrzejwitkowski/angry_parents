@@ -68,7 +68,7 @@ export class TimelineEventProofService {
                 version,
                 hash,
                 txHash: published.txHash,
-                blockNumber: Number(published.blockNumber),
+                blockNumber: published.blockNumber.toString(),
                 anchoredAt: this.dateProvider.getIsoString(),
             };
 

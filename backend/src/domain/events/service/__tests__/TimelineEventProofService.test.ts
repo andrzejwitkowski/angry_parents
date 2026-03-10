@@ -63,7 +63,7 @@ function buildEncryptedTimelineItem(): EncryptedTimelineItem {
                     version: 1,
                     hash: "existing-hash-v1",
                     txHash: "0xabc",
-                    blockNumber: 44,
+                    blockNumber: "44",
                     anchoredAt: "2026-03-10T11:00:00.000Z",
                 }],
             },
@@ -135,7 +135,7 @@ describe("TimelineEventProofService", () => {
             version: 2,
             hash: expectedHash,
             txHash: "0xfeedface",
-            blockNumber: 987,
+            blockNumber: "987",
             anchoredAt,
         });
 
@@ -146,7 +146,7 @@ describe("TimelineEventProofService", () => {
                 version: 1,
                 hash: "existing-hash-v1",
                 txHash: "0xabc",
-                blockNumber: 44,
+                blockNumber: "44",
                 anchoredAt: "2026-03-10T11:00:00.000Z",
             },
         ]);
@@ -155,7 +155,7 @@ describe("TimelineEventProofService", () => {
                 version: 2,
                 hash: expectedHash,
                 txHash: "0xfeedface",
-                blockNumber: 987,
+                blockNumber: "987",
                 anchoredAt,
             },
         ]);
@@ -215,7 +215,7 @@ describe("TimelineEventProofService", () => {
             version: 2,
             hash,
             txHash: "0xfeedface",
-            blockNumber: 987,
+            blockNumber: "987",
             anchoredAt,
         });
     });

@@ -41,7 +41,7 @@ export class TimelineApiService {
         private readonly service: TimelineServiceImpl,
         private readonly childRepository?: ChildRepository,
         private readonly timelineRepository?: Pick<TimelineRepository, "findById" | "findByIdIncludingDeleted">,
-        private readonly timelineEventProofService?: { publishProof(id: string, versionOrOptions?: number | { retryPending?: boolean }, maybeOptions?: { retryPending?: boolean }): Promise<{ txHash?: string; blockNumber?: number; hash: string }> }
+        private readonly timelineEventProofService?: { publishProof(id: string, versionOrOptions?: number | { retryPending?: boolean }, maybeOptions?: { retryPending?: boolean }): Promise<{ txHash?: string; blockNumber?: string; hash: string }> }
     ) { }
 
     private assertAuthorizedTimelineUser(user: SessionUser | null): asserts user is SessionUser & { role: "mom" | "dad"; familyId: string } {

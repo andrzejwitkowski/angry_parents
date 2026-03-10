@@ -22,7 +22,7 @@ const EventProofRecordSchema = z.object({
     version: z.number().int().positive(),
     hash: z.string(),
     txHash: z.string().optional(),
-    blockNumber: z.number().int().nonnegative().optional(),
+    blockNumber: z.string().regex(/^\d+$/).optional(),
     anchoredAt: z.string().datetime().optional(),
 });
 

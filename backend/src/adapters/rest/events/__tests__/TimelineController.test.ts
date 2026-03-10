@@ -134,7 +134,7 @@ describe("TimelineController proof route wiring", () => {
         const apiService = {
             getEventProof: vi.fn().mockResolvedValue({
                 txHash: "0xproof",
-                blockNumber: 321,
+                blockNumber: "321",
                 hash: "hash-321"
             })
         };
@@ -151,7 +151,7 @@ describe("TimelineController proof route wiring", () => {
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
             txHash: "0xproof",
-            blockNumber: 321,
+            blockNumber: "321",
             hash: "hash-321"
         });
         expect(apiService.getEventProof).toHaveBeenCalledWith("event-123", {
