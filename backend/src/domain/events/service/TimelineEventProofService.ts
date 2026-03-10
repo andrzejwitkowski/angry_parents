@@ -11,14 +11,26 @@ export class TimelineEventProofService {
         private readonly dateProvider: DateProvider,
     ) {}
 
-    async publishProof(id: string, options?: { retryPending?: boolean }): Promise<EventProofRecord> {
+    private normalizeCreatedAt(value: unknown): string {
+        const parsed = value instanceof Date ? value : new Date(value as any);
+        if (Number.isNaN(parsed.getTime())) {
+            return this.dateProvider.getIsoString();
+        }
+
+        return parsed.toISOString();
+    }
+
+    async publishProof(id: string, versionOrOptions?: number | { retryPending?: boolean }, maybeOptions?: { retryPending?: boolean }): Promise<EventProofRecord> {
         const item = await this.repository.findByIdIncludingDeleted(id);
         if (!item) {
             throw new Error(`Timeline item with id ${id} not found`);
         }
 
+        const requestedVersion = typeof versionOrOptions === "number" ? versionOrOptions : undefined;
+        const options = (typeof versionOrOptions === "number" ? maybeOptions : versionOrOptions) ?? {};
+
         const hydratedItem = await this.ensureVersionHistory(item);
-        const activeVersion = hydratedItem.eventVersion ?? 1;
+        const activeVersion = requestedVersion ?? hydratedItem.eventVersion ?? 1;
         const versionEntry = this.getVersionEntry(hydratedItem, activeVersion);
         const hash = calculateEventProofHash(versionEntry.snapshot);
 
@@ -33,7 +45,7 @@ export class TimelineEventProofService {
             (proof) => proof.hash === hash && (!proof.txHash || proof.blockNumber === undefined || !proof.anchoredAt)
         );
         if (existingPendingProof) {
-            if (options?.retryPending) {
+            if (options.retryPending) {
                 return this.completeProofPublication(id, versionEntry.version, hash);
             }
             throw new Error(
@@ -92,7 +104,7 @@ export class TimelineEventProofService {
             id: item.id,
             type: item.type,
             date: item.date,
-            createdAt: item.createdAt,
+            createdAt: this.normalizeCreatedAt(item.createdAt),
             createdBy: item.createdBy,
             createdByName: item.createdByName,
             auditTrail: [...item.auditTrail],

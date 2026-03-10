@@ -41,7 +41,7 @@ export class TimelineApiService {
         private readonly service: TimelineServiceImpl,
         private readonly childRepository?: ChildRepository,
         private readonly timelineRepository?: Pick<TimelineRepository, "findById" | "findByIdIncludingDeleted">,
-        private readonly timelineEventProofService?: { publishProof(id: string, options?: { retryPending?: boolean }): Promise<{ txHash?: string; blockNumber?: number; hash: string }> }
+        private readonly timelineEventProofService?: { publishProof(id: string, versionOrOptions?: number | { retryPending?: boolean }, maybeOptions?: { retryPending?: boolean }): Promise<{ txHash?: string; blockNumber?: number; hash: string }> }
     ) { }
 
     private assertAuthorizedTimelineUser(user: SessionUser | null): asserts user is SessionUser & { role: "mom" | "dad"; familyId: string } {
@@ -106,7 +106,7 @@ export class TimelineApiService {
             throw new Error("Timeline proof repository not configured");
         }
 
-        const item = await this.timelineRepository.findById(id);
+        const item = await this.timelineRepository.findByIdIncludingDeleted(id);
         if (!item) {
             throw new Error(`Timeline item with id ${id} not found`);
         }

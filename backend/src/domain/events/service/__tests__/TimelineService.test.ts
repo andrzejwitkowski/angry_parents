@@ -27,7 +27,7 @@ describe("TimelineService", () => {
     let mockPasskeyRepository: PasskeyRepository;
     let mockForensicIntentRepository: ForensicIntentRepository;
     let mockTaskManager: ITaskManager;
-    let mockEventProofPublisher: Pick<TimelineEventProofService, "publishProof">;
+    let mockEventProofPublisher: { publishProof: ReturnType<typeof vi.fn> };
 
     beforeEach(() => {
         repository = new InMemoryTimelineRepository();
@@ -77,7 +77,7 @@ describe("TimelineService", () => {
         };
         mockEventProofPublisher = {
             publishProof: vi.fn().mockResolvedValue(undefined)
-        };
+        } as unknown as { publishProof: ReturnType<typeof vi.fn> };
 
         service = new TimelineServiceImpl(
             repository,
@@ -88,7 +88,7 @@ describe("TimelineService", () => {
             mockPasskeyRepository,
             mockForensicIntentRepository,
             mockTaskManager,
-            mockEventProofPublisher
+            mockEventProofPublisher as any
         );
     });
 
@@ -123,7 +123,26 @@ describe("TimelineService", () => {
             expect(item.type).toBe("MEDICAL_VISIT");
             expect(item.encryption).toBe("ENCRYPTED");
             expect(item.encryptedPayload["mom-1"]).toBe("encrypted-content-for-mom");
-            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id);
+            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id, 1);
+        });
+
+        it("passes the created version number to async proof publishing", async () => {
+            const dto: CreateTimelineItemDto & { childId: string } = {
+                type: "NOTE",
+                date: "2026-01-27",
+                childId: "child-1",
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "mom-1": "payload", "dad-1": "payload" }
+            };
+
+            const item = await service.createItem({
+                ...dto,
+                ...mockSignature,
+                createdBy: "user-123",
+                createdByName: "Tester"
+            } as any);
+
+            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id, 1);
         });
 
         it("should create a medication item", async () => {

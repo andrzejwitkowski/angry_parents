@@ -49,16 +49,16 @@ export class TimelineServiceImpl {
         private readonly passkeyRepository: PasskeyRepository,
         private readonly forensicIntentRepository: ForensicIntentRepository,
         private readonly taskManager: ITaskManager,
-        private readonly eventProofPublisher?: { publishProof(id: string): Promise<unknown> }
+        private readonly eventProofPublisher?: { publishProof(id: string, version?: number): Promise<unknown> }
     ) { }
 
-    private async publishEventProof(itemId: string): Promise<void> {
+    private async publishEventProof(itemId: string, version: number): Promise<void> {
         if (!this.eventProofPublisher) {
             return;
         }
 
         try {
-            await this.eventProofPublisher.publishProof(itemId);
+            await this.eventProofPublisher.publishProof(itemId, version);
         } catch (error) {
             console.error(`[TimelineService] Failed to publish event proof for ${itemId}:`, error);
         }
@@ -289,7 +289,7 @@ export class TimelineServiceImpl {
             intent
         ) as EncryptedTimelineItem;
 
-        void this.publishEventProof(savedItem.id);
+        void this.publishEventProof(savedItem.id, savedItem.eventVersion);
         return savedItem;
     }
 
@@ -406,7 +406,7 @@ export class TimelineServiceImpl {
             intent
         ) as EncryptedTimelineItem;
 
-        void this.publishEventProof(savedItem.id);
+        void this.publishEventProof(savedItem.id, savedItem.eventVersion);
         return savedItem;
     }
 
@@ -463,7 +463,7 @@ export class TimelineServiceImpl {
             intent
         );
 
-        void this.publishEventProof(id);
+        void this.publishEventProof(id, updated.eventVersion);
     }
 
     /**

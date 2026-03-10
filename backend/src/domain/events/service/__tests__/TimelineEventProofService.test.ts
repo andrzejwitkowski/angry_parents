@@ -220,6 +220,19 @@ describe("TimelineEventProofService", () => {
         });
     });
 
+    it("retries pending proof publication by default for internal flow", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result.txHash).toBe("0xfeedface");
+        expect(blockchainAnchor.publishHash).toHaveBeenCalledWith(hash);
+    });
+
     it("can publish proof for a deleted timeline item version", async () => {
         const deletedRepository = new InMemoryTimelineRepository();
         const deletedItem = buildEncryptedTimelineItem();
@@ -232,6 +245,21 @@ describe("TimelineEventProofService", () => {
 
         expect(result.version).toBe(2);
         expect(result.txHash).toBe("0xfeedface");
+    });
+
+    it("normalizes legacy non-ISO createdAt before bootstrapping snapshot history", async () => {
+        const legacyRepository = new InMemoryTimelineRepository();
+        const legacyItem = buildEncryptedTimelineItem();
+        (legacyItem as any).createdAt = new Date("2026-03-10T10:30:00.000Z");
+        delete (legacyItem as any).eventVersion;
+        (legacyItem as any).versionHistory = [];
+        await legacyRepository.save(legacyItem);
+
+        const legacyService = new TimelineEventProofService(legacyRepository, blockchainAnchor, fixedDateProvider);
+        await legacyService.publishProof(legacyItem.id);
+
+        const updated = await legacyRepository.findByIdIncludingDeleted(legacyItem.id);
+        expect(updated?.versionHistory[0].snapshot.createdAt).toBe("2026-03-10T10:30:00.000Z");
     });
 
     it("omits undefined optional fields from canonical event-proof hashing", async () => {

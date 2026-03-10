@@ -72,6 +72,7 @@ describe("ViemBlockchainAnchor", () => {
         process.env.BLOCKCHAIN_PRIVATE_KEY = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         process.env.BLOCKCHAIN_RPC_URL = "https://rpc.example.test";
         process.env.NODE_ENV = "test";
+        process.env.INTEGRATION_TEST = "false";
         delete process.env.USE_MOCK_BLOCKCHAIN;
     });
 
@@ -152,6 +153,7 @@ describe("ViemBlockchainAnchor", () => {
         const anchor = createBlockchainAnchor({
             ...process.env,
             NODE_ENV: "test",
+            INTEGRATION_TEST: "false",
             USE_MOCK_BLOCKCHAIN: "false",
             BLOCKCHAIN_PRIVATE_KEY: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             BLOCKCHAIN_RPC_URL: "https://rpc.example.test"

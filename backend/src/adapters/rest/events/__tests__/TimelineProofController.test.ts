@@ -87,6 +87,29 @@ describe("TimelineProofController", () => {
         });
     });
 
+    it("returns deleted-event proof when an anchored deleted item is requested", async () => {
+        mockApiService.getEventProof.mockResolvedValue({
+            txHash: "0xdeleted",
+            blockNumber: 404,
+            hash: "deleted-hash"
+        });
+
+        const response = await controller.handle(
+            new Request("http://localhost/api/events/deleted-event/proof", {
+                headers: {
+                    Cookie: `token=${token}`
+                }
+            })
+        );
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({
+            txHash: "0xdeleted",
+            blockNumber: 404,
+            hash: "deleted-hash"
+        });
+    });
+
     it("returns 404 when only a pending placeholder proof exists", async () => {
         mockApiService.getEventProof.mockRejectedValue(new Error("Timeline item with id event-123 proof not found"));
 
