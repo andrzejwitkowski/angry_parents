@@ -5,6 +5,8 @@ description: Use when implementing, debugging, reviewing, or finishing work in t
 
 # Autonomous Angry Parents Execution
 
+> **Canonical source:** This file under `.opencode/skills/...` is the canonical definition of this skill. Any changes here must also be mirrored to `.agent/skills/autonomous-angry-parents-execution/SKILL.md` to keep the copies in sync.
+
 ## Overview
 
 This skill is the default execution governor for `angry_parents`.
@@ -106,6 +108,8 @@ Always obey:
   - `brainstorming`
 
 If any repo rule and local intuition conflict, the repo rule wins.
+
+When an older local instruction still says "plan first and always wait for my acceptance", this skill narrows that rule for this repo: explicit user acceptance is required only for secrets, destructive actions, production/security/release policy changes, or genuinely unresolved architecture ambiguity after repo inspection.
 
 ## Autonomy Rules
 

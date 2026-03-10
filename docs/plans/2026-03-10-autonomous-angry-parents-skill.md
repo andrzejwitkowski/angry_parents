@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Add the canonical skill docs
+## Task 1: Add the canonical skill docs
 
 **Files:**
 - Create: `.opencode/skills/autonomous-angry-parents-execution/SKILL.md`
@@ -41,7 +41,7 @@ git add .opencode/skills/autonomous-angry-parents-execution/SKILL.md .agent/skil
 git commit -m "docs: add autonomous repo execution skill"
 ```
 
-### Task 2: Wire the skill into existing repo rules
+## Task 2: Wire the skill into existing repo rules
 
 **Files:**
 - Modify: `.opencode/skills/plan-rules/SKILL.md`
@@ -75,20 +75,20 @@ git add .opencode/skills/plan-rules/SKILL.md .agent/skills/plan-rules/SKILL.md .
 git commit -m "docs: reference autonomous execution skill"
 ```
 
-### Task 3: Verify final consistency
+## Task 3: Verify final consistency
 
 **Files:**
 - Modify: `docs/plans/2026-03-10-autonomous-angry-parents-skill-design.md`
 - Modify: `docs/plans/2026-03-10-autonomous-angry-parents-skill.md`
 
-**Step 1: Write the failing test**
+**Step 1: Define the final verification**
 
 Use repo-wide verification of skill placement and references as the final reproduction target.
 
-**Step 2: Run test to verify it fails**
+**Step 2: Run the baseline verification**
 
 Run: `git diff --check`
-Expected: must be clean after implementation.
+Expected: clean output if formatting is already correct; otherwise fix issues before completion.
 
 **Step 3: Write minimal implementation**
 

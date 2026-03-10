@@ -106,3 +106,5 @@ That skill assumes `superpowers` are installed and MCP tools are available (`mgr
 Default order: relevant superpowers skill first, repo evidence second, MCP/tooling third, user question last.
 
 Questions to the user MUST be minimized and only used when blocked by secrets, destructive actions, security/release ambiguity, or genuinely unresolved architecture decisions.
+
+This autonomous execution default narrows the earlier "plan first and always wait for my acceptance" rule: for tasks executed under `autonomous-angry-parents-execution`, explicit acceptance is only required for secrets, destructive actions, security/release policy changes, or unresolved architecture ambiguity after repo inspection.

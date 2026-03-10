@@ -80,3 +80,5 @@ Parsability: Code must be easy for AI to read and for Kibana to index.
 
 13. Prefer the skill `autonomous-angry-parents-execution` for implementation, debugging, CI/release, and review work in this repo.
 It assumes superpowers plus MCP tooling (`mgrep`, `Context7`, `github`, `sequential-thinking`, `memory`) and minimizes user questions unless blocked by secrets, destructive actions, or real architecture/security ambiguity.
+
+Under this skill, the earlier approval-first rule is narrowed: explicit user acceptance is required only for secrets, destructive actions, security/release policy changes, or unresolved architecture ambiguity after repo inspection.
