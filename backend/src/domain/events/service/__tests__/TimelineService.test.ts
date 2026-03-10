@@ -9,8 +9,6 @@ import type { PasskeyRepository } from "../../../auth/ports/PasskeyRepository";
 import type { ChildRepository } from "../../../family/ports/ChildRepository";
 import type { ForensicIntentRepository } from "../../../forensic/ports/ForensicIntentRepository";
 import type { ITaskManager } from "../../../shared/ports/TaskScheduler";
-import { TimelineEventProofService } from "../TimelineEventProofService";
-
 // Mock Crypto Service that just returns a predictable string
 class MockCryptoService implements ICryptoService {
     async verifySignature(): Promise<boolean> { return true; }
@@ -123,7 +121,7 @@ describe("TimelineService", () => {
             expect(item.type).toBe("MEDICAL_VISIT");
             expect(item.encryption).toBe("ENCRYPTED");
             expect(item.encryptedPayload["mom-1"]).toBe("encrypted-content-for-mom");
-            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id, 1);
+            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id, 1, { retryPending: true });
         });
 
         it("passes the created version number to async proof publishing", async () => {
@@ -142,7 +140,7 @@ describe("TimelineService", () => {
                 createdByName: "Tester"
             } as any);
 
-            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id, 1);
+            expect(mockEventProofPublisher.publishProof).toHaveBeenCalledWith(item.id, 1, { retryPending: true });
         });
 
         it("should create a medication item", async () => {

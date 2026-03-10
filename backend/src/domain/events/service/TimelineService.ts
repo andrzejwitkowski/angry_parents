@@ -49,7 +49,7 @@ export class TimelineServiceImpl {
         private readonly passkeyRepository: PasskeyRepository,
         private readonly forensicIntentRepository: ForensicIntentRepository,
         private readonly taskManager: ITaskManager,
-        private readonly eventProofPublisher?: { publishProof(id: string, version?: number): Promise<unknown> }
+        private readonly eventProofPublisher?: { publishProof(id: string, version?: number, options?: { retryPending?: boolean }): Promise<unknown> }
     ) { }
 
     private async publishEventProof(itemId: string, version: number): Promise<void> {
@@ -58,7 +58,9 @@ export class TimelineServiceImpl {
         }
 
         try {
-            await this.eventProofPublisher.publishProof(itemId, version);
+            // retryPending: true so that transient RPC failures on a previous attempt
+            // do not permanently block automatic re-anchoring after create/update/delete.
+            await this.eventProofPublisher.publishProof(itemId, version, { retryPending: true });
         } catch (error) {
             console.error(`[TimelineService] Failed to publish event proof for ${itemId}:`, error);
         }

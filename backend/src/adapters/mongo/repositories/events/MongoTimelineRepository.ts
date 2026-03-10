@@ -97,7 +97,14 @@ export class MongoTimelineRepository implements TimelineRepository {
 
     async appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
         const mongooseSession = session as ClientSession | undefined;
-        const existing = await TimelineItemModel.findOne({ id, "versionHistory.version": proof.version }, null, { session: mongooseSession }).lean();
+
+        // First, check whether a proof entry with this hash already exists for the version.
+        // We need to decide whether to $push a new entry or $set the existing one.
+        const existing = await TimelineItemModel.findOne(
+            { id, "versionHistory.version": proof.version },
+            null,
+            { session: mongooseSession }
+        ).lean();
 
         if (!existing) {
             throw new Error(`Item with id ${id} and version ${proof.version} not found`);
@@ -109,22 +116,46 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} and version ${proof.version} not found`);
         }
 
-        const existingProofIndex = versionEntry.proofHistory.findIndex((existingProof) => existingProof.hash === proof.hash);
-        const nextProofHistory = existingProofIndex === -1
-            ? [...versionEntry.proofHistory, proof]
-            : versionEntry.proofHistory.map((existingProof, index) => index === existingProofIndex ? { ...existingProof, ...proof } : existingProof);
+        const proofExists = versionEntry.proofHistory.some((p) => p.hash === proof.hash);
 
-        const nextVersionHistory = timelineItem.versionHistory.map((entry) => (
-            entry.version === proof.version
-                ? { ...entry, proofHistory: nextProofHistory }
-                : entry
-        ));
-
-        const result = await TimelineItemModel.findOneAndUpdate(
-            { id },
-            { $set: { versionHistory: nextVersionHistory } },
-            { returnDocument: "after", session: mongooseSession }
-        ).lean();
+        let result;
+        if (proofExists) {
+            // Atomically merge into the existing proof entry with matching hash
+            result = await TimelineItemModel.findOneAndUpdate(
+                { id, "versionHistory.version": proof.version },
+                {
+                    $set: {
+                        "versionHistory.$[ver].proofHistory.$[prf]": {
+                            ...versionEntry.proofHistory.find((p) => p.hash === proof.hash),
+                            ...proof,
+                        },
+                    },
+                },
+                {
+                    arrayFilters: [
+                        { "ver.version": proof.version },
+                        { "prf.hash": proof.hash },
+                    ],
+                    returnDocument: "after",
+                    session: mongooseSession,
+                }
+            ).lean();
+        } else {
+            // Atomically push a new proof entry
+            result = await TimelineItemModel.findOneAndUpdate(
+                { id, "versionHistory.version": proof.version },
+                {
+                    $push: {
+                        "versionHistory.$[ver].proofHistory": proof,
+                    },
+                },
+                {
+                    arrayFilters: [{ "ver.version": proof.version }],
+                    returnDocument: "after",
+                    session: mongooseSession,
+                }
+            ).lean();
+        }
 
         if (!result) {
             throw new Error(`Item with id ${id} and version ${proof.version} not found`);

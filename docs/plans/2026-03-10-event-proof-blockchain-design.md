@@ -9,14 +9,14 @@ Timeline events are editable, so blockchain proof cannot be derived from the cur
 - Anchor timeline event versions to Polygon via Viem.
 - Keep full proof history for all event edits.
 - Return proof data from the timeline item read model.
-- Use mock anchoring in local/unit environments and real Polygon clients in `test` and `production`.
+- Use mock anchoring in local/unit environments and real Polygon clients when explicitly configured.
 
 **Architecture**
 
 - Add an event-proof model to `TimelineItem` that stores immutable proof snapshots per version.
 - Add a blockchain facade/service dedicated to event proof publishing.
 - Keep `MockBlockchainAnchor` for development/unit flows.
-- Use `ViemBlockchainAnchor` for Polygon Amoy in `NODE_ENV=test` and Polygon Mainnet in `NODE_ENV=production`.
+- Use `ViemBlockchainAnchor` for Polygon Amoy in `NODE_ENV=test` (when `USE_MOCK_BLOCKCHAIN` is not set), `polygon` for `NODE_ENV=production`.
 - Persist proof history directly with the timeline item so `GET /api/events/:id/proof` can read from the event aggregate without touching forensic document storage.
 
 **Data Model**
@@ -55,13 +55,14 @@ A new or updated blockchain port will expose publish semantics that return both 
 
 **Environment Selection**
 
-Recommended runtime selection:
+Implemented runtime selection:
 
-- `development` or unit tests: mock anchor
-- `test`: real Viem anchor on Polygon Amoy
-- `production`: real Viem anchor on Polygon Mainnet
+- `development` or unit tests: mock anchor (default when `BLOCKCHAIN_PRIVATE_KEY`/`BLOCKCHAIN_RPC_URL` are absent or `USE_MOCK_BLOCKCHAIN=true`)
+- `test`: mock anchor by default; real Viem anchor on Polygon Amoy when env vars are present and `USE_MOCK_BLOCKCHAIN` is not set
+- `production`: **requires** `BLOCKCHAIN_PRIVATE_KEY` and `BLOCKCHAIN_RPC_URL`; throws on startup if missing; real Viem anchor on Polygon Mainnet
+- Any environment: `USE_MOCK_BLOCKCHAIN=true` forces mock anchor; `INTEGRATION_TEST=true` or `E2E_TEST=true` also forces mock
 
-To preserve existing test stability, unit tests that run under `NODE_ENV=test` should explicitly opt into the mock through a dedicated override such as `USE_MOCK_BLOCKCHAIN=true`, while integration tests for the facade can disable that override and verify Viem wiring.
+Unit tests set `INTEGRATION_TEST=false` explicitly in `beforeEach` to allow testing Viem selection logic without override interference.
 
 **API**
 

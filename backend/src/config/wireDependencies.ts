@@ -29,11 +29,21 @@ import type { IEventBlockchainAnchor } from "../domain/shared/ports/IEventBlockc
 type CombinedBlockchainAnchor = IBlockchainAnchor & IEventBlockchainAnchor;
 
 export function createBlockchainAnchor(env: NodeJS.ProcessEnv = process.env): CombinedBlockchainAnchor {
-    const useMockBlockchain =
+    const isProduction = env.NODE_ENV === "production";
+    const explicitMock =
         env.USE_MOCK_BLOCKCHAIN === "true" ||
         env.E2E_TEST === "true" ||
-        env.INTEGRATION_TEST === "true" ||
-        (!env.BLOCKCHAIN_PRIVATE_KEY || !env.BLOCKCHAIN_RPC_URL);
+        env.INTEGRATION_TEST === "true";
+    const missingConfig = !env.BLOCKCHAIN_PRIVATE_KEY || !env.BLOCKCHAIN_RPC_URL;
+
+    if (isProduction && missingConfig) {
+        throw new Error(
+            "BLOCKCHAIN_PRIVATE_KEY and BLOCKCHAIN_RPC_URL are required in production. " +
+            "Set USE_MOCK_BLOCKCHAIN=true to explicitly opt into mock anchoring."
+        );
+    }
+
+    const useMockBlockchain = explicitMock || missingConfig;
 
     return useMockBlockchain
         ? new MockBlockchainAnchor()
