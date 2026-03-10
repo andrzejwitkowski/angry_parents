@@ -164,12 +164,31 @@ export class TimelineServiceImpl {
         }
     }
 
+    private normalizeCreatedAt(value: unknown, itemId?: string): string {
+        try {
+            if (typeof value === "string" && value.includes("T") && value.endsWith("Z")) {
+                return value;
+            }
+
+            const parsed = new Date(value as any);
+            if (Number.isNaN(parsed.getTime())) {
+                console.warn(`[TimelineService] Invalid createdAt timestamp for item ${itemId ?? "unknown"}, falling back to now`);
+                return this.dateProvider.getIsoString();
+            }
+
+            return parsed.toISOString();
+        } catch (error) {
+            console.warn(`[TimelineService] Failed to sanitize date for item ${itemId ?? "unknown"}:`, error);
+            return this.dateProvider.getIsoString();
+        }
+    }
+
     private buildVersionSnapshot(item: EncryptedTimelineItem): EncryptedTimelineVersionSnapshot {
         return {
             id: item.id,
             type: item.type,
             date: item.date,
-            createdAt: item.createdAt,
+            createdAt: this.normalizeCreatedAt(item.createdAt, item.id),
             createdBy: item.createdBy,
             createdByName: item.createdByName,
             auditTrail: [...item.auditTrail],
@@ -194,6 +213,15 @@ export class TimelineServiceImpl {
             ...previousVersions,
             this.buildVersionEntry(item, item.eventVersion, [])
         ];
+    }
+
+    private bootstrapExistingVersionHistory(item: EncryptedTimelineItem): TimelineItemVersion[] {
+        if (Array.isArray(item.versionHistory) && item.versionHistory.length > 0) {
+            return [...item.versionHistory];
+        }
+
+        const currentVersion = item.eventVersion ?? 1;
+        return [this.buildVersionEntry(item, currentVersion, [])];
     }
 
     async createItem(dto: CreateTimelineItemDto & {
@@ -261,7 +289,7 @@ export class TimelineServiceImpl {
             intent
         ) as EncryptedTimelineItem;
 
-        await this.publishEventProof(savedItem.id);
+        void this.publishEventProof(savedItem.id);
         return savedItem;
     }
 
@@ -327,24 +355,9 @@ export class TimelineServiceImpl {
 
         // Sanitize createdAt: Mongoose might have stored it as a Date or a non-ISO string
         // If it's not a valid ISO string, convert it defensively.
-        let sanitizedCreatedAt: string;
-        try {
-            const existingCreatedAt = existing.createdAt as any;
-            if (typeof existingCreatedAt === 'string' && existingCreatedAt.includes('T') && existingCreatedAt.endsWith('Z')) {
-                sanitizedCreatedAt = existingCreatedAt;
-            } else {
-                const parsed = new Date(existingCreatedAt);
-                if (Number.isNaN(parsed.getTime())) {
-                    console.warn(`[TimelineService] Invalid createdAt timestamp for item ${id}, falling back to now`);
-                    sanitizedCreatedAt = this.dateProvider.getIsoString();
-                } else {
-                    sanitizedCreatedAt = parsed.toISOString();
-                }
-            }
-        } catch (e) {
-            console.warn(`[TimelineService] Failed to sanitize date for item ${id}:`, e);
-            sanitizedCreatedAt = this.dateProvider.getIsoString();
-        }
+        const sanitizedCreatedAt = this.normalizeCreatedAt(existing.createdAt, id);
+
+        const existingVersionHistory = this.bootstrapExistingVersionHistory(existing);
 
         const validated = TimelineItemSchema.parse({
             ...(fullPlaintextUpdate as any),
@@ -354,8 +367,8 @@ export class TimelineServiceImpl {
             createdByName: existing.createdByName,
             childIds: existing.childIds,
             isDeleted: existing.isDeleted,
-            eventVersion: ((existing as any).eventVersion ?? 0) + 1,
-            versionHistory: [...((existing as any).versionHistory ?? [])],
+            eventVersion: ((existing as any).eventVersion ?? 1) + 1,
+            versionHistory: existingVersionHistory,
         }) as EncryptedTimelineItem;
 
         // Apply domain business rules
@@ -370,7 +383,7 @@ export class TimelineServiceImpl {
         };
 
         validated.auditTrail = [...existing.auditTrail, auditEntry];
-        validated.versionHistory = this.appendNextVersionEntry(validated, existing.versionHistory ?? []);
+        validated.versionHistory = this.appendNextVersionEntry(validated, existingVersionHistory);
 
         const encryptedUpdatedItem = validated;
 
@@ -393,7 +406,7 @@ export class TimelineServiceImpl {
             intent
         ) as EncryptedTimelineItem;
 
-        await this.publishEventProof(savedItem.id);
+        void this.publishEventProof(savedItem.id);
         return savedItem;
     }
 
@@ -422,13 +435,15 @@ export class TimelineServiceImpl {
             action: "DELETED",
         };
 
+        const existingVersionHistory = this.bootstrapExistingVersionHistory(existing);
+
         const updated = {
             ...existing,
-            eventVersion: ((existing as any).eventVersion ?? 0) + 1,
+            eventVersion: ((existing as any).eventVersion ?? 1) + 1,
             isDeleted: true,
             auditTrail: [...existing.auditTrail, auditEntry]
         } as EncryptedTimelineItem;
-        updated.versionHistory = this.appendNextVersionEntry(updated, existing.versionHistory ?? []);
+        updated.versionHistory = this.appendNextVersionEntry(updated, existingVersionHistory);
         const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
         const intent: ForensicIntentRecord = {
@@ -448,7 +463,7 @@ export class TimelineServiceImpl {
             intent
         );
 
-        await this.publishEventProof(id);
+        void this.publishEventProof(id);
     }
 
     /**

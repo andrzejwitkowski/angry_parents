@@ -144,6 +144,12 @@ export class TimelineApiService {
     async publishEventProof(id: string, user: SessionUser | null) {
         this.assertAuthorizedTimelineUser(user);
 
+        if (process.env.NODE_ENV === "production" && process.env.ENABLE_EVENT_PROOF_RECOVERY_ENDPOINT !== "true") {
+            const error = new Error("Proof recovery endpoint disabled");
+            (error as any).status = 403;
+            throw error;
+        }
+
         if (!this.timelineRepository || !this.timelineEventProofService) {
             throw new Error("Timeline proof publisher not configured");
         }

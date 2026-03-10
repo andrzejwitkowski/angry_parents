@@ -65,6 +65,10 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return updatedItem;
     }
 
+    async updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
+        return this.update(id, updates, session);
+    }
+
     async delete(id: string, _session?: unknown): Promise<void> {
         const item = this.itemsById.get(id);
         if (!item) {

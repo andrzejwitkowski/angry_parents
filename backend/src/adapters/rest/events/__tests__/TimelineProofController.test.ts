@@ -162,4 +162,22 @@ describe("TimelineProofController", () => {
         });
         expect(mockApiService.publishEventProof).toHaveBeenCalledWith("event-123", expect.objectContaining({ id: "user-123" }));
     });
+
+    it("returns 403 when proof recovery is disabled", async () => {
+        mockApiService.publishEventProof.mockRejectedValue(Object.assign(new Error("Proof recovery endpoint disabled"), { status: 403 }));
+
+        const response = await controller.handle(
+            new Request("http://localhost/api/events/event-123/proof/publish", {
+                method: "POST",
+                headers: {
+                    Cookie: `token=${token}`
+                }
+            })
+        );
+
+        expect(response.status).toBe(403);
+        expect(await response.json()).toEqual({
+            error: "Proof recovery endpoint disabled"
+        });
+    });
 });

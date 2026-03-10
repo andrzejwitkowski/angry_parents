@@ -87,6 +87,14 @@ describe("ViemBlockchainAnchor", () => {
         );
     });
 
+    it("rejects missing rpc url configuration", () => {
+        delete process.env.BLOCKCHAIN_RPC_URL;
+
+        expect(() => new ViemBlockchainAnchor()).toThrow(
+            "BLOCKCHAIN_RPC_URL is required for Viem blockchain anchoring"
+        );
+    });
+
     it("uses Polygon Amoy in test and Polygon mainnet in production", () => {
         new ViemBlockchainAnchor();
         expect(selectedChain).toEqual({ id: 80002, name: "Polygon Amoy" });
@@ -138,5 +146,17 @@ describe("ViemBlockchainAnchor", () => {
         });
 
         expect(anchor).toBeInstanceOf(MockBlockchainAnchor);
+    });
+
+    it("wireDependencies allows Viem in test env when blockchain config is present", () => {
+        const anchor = createBlockchainAnchor({
+            ...process.env,
+            NODE_ENV: "test",
+            USE_MOCK_BLOCKCHAIN: "false",
+            BLOCKCHAIN_PRIVATE_KEY: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            BLOCKCHAIN_RPC_URL: "https://rpc.example.test"
+        });
+
+        expect(anchor).toBeInstanceOf(ViemBlockchainAnchor);
     });
 });

@@ -14,7 +14,6 @@ import { formatErrorResponse, mapErrorToStatus } from "../adapters/rest/common/e
 import { wireDependencies } from "./wireDependencies";
 import { registerSchedulerHandlers } from "./registerSchedulerHandlers";
 import { TaskType } from "../domain/shared/ports/TaskScheduler";
-import { TimelineEventProofService } from "../domain/events/service/TimelineEventProofService";
 
 export async function createApp() {
     const enableTestEndpoints =
@@ -166,13 +165,7 @@ export async function createApp() {
                         return { error: "id is required" };
                     }
 
-                    const timelineEventProofService = new TimelineEventProofService(
-                        deps.timelineRepository,
-                        deps.blockchainAnchor as any,
-                        deps.dateProvider
-                    );
-
-                    return await timelineEventProofService.publishProof(id);
+                    return await deps.timelineEventProofService.publishProof(id);
                 } catch (error) {
                     set.status = (error as any)?.status ?? mapErrorToStatus(error);
                     return { error: formatErrorResponse(error) };

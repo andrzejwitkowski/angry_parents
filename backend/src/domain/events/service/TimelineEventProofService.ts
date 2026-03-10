@@ -77,7 +77,7 @@ export class TimelineEventProofService {
 
         const bootstrapVersion = item.eventVersion ?? 1;
         const snapshot = this.buildSnapshotFromItem(item);
-        return this.repository.update(item.id, {
+        return this.repository.updateIncludingDeleted(item.id, {
             eventVersion: bootstrapVersion,
             versionHistory: [{
                 version: bootstrapVersion,

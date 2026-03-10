@@ -25,6 +25,11 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
             throw new Error("BLOCKCHAIN_PRIVATE_KEY must start with 0x and contain only hex characters");
         }
 
+        const rpcUrl = config.rpcUrl ?? process.env.BLOCKCHAIN_RPC_URL;
+        if (!rpcUrl) {
+            throw new Error("BLOCKCHAIN_RPC_URL is required for Viem blockchain anchoring");
+        }
+
         const chain = (config.nodeEnv ?? process.env.NODE_ENV) === "test" ? polygonAmoy : polygon;
 
         this.account = privateKeyToAccount(pk as `0x${string}`);
@@ -32,7 +37,7 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
         this.client = createWalletClient({
             account: this.account,
             chain,
-            transport: http(config.rpcUrl ?? process.env.BLOCKCHAIN_RPC_URL)
+            transport: http(rpcUrl)
         }).extend(publicActions);
     }
 

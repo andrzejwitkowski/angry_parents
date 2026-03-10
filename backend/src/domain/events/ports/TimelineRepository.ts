@@ -40,6 +40,11 @@ export interface TimelineRepository {
     update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem>;
 
     /**
+     * Update an existing timeline item including soft-deleted records.
+     */
+    updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem>;
+
+    /**
      * Delete a timeline item
      */
     delete(id: string, session?: unknown): Promise<void>;

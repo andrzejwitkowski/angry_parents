@@ -223,6 +223,43 @@ describe("Timeline Audit System", () => {
         });
     });
 
+    it("should bootstrap legacy version 1 before assigning version 2 on first update", async () => {
+        const dto = {
+            type: "NOTE",
+            date: "2026-02-05",
+            createdBy: "dad-1",
+            createdByName: "Alice",
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "legacy-v1" },
+        } as any;
+
+        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        await repository.update(created.id, {
+            eventVersion: undefined as any,
+            versionHistory: []
+        } as any);
+
+        const updated = await service.updateItem(created.id, {
+            ...dto,
+            id: created.id,
+            createdAt: created.createdAt,
+            auditTrail: created.auditTrail,
+            isDeleted: false,
+            encryptedPayload: { "dad-1": "legacy-v2" }
+        } as any, "dad-1", "child-1", {
+            signatureBase64: "mock-sig",
+            timestamp: "2024-01-01T12:00:00.000Z",
+            keyId: "key1"
+        }, "Alice");
+
+        expect((updated as any).eventVersion).toBe(2);
+        expect((updated as any).versionHistory).toHaveLength(2);
+        expect((updated as any).versionHistory[0].version).toBe(1);
+        expect((updated as any).versionHistory[0].snapshot.encryptedPayload).toEqual({ "dad-1": "legacy-v1" });
+        expect((updated as any).versionHistory[1].version).toBe(2);
+        expect((updated as any).versionHistory[1].snapshot.encryptedPayload).toEqual({ "dad-1": "legacy-v2" });
+    });
+
     it("should track who made the update", async () => {
         const dto = {
             type: "NOTE",
@@ -268,7 +305,7 @@ describe("Timeline Audit System", () => {
         expect(items).toHaveLength(0);
 
         // Verify it still exists in repository with audit trail
-        const inRepo = await repository.findById(created.id);
+        const inRepo = await repository.findByIdIncludingDeleted(created.id);
         expect(inRepo).not.toBeNull();
         expect(inRepo?.isDeleted).toBe(true);
         expect((inRepo as any)?.eventVersion).toBe(2);
@@ -283,6 +320,37 @@ describe("Timeline Audit System", () => {
         expect(inRepo?.auditTrail).toHaveLength(2);
         expect(inRepo?.auditTrail[1].action).toBe("DELETED");
         expect(inRepo?.auditTrail[1].userName).toBe("Alice");
+    });
+
+    it("should bootstrap legacy version 1 before assigning version 2 on first delete", async () => {
+        const dto: CreateTimelineItemDto = {
+            type: "NOTE",
+            date: "2026-02-06",
+            createdBy: "dad-1",
+            createdByName: "Alice",
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "dad-1": "legacy-delete-v1" },
+        } as any;
+
+        const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        await repository.update(created.id, {
+            eventVersion: undefined as any,
+            versionHistory: []
+        } as any);
+
+        await service.deleteItem(created.id, "dad-1", {
+            signatureBase64: "mock-sig",
+            timestamp: "2024-01-01T12:00:00.000Z",
+            keyId: "key1"
+        }, "Alice");
+
+        const deleted = await repository.findByIdIncludingDeleted(created.id);
+        expect((deleted as any)?.eventVersion).toBe(2);
+        expect((deleted as any)?.versionHistory).toHaveLength(2);
+        expect((deleted as any)?.versionHistory[0].version).toBe(1);
+        expect((deleted as any)?.versionHistory[0].snapshot.encryptedPayload).toEqual({ "dad-1": "legacy-delete-v1" });
+        expect((deleted as any)?.versionHistory[1].version).toBe(2);
+        expect((deleted as any)?.versionHistory[1].snapshot.isDeleted).toBe(true);
     });
 
     it("should only track actual changes in update", async () => {

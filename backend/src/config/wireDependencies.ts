@@ -27,8 +27,9 @@ import { TimelineEventProofService } from "../domain/events/service/TimelineEven
 export function createBlockchainAnchor(env: NodeJS.ProcessEnv = process.env) {
     const useMockBlockchain =
         env.USE_MOCK_BLOCKCHAIN === "true" ||
-        env.NODE_ENV === "test" ||
-        env.E2E_TEST === "true";
+        env.E2E_TEST === "true" ||
+        env.INTEGRATION_TEST === "true" ||
+        (!env.BLOCKCHAIN_PRIVATE_KEY || !env.BLOCKCHAIN_RPC_URL);
 
     return useMockBlockchain
         ? new MockBlockchainAnchor()

@@ -62,6 +62,26 @@ export class MongoTimelineRepository implements TimelineRepository {
         return result as unknown as EncryptedTimelineItem;
     }
 
+    async updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
+        const mongooseSession = session as ClientSession | undefined;
+        const existing = await TimelineItemModel.findOne({ id }, null, { session: mongooseSession }).lean();
+        if (!existing) {
+            throw new Error(`Item with id ${id} not found`);
+        }
+
+        const result = await TimelineItemModel.findOneAndUpdate(
+            { id },
+            { $set: updates },
+            { returnDocument: "after", session: mongooseSession }
+        ).lean();
+
+        if (!result) {
+            throw new Error(`Item with id ${id} not found on update`);
+        }
+
+        return result as unknown as EncryptedTimelineItem;
+    }
+
     async delete(id: string, session?: unknown): Promise<void> {
         const mongooseSession = session as ClientSession | undefined;
         const result = await TimelineItemModel.updateOne(
