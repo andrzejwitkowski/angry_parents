@@ -62,7 +62,7 @@ export class TimelineApiService {
         }
     }
 
-    private async ensureItemBelongsToFamily(childIds: string[], familyId: string): Promise<void> {
+    private async ensureChildrenBelongToFamily(childIds: string[], familyId: string): Promise<void> {
         if (!this.childRepository) {
             return;
         }
@@ -112,7 +112,7 @@ export class TimelineApiService {
         }
 
         try {
-            await this.ensureItemBelongsToFamily(item.childIds, user.familyId);
+            await this.ensureChildrenBelongToFamily(item.childIds, user.familyId);
         } catch (error) {
             if (error instanceof Error && error.message === "Timeline item family mismatch") {
                 throw new Error(`Timeline item with id ${id} not found`);
@@ -160,7 +160,7 @@ export class TimelineApiService {
         }
 
         try {
-            await this.ensureItemBelongsToFamily(item.childIds, user.familyId);
+            await this.ensureChildrenBelongToFamily(item.childIds, user.familyId);
         } catch (error) {
             if (error instanceof Error && error.message === "Timeline item family mismatch") {
                 throw new Error(`Timeline item with id ${id} not found`);

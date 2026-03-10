@@ -97,71 +97,73 @@ export class MongoTimelineRepository implements TimelineRepository {
 
     async appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
         const mongooseSession = session as ClientSession | undefined;
-
-        // First, check whether a proof entry with this hash already exists for the version.
-        // We need to decide whether to $push a new entry or $set the existing one.
-        const existing = await TimelineItemModel.findOne(
-            { id, "versionHistory.version": proof.version },
-            null,
-            { session: mongooseSession }
-        ).lean();
-
-        if (!existing) {
-            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
-        }
-
-        const timelineItem = existing as unknown as EncryptedTimelineItem;
-        const versionEntry = timelineItem.versionHistory.find((entry) => entry.version === proof.version);
-        if (!versionEntry) {
-            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
-        }
-
+        const versionEntry = await this.findVersionEntry(id, proof.version, mongooseSession);
         const proofExists = versionEntry.proofHistory.some((p) => p.hash === proof.hash);
 
-        let result;
-        if (proofExists) {
-            // Atomically merge into the existing proof entry with matching hash
-            result = await TimelineItemModel.findOneAndUpdate(
-                { id, "versionHistory.version": proof.version },
-                {
-                    $set: {
-                        "versionHistory.$[ver].proofHistory.$[prf]": {
-                            ...versionEntry.proofHistory.find((p) => p.hash === proof.hash),
-                            ...proof,
-                        },
-                    },
-                },
-                {
-                    arrayFilters: [
-                        { "ver.version": proof.version },
-                        { "prf.hash": proof.hash },
-                    ],
-                    returnDocument: "after",
-                    session: mongooseSession,
-                }
-            ).lean();
-        } else {
-            // Atomically push a new proof entry
-            result = await TimelineItemModel.findOneAndUpdate(
-                { id, "versionHistory.version": proof.version },
-                {
-                    $push: {
-                        "versionHistory.$[ver].proofHistory": proof,
-                    },
-                },
-                {
-                    arrayFilters: [{ "ver.version": proof.version }],
-                    returnDocument: "after",
-                    session: mongooseSession,
-                }
-            ).lean();
-        }
+        const result = proofExists
+            ? await this.mergeExistingProofEntry(id, proof, mongooseSession)
+            : await this.pushNewProofEntry(id, proof, mongooseSession);
 
         if (!result) {
             throw new Error(`Item with id ${id} and version ${proof.version} not found`);
         }
 
         return result as unknown as EncryptedTimelineItem;
+    }
+
+    private async findVersionEntry(id: string, version: number, session: ClientSession | undefined) {
+        const existing = await TimelineItemModel.findOne(
+            { id, "versionHistory.version": version },
+            null,
+            { session }
+        ).lean();
+
+        if (!existing) {
+            throw new Error(`Item with id ${id} and version ${version} not found`);
+        }
+
+        const timelineItem = existing as unknown as EncryptedTimelineItem;
+        const versionEntry = timelineItem.versionHistory.find((entry) => entry.version === version);
+        if (!versionEntry) {
+            throw new Error(`Item with id ${id} and version ${version} not found`);
+        }
+
+        return versionEntry;
+    }
+
+    private async mergeExistingProofEntry(id: string, proof: EventProofRecord, session: ClientSession | undefined) {
+        return TimelineItemModel.findOneAndUpdate(
+            { id, "versionHistory.version": proof.version },
+            {
+                $set: {
+                    "versionHistory.$[ver].proofHistory.$[prf]": proof,
+                },
+            },
+            {
+                arrayFilters: [
+                    { "ver.version": proof.version },
+                    { "prf.hash": proof.hash },
+                ],
+                returnDocument: "after",
+                session,
+            }
+        ).lean();
+    }
+
+    private async pushNewProofEntry(id: string, proof: EventProofRecord, session: ClientSession | undefined) {
+        return TimelineItemModel.findOneAndUpdate(
+            { id, "versionHistory.version": proof.version },
+            {
+                $push: {
+                    "versionHistory.$[ver].proofHistory": proof,
+                },
+            },
+            {
+                arrayFilters: [{ "ver.version": proof.version }],
+                returnDocument: "after",
+                session,
+            }
+        ).lean();
     }
 
     async countByChildId(childId: string): Promise<number> {

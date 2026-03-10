@@ -110,22 +110,10 @@ describe("TimelineProofController", () => {
         });
     });
 
-    it("returns 404 when only a pending placeholder proof exists", async () => {
-        mockApiService.getEventProof.mockRejectedValue(new Error("Timeline item with id event-123 proof not found"));
-
-        const response = await controller.handle(
-            new Request("http://localhost/api/events/event-123/proof", {
-                headers: {
-                    Cookie: `token=${token}`
-                }
-            })
-        );
-
-        expect(response.status).toBe(404);
-        expect(await response.json()).toEqual({
-            error: "Timeline item with id event-123 proof not found"
-        });
-    });
+    // Note: "pending placeholder proof exists" is a service-layer distinction.
+    // From the controller's perspective, both "no proof" and "only pending proof"
+    // result in the same error from getEventProof: "proof not found".
+    // That case is already covered by "returns 404 when the event exists but has no proof yet".
 
     it("returns 404 when the event belongs to a different family scope", async () => {
         mockApiService.getEventProof.mockRejectedValue(new Error("Timeline item with id foreign-event not found"));

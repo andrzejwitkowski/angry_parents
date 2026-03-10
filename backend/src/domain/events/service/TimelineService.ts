@@ -62,7 +62,18 @@ export class TimelineServiceImpl {
             // do not permanently block automatic re-anchoring after create/update/delete.
             await this.eventProofPublisher.publishProof(itemId, version, { retryPending: true });
         } catch (error) {
-            console.error(`[TimelineService] Failed to publish event proof for ${itemId}:`, error);
+            // This failure is non-fatal: the item is already persisted.
+            // The proof can be manually re-published via POST /api/events/{itemId}/proof/publish.
+            console.error(
+                `[TimelineService] Failed to publish event proof`,
+                {
+                    itemId,
+                    version,
+                    errorType: error instanceof Error ? error.constructor.name : typeof error,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                    retryHint: `POST /api/events/${itemId}/proof/publish`
+                }
+            );
         }
     }
 
