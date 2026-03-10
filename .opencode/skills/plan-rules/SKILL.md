@@ -78,3 +78,22 @@ Parsability: Code must be easy for AI to read and for Kibana to index.
 10. Always run all tests after feature is done - fix any errors in tests or in logic
 11. When new feature or a bug is fixed ALWAYS analyze if a new unit / integration test should be created and propose one
 12. After all changes are made you ALWAYS must execute 'bun test:all' - and all tests must pass - if not analyze and fix - you are not allowed to write that the feature/bug fix is done until all tests pass
+
+13. Commits, hooks and versioning rules
+Commit messages MUST follow conventional commits accepted by this repo: `feat`, `fix`, `bugfix`, `docs`, `chore`, `refactor`, `test`, `ci`.
+
+Use `!` only for real breaking changes. Any allowed type with `!` (for example `refactor(core)!:`) MUST be treated as a major release signal.
+
+Use `BREAKING CHANGE:` only in the commit body/footer and only when the change is truly breaking.
+
+Feature, fix, docs, chore, refactor, test and ci branches outside `main` MUST keep `package.json` on a `-SNAPSHOT` version.
+
+`main` MUST always use a final version without `-SNAPSHOT`.
+
+Release automation MUST calculate the next version from the latest released git tag, not from a stale branch `package.json` version.
+
+Release automation MUST create annotated tags and push them explicitly with the release commit.
+
+Release workflows on `main` MUST use GitHub Actions concurrency guards to avoid racing release commits or tags.
+
+Pre-push hooks and prechecks MUST validate the actual destination refs being pushed from hook stdin, not only `git branch --show-current`, because pushes like `HEAD:main` and multi-ref pushes must be checked correctly.

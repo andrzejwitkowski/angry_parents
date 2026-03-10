@@ -38,12 +38,28 @@ describe("calculateReleaseBump", () => {
         expect(bump).toBe("major");
     });
 
+    test("returns major when any allowed commit type uses breaking marker", () => {
+        const bump = calculateReleaseBump([
+            "refactor(core)!: rewrite release coordinator",
+        ]);
+
+        expect(bump).toBe("major");
+    });
+
     test("returns major when commit footer contains breaking change", () => {
         const bump = calculateReleaseBump([
             "fix(api): rename response field\n\nBREAKING CHANGE: clients must send the new shape",
         ]);
 
         expect(bump).toBe("major");
+    });
+
+    test("does not treat inline breaking change wording as a major bump", () => {
+        const bump = calculateReleaseBump([
+            "docs: mention breaking change guidance in release notes",
+        ]);
+
+        expect(bump).toBe("none");
     });
 });
 

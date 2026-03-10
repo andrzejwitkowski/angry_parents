@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -68,9 +72,14 @@ jobs:
         if: ${{ steps.bump.outputs.value != 'none' }}
         id: next-version
         env:
+          LAST_TAG: ${{ steps.latest-tag.outputs.value }}
           RELEASE_BUMP: ${{ steps.bump.outputs.value }}
         run: |
-          current_version=$(node -p "require('./package.json').version")
+          if [ -n "$LAST_TAG" ]; then
+            current_version=${LAST_TAG#v}
+          else
+            current_version=$(node -p "require('./package.json').version")
+          fi
           next_version=$(bun scripts/release/versioning.ts next-version "$current_version" "$RELEASE_BUMP")
           echo "current=${current_version}" >> "$GITHUB_OUTPUT"
           echo "value=${next_version}" >> "$GITHUB_OUTPUT"
@@ -92,14 +101,14 @@ jobs:
         env:
           NEXT_VERSION: ${{ steps.next-version.outputs.value }}
         run: |
-          git add package.json
+          git add package.json package-lock.json
           git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "chore(release): v${NEXT_VERSION}"
 
       - name: Create git tag
         if: ${{ steps.bump.outputs.value != 'none' }}
         env:
           NEXT_VERSION: ${{ steps.next-version.outputs.value }}
-        run: git tag "v${NEXT_VERSION}"
+        run: git tag -a "v${NEXT_VERSION}" -m "Release v${NEXT_VERSION}"
 
       - name: Push release commit and tag
         if: ${{ steps.bump.outputs.value != 'none' }}

@@ -3,6 +3,8 @@ import { spawnSync } from "node:child_process";
 export type ReleaseBump = "major" | "minor" | "patch" | "none";
 
 const SEMVER_PATTERN = /^(\d+)\.(\d+)\.(\d+)(-SNAPSHOT)?$/;
+const BREAKING_HEADER_PATTERN = /^[a-z]+(\([^\n)]+\))?!: .+/;
+const BREAKING_FOOTER_PATTERN = /(^|\r?\n)BREAKING CHANGE: /;
 
 function getCommitWeight(message: string): ReleaseBump {
     const normalizedMessage = message.trim();
@@ -14,7 +16,7 @@ function getCommitWeight(message: string): ReleaseBump {
     const [header] = normalizedMessage.split(/\r?\n/, 1);
     const lowerMessage = normalizedMessage.toLowerCase();
 
-    if (/^(feat|fix|bugfix)(\([^\n)]+\))?!:/.test(header) || lowerMessage.includes("breaking change:")) {
+    if (BREAKING_HEADER_PATTERN.test(header) || BREAKING_FOOTER_PATTERN.test(normalizedMessage)) {
         return "major";
     }
 

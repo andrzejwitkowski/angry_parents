@@ -12,6 +12,10 @@ describe("validateCommitMessage", () => {
         expect(validateCommitMessage("feat!: replace timeline payload")).toEqual({ valid: true });
     });
 
+    test("accepts breaking marker for any allowed commit type", () => {
+        expect(validateCommitMessage("refactor(core)!: replace release orchestration")).toEqual({ valid: true });
+    });
+
     test("accepts footer-based breaking change", () => {
         expect(validateCommitMessage("fix(api): rename field\n\nBREAKING CHANGE: clients must use the new field")).toEqual({ valid: true });
     });

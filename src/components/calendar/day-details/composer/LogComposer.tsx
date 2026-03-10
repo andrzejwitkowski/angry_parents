@@ -36,12 +36,12 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
         setIsSubmitting(true);
         try {
             const dto: CreateTimelineItemInput = {
+                ...(formData as Record<string, unknown>),
                 type: selectedMode,
                 date,
                 encryption: "PLAINTEXT",
                 createdBy,
                 childId,
-                ...(formData as Record<string, unknown>),
             };
 
             await timelineApi.create(dto, await getMutationSignature());
