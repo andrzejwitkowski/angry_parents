@@ -5,6 +5,52 @@ import { TimelineItemModel } from "../../../models/TimelineItemModel";
 import type { TimelineItem } from "../../../../../domain/events/model/TimelineItem";
 import { connectMongoMemory, disconnectMongoMemory } from "../../../__tests__/mongoMemoryServer";
 
+const proofReadyItem = {
+    id: "6f133670-8d3a-4f53-a033-0f2da65e45d2",
+    type: "NOTE",
+    date: "2026-03-10",
+    createdAt: "2026-03-10T10:30:00.000Z",
+    createdBy: "dad-1",
+    createdByName: "Alice",
+    auditTrail: [{
+        timestamp: "2026-03-10T10:30:00.000Z",
+        userId: "dad-1",
+        userName: "Alice",
+        action: "CREATED",
+    }],
+    isDeleted: false,
+    childIds: ["child-1"],
+    encryption: "ENCRYPTED" as const,
+    encryptedPayload: {
+        "dad-1": "ciphertext-v1",
+    },
+    eventVersion: 1,
+    versionHistory: [{
+        version: 1,
+        snapshot: {
+            id: "6f133670-8d3a-4f53-a033-0f2da65e45d2",
+            type: "NOTE",
+            date: "2026-03-10",
+            createdAt: "2026-03-10T10:30:00.000Z",
+            createdBy: "dad-1",
+            createdByName: "Alice",
+            auditTrail: [{
+                timestamp: "2026-03-10T10:30:00.000Z",
+                userId: "dad-1",
+                userName: "Alice",
+                action: "CREATED",
+            }],
+            isDeleted: false,
+            childIds: ["child-1"],
+            encryption: "ENCRYPTED" as const,
+            encryptedPayload: {
+                "dad-1": "ciphertext-v1",
+            },
+        },
+        proofHistory: [],
+    }],
+};
+
 const encrypted = (data: Record<string, unknown>) => ({
     ...data,
     encryption: "ENCRYPTED" as const,
@@ -56,6 +102,15 @@ describe("MongoTimelineRepository", () => {
 
         const found = await repository.findById(mockItem.id);
         expect(found).toBeNull();
+    });
+
+    it("returns typed encrypted items without double casting", async () => {
+        await repository.save(mockItem as any);
+
+        const found = await repository.findByIdIncludingDeleted(mockItem.id);
+
+        expect(found?.encryption).toBe("ENCRYPTED");
+        expect(found?.encryptedPayload).toEqual({ "user-1": "ciphertext" });
     });
 
     it("should find items by date", async () => {
@@ -148,5 +203,57 @@ describe("MongoTimelineRepository", () => {
 
     it("should throw when deleting non-existent item", async () => {
         await expect(repository.delete("missing-id")).rejects.toThrow("not found");
+    });
+
+    it("claims a pending proof exactly once for the same item, version, and hash", async () => {
+        await repository.save(proofReadyItem as any);
+
+        const firstClaim = await (repository as any).claimPendingProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 1,
+            hash: "hash-1",
+        });
+        const secondClaim = await (repository as any).claimPendingProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 1,
+            hash: "hash-1",
+        });
+
+        expect(firstClaim).toBe(true);
+        expect(secondClaim).toBe(false);
+
+        const stored = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(stored?.versionHistory[0].proofHistory).toEqual([
+            {
+                version: 1,
+                hash: "hash-1",
+            },
+        ]);
+    });
+
+    it("allows final proof metadata to merge into an already claimed proof entry", async () => {
+        await repository.save(proofReadyItem as any);
+
+        await (repository as any).claimPendingProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 1,
+            hash: "hash-2",
+        });
+
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 1,
+            hash: "hash-2",
+            txHash: "0xabc",
+            blockNumber: "42",
+            anchoredAt: "2026-03-10T12:00:00.000Z",
+        });
+
+        const stored = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(stored?.versionHistory[0].proofHistory).toEqual([
+            {
+                version: 1,
+                hash: "hash-2",
+                txHash: "0xabc",
+                blockNumber: "42",
+                anchoredAt: "2026-03-10T12:00:00.000Z",
+            },
+        ]);
     });
 });

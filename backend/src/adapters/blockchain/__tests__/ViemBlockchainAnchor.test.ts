@@ -72,6 +72,7 @@ describe("ViemBlockchainAnchor", () => {
         process.env.BLOCKCHAIN_PRIVATE_KEY = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         process.env.BLOCKCHAIN_RPC_URL = "https://rpc.example.test";
         process.env.NODE_ENV = "test";
+        process.env.E2E_TEST = "false";
         process.env.INTEGRATION_TEST = "false";
         delete process.env.USE_MOCK_BLOCKCHAIN;
     });
@@ -127,6 +128,23 @@ describe("ViemBlockchainAnchor", () => {
         });
     });
 
+    it("reuses anchorHash for transaction submission before waiting for the receipt", async () => {
+        class TestableViemBlockchainAnchor extends ViemBlockchainAnchor {
+            anchorHashCalls = 0;
+
+            override async anchorHash(hash: string): Promise<string> {
+                this.anchorHashCalls += 1;
+                return super.anchorHash(hash);
+            }
+        }
+
+        const anchor = new TestableViemBlockchainAnchor();
+
+        await anchor.publishHash("event-proof-hash");
+
+        expect(anchor.anchorHashCalls).toBe(1);
+    });
+
     it("keeps the legacy anchorHash and verifyAnchor forensic contract working", async () => {
         const anchor = new ViemBlockchainAnchor({
             privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY,
@@ -135,6 +153,7 @@ describe("ViemBlockchainAnchor", () => {
         });
 
         await expect(anchor.anchorHash("event-proof-hash")).resolves.toBe("0xfeedface");
+        expect(calls).toEqual(["sendTransaction"]);
         await expect(anchor.verifyAnchor("event-proof-hash", "0xfeedface")).resolves.toBe(true);
         await expect(anchor.verifyAnchor("different-hash", "0xfeedface")).resolves.toBe(false);
     });
@@ -153,6 +172,7 @@ describe("ViemBlockchainAnchor", () => {
         const anchor = createBlockchainAnchor({
             ...process.env,
             NODE_ENV: "test",
+            E2E_TEST: "false",
             INTEGRATION_TEST: "false",
             USE_MOCK_BLOCKCHAIN: "false",
             BLOCKCHAIN_PRIVATE_KEY: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

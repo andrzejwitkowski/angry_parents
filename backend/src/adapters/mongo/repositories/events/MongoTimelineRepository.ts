@@ -18,28 +18,22 @@ export class MongoTimelineRepository implements TimelineRepository {
     }
 
     async findByDate(date: string): Promise<EncryptedTimelineItem[]> {
-        const items = await TimelineItemModel.find({ date, isDeleted: false }).lean();
-        return items as unknown as EncryptedTimelineItem[];
+        return TimelineItemModel.find({ date, isDeleted: false }).lean<EncryptedTimelineItem[]>();
     }
 
     async findByDateRange(from: string, to: string): Promise<EncryptedTimelineItem[]> {
-        const items = await TimelineItemModel.find({
+        return TimelineItemModel.find({
             date: { $gte: from, $lte: to },
             isDeleted: false
-        }).lean();
-        return items as unknown as EncryptedTimelineItem[];
+        }).lean<EncryptedTimelineItem[]>();
     }
 
     async findById(id: string): Promise<EncryptedTimelineItem | null> {
-        const item = await TimelineItemModel.findOne({ id, isDeleted: false }).lean();
-        if (!item) return null;
-        return item as unknown as EncryptedTimelineItem;
+        return TimelineItemModel.findOne({ id, isDeleted: false }).lean<EncryptedTimelineItem | null>();
     }
 
     async findByIdIncludingDeleted(id: string): Promise<EncryptedTimelineItem | null> {
-        const item = await TimelineItemModel.findOne({ id }).lean();
-        if (!item) return null;
-        return item as unknown as EncryptedTimelineItem;
+        return TimelineItemModel.findOne({ id }).lean<EncryptedTimelineItem | null>();
     }
 
     async update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -59,7 +53,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} not found on update`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return result;
     }
 
     async updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -79,7 +73,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} not found on update`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return result;
     }
 
     async delete(id: string, session?: unknown): Promise<void> {
@@ -95,6 +89,46 @@ export class MongoTimelineRepository implements TimelineRepository {
         }
     }
 
+    async claimPendingProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<boolean> {
+        const mongooseSession = session as ClientSession | undefined;
+        const claimed = await TimelineItemModel.findOneAndUpdate(
+            {
+                id,
+                "versionHistory.version": proof.version,
+                versionHistory: {
+                    $not: {
+                        $elemMatch: {
+                            version: proof.version,
+                            "proofHistory.hash": proof.hash,
+                        },
+                    },
+                },
+            },
+            {
+                $push: {
+                    "versionHistory.$[ver].proofHistory": proof,
+                },
+            },
+            {
+                arrayFilters: [{ "ver.version": proof.version }],
+                returnDocument: "after",
+                session: mongooseSession,
+            }
+        ).lean();
+
+        if (claimed) {
+            return true;
+        }
+
+        const versionEntry = await this.findVersionEntry(id, proof.version, mongooseSession);
+        const proofExists = versionEntry.proofHistory.some((existingProof) => existingProof.hash === proof.hash);
+        if (proofExists) {
+            return false;
+        }
+
+        throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+    }
+
     async appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
         const mongooseSession = session as ClientSession | undefined;
         const versionEntry = await this.findVersionEntry(id, proof.version, mongooseSession);
@@ -108,7 +142,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} and version ${proof.version} not found`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return result;
     }
 
     private async findVersionEntry(id: string, version: number, session: ClientSession | undefined) {
@@ -116,14 +150,13 @@ export class MongoTimelineRepository implements TimelineRepository {
             { id, "versionHistory.version": version },
             null,
             { session }
-        ).lean();
+        ).lean<EncryptedTimelineItem | null>();
 
         if (!existing) {
             throw new Error(`Item with id ${id} and version ${version} not found`);
         }
 
-        const timelineItem = existing as unknown as EncryptedTimelineItem;
-        const versionEntry = timelineItem.versionHistory.find((entry) => entry.version === version);
+        const versionEntry = existing.versionHistory.find((entry) => entry.version === version);
         if (!versionEntry) {
             throw new Error(`Item with id ${id} and version ${version} not found`);
         }

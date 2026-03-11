@@ -1,10 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryTimelineRepository } from "../../../../adapters/mongo/inmemory/events/InMemoryTimelineRepository";
-import type { EncryptedTimelineItem } from "../../model/TimelineItem";
+import type { EncryptedTimelineItem, EventProofRecord } from "../../model/TimelineItem";
 import type { DateProvider } from "../../../shared/ports/DateProvider";
 import type { IEventBlockchainAnchor } from "../../../shared/ports/IEventBlockchainAnchor";
 import { TimelineEventProofService } from "../TimelineEventProofService";
 import { calculateEventProofHash } from "../eventProofHash";
+
+class ControllableClaimTimelineRepository extends InMemoryTimelineRepository {
+    claimCalls: EventProofRecord[] = [];
+    nextClaimResult = true;
+
+    async claimPendingProofRecord(id: string, proof: EventProofRecord): Promise<boolean> {
+        this.claimCalls.push(proof);
+        if (!this.nextClaimResult) {
+            return false;
+        }
+
+        await this.appendProofRecord(id, proof);
+        return true;
+    }
+}
 
 const anchoredAt = "2026-03-10T12:00:00.000Z";
 
@@ -231,6 +246,46 @@ describe("TimelineEventProofService", () => {
 
         expect(result.txHash).toBe("0xfeedface");
         expect(blockchainAnchor.publishHash).toHaveBeenCalledWith(hash);
+    });
+
+    it("does not publish when another caller already claimed the pending proof slot", async () => {
+        const claimAwareRepository = new ControllableClaimTimelineRepository();
+        await claimAwareRepository.save(buildEncryptedTimelineItem());
+        claimAwareRepository.nextClaimResult = false;
+
+        const claimAwareService = new TimelineEventProofService(claimAwareRepository, blockchainAnchor, fixedDateProvider);
+
+        await expect(claimAwareService.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2")).rejects.toThrow(
+            "Proof publication already pending for timeline item 6f133670-8d3a-4f53-a033-0f2da65e45d2 version 2; manual recovery required"
+        );
+        expect(claimAwareRepository.claimCalls).toHaveLength(1);
+        expect(blockchainAnchor.publishHash).toHaveBeenCalledTimes(0);
+    });
+
+    it("claims the pending proof slot before publishing and then finalizes the same record", async () => {
+        const claimAwareRepository = new ControllableClaimTimelineRepository();
+        await claimAwareRepository.save(buildEncryptedTimelineItem());
+
+        const claimAwareService = new TimelineEventProofService(claimAwareRepository, blockchainAnchor, fixedDateProvider);
+
+        const result = await claimAwareService.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+
+        expect(claimAwareRepository.claimCalls).toEqual([
+            {
+                version: 2,
+                hash: result.hash,
+            },
+        ]);
+        const updated = await claimAwareRepository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory).toEqual([
+            {
+                version: 2,
+                hash: result.hash,
+                txHash: "0xfeedface",
+                blockNumber: "987",
+                anchoredAt,
+            },
+        ]);
     });
 
     it("can publish proof for a deleted timeline item version", async () => {

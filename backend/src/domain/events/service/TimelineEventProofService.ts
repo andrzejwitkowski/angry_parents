@@ -53,10 +53,15 @@ export class TimelineEventProofService {
             );
         }
 
-        await this.repository.appendProofRecord(id, {
+        const claimed = await this.repository.claimPendingProofRecord(id, {
             version: versionEntry.version,
             hash,
         });
+        if (!claimed) {
+            throw new Error(
+                `Proof publication already pending for timeline item ${id} version ${versionEntry.version}; manual recovery required`
+            );
+        }
 
         return this.completeProofPublication(id, versionEntry.version, hash);
     }

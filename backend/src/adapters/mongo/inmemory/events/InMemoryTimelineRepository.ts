@@ -83,6 +83,26 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         this.itemsByDate.set(dateKey, filtered);
     }
 
+    async claimPendingProofRecord(id: string, proof: EventProofRecord, _session?: unknown): Promise<boolean> {
+        const existingItem = this.itemsById.get(id);
+        if (!existingItem) {
+            throw new Error(`Item with id ${id} not found`);
+        }
+
+        const versionEntry = existingItem.versionHistory.find((entry) => entry.version === proof.version);
+        if (!versionEntry) {
+            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+        }
+
+        const proofExists = versionEntry.proofHistory.some((existingProof) => existingProof.hash === proof.hash);
+        if (proofExists) {
+            return false;
+        }
+
+        await this.appendProofRecord(id, proof);
+        return true;
+    }
+
     async appendProofRecord(id: string, proof: EventProofRecord, _session?: unknown): Promise<EncryptedTimelineItem> {
         const existingItem = this.itemsById.get(id);
         if (!existingItem) {

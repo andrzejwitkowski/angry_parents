@@ -50,6 +50,12 @@ export interface TimelineRepository {
     delete(id: string, session?: unknown): Promise<void>;
 
     /**
+     * Atomically claim a pending blockchain proof slot for a stored event version.
+     * Returns true only for the caller that created the pending entry.
+     */
+    claimPendingProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<boolean>;
+
+    /**
      * Append blockchain proof metadata to a stored event version.
      */
     appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem>;
