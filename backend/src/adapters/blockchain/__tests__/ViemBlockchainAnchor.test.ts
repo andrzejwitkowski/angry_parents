@@ -71,6 +71,7 @@ describe("ViemBlockchainAnchor", () => {
 
         process.env.BLOCKCHAIN_PRIVATE_KEY = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         process.env.BLOCKCHAIN_RPC_URL = "https://rpc.example.test";
+        process.env.BLOCKCHAIN_CHAIN = "amoy";
         process.env.NODE_ENV = "test";
         process.env.INTEGRATION_TEST = "false";
         delete process.env.USE_MOCK_BLOCKCHAIN;
@@ -84,7 +85,15 @@ describe("ViemBlockchainAnchor", () => {
         process.env.BLOCKCHAIN_PRIVATE_KEY = "not-hex";
 
         expect(() => new ViemBlockchainAnchor()).toThrow(
-            "BLOCKCHAIN_PRIVATE_KEY must start with 0x and contain only hex characters"
+            "BLOCKCHAIN_PRIVATE_KEY must be a 32-byte hex string prefixed with 0x"
+        );
+    });
+
+    it("rejects private keys that are hex but not 32 bytes", () => {
+        process.env.BLOCKCHAIN_PRIVATE_KEY = "0x1234";
+
+        expect(() => new ViemBlockchainAnchor()).toThrow(
+            "BLOCKCHAIN_PRIVATE_KEY must be a 32-byte hex string prefixed with 0x"
         );
     });
 
@@ -96,12 +105,11 @@ describe("ViemBlockchainAnchor", () => {
         );
     });
 
-    it("uses Polygon Amoy in test and Polygon mainnet in production", () => {
-        new ViemBlockchainAnchor();
+    it("uses explicit blockchainChain config instead of NODE_ENV inference", () => {
+        new ViemBlockchainAnchor({ blockchainChain: "amoy" });
         expect(selectedChain).toEqual({ id: 80002, name: "Polygon Amoy" });
 
-        process.env.NODE_ENV = "production";
-        new ViemBlockchainAnchor();
+        new ViemBlockchainAnchor({ blockchainChain: "polygon" });
         expect(selectedChain).toEqual({ id: 137, name: "Polygon" });
     });
 
@@ -131,7 +139,7 @@ describe("ViemBlockchainAnchor", () => {
         const anchor = new ViemBlockchainAnchor({
             privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY,
             rpcUrl: process.env.BLOCKCHAIN_RPC_URL,
-            nodeEnv: "test"
+            blockchainChain: "amoy"
         });
 
         await expect(anchor.anchorHash("event-proof-hash")).resolves.toBe("0xfeedface");
@@ -155,10 +163,23 @@ describe("ViemBlockchainAnchor", () => {
             NODE_ENV: "test",
             INTEGRATION_TEST: "false",
             USE_MOCK_BLOCKCHAIN: "false",
+            BLOCKCHAIN_CHAIN: "amoy",
             BLOCKCHAIN_PRIVATE_KEY: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             BLOCKCHAIN_RPC_URL: "https://rpc.example.test"
         });
 
         expect(anchor).toBeInstanceOf(ViemBlockchainAnchor);
+    });
+
+    it("wireDependencies requires explicit blockchain chain for Viem", () => {
+        delete process.env.BLOCKCHAIN_CHAIN;
+
+        expect(() => createBlockchainAnchor({
+            ...process.env,
+            NODE_ENV: "production",
+            USE_MOCK_BLOCKCHAIN: "false",
+            BLOCKCHAIN_PRIVATE_KEY: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            BLOCKCHAIN_RPC_URL: "https://rpc.example.test"
+        })).toThrow("BLOCKCHAIN_CHAIN is required for Viem blockchain anchoring");
     });
 });

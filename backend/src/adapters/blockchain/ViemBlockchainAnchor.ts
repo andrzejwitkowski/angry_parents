@@ -4,11 +4,17 @@ import { polygon, polygonAmoy } from "viem/chains";
 import { IBlockchainAnchor } from "../../domain/shared/ports/IBlockchainAnchor";
 import { IEventBlockchainAnchor, type PublishedHashResult } from "../../domain/shared/ports/IEventBlockchainAnchor";
 
+type SupportedBlockchainChain = "polygon" | "amoy";
+
 type BlockchainAnchorConfig = {
     privateKey?: string;
     rpcUrl?: string;
-    nodeEnv?: string;
+    blockchainChain?: SupportedBlockchainChain;
 };
+
+function resolveBlockchainChain(chainName: SupportedBlockchainChain): Chain {
+    return chainName === "amoy" ? polygonAmoy : polygon;
+}
 
 export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchainAnchor {
     private client: (WalletClient<Transport, Chain, LocalAccount> & PublicActions<Transport, Chain, LocalAccount>) | undefined;
@@ -21,8 +27,8 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
             return;
         }
 
-        if (!/^0x[0-9a-fA-F]+$/.test(pk)) {
-            throw new Error("BLOCKCHAIN_PRIVATE_KEY must start with 0x and contain only hex characters");
+        if (!/^0x[0-9a-fA-F]{64}$/.test(pk)) {
+            throw new Error("BLOCKCHAIN_PRIVATE_KEY must be a 32-byte hex string prefixed with 0x");
         }
 
         const rpcUrl = config.rpcUrl ?? process.env.BLOCKCHAIN_RPC_URL;
@@ -30,7 +36,12 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
             throw new Error("BLOCKCHAIN_RPC_URL is required for Viem blockchain anchoring");
         }
 
-        const chain = (config.nodeEnv ?? process.env.NODE_ENV) === "test" ? polygonAmoy : polygon;
+        const blockchainChain = config.blockchainChain ?? (process.env.BLOCKCHAIN_CHAIN as SupportedBlockchainChain | undefined);
+        if (blockchainChain !== "polygon" && blockchainChain !== "amoy") {
+            throw new Error("BLOCKCHAIN_CHAIN is required for Viem blockchain anchoring");
+        }
+
+        const chain = resolveBlockchainChain(blockchainChain);
 
         this.account = privateKeyToAccount(pk as `0x${string}`);
 

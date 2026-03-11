@@ -61,8 +61,8 @@ function buildEncryptedTimelineItem(): EncryptedTimelineItem {
                 },
                 proofHistory: [{
                     version: 1,
-                    hash: "existing-hash-v1",
-                    txHash: "0xabc",
+                    hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                     blockNumber: "44",
                     anchoredAt: "2026-03-10T11:00:00.000Z",
                 }],
@@ -144,8 +144,8 @@ describe("TimelineEventProofService", () => {
         expect(updated?.versionHistory[0].proofHistory).toEqual([
             {
                 version: 1,
-                hash: "existing-hash-v1",
-                txHash: "0xabc",
+                hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 blockNumber: "44",
                 anchoredAt: "2026-03-10T11:00:00.000Z",
             },
@@ -275,5 +275,18 @@ describe("TimelineEventProofService", () => {
         expect(calculateEventProofHash(snapshotWithUndefinedOptionals)).toBe(
             calculateEventProofHash(snapshotWithOmittedOptionals)
         );
+    });
+
+    it("sorts canonical object keys deterministically without locale-dependent comparison", async () => {
+        const originalLocaleCompare = String.prototype.localeCompare;
+        String.prototype.localeCompare = (() => {
+            throw new Error("localeCompare should not be used for event proof hashing");
+        }) as typeof String.prototype.localeCompare;
+
+        try {
+            expect(() => calculateEventProofHash(buildEncryptedTimelineItem().versionHistory[1].snapshot)).not.toThrow();
+        } finally {
+            String.prototype.localeCompare = originalLocaleCompare;
+        }
     });
 });

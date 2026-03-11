@@ -184,8 +184,8 @@ describe("Timeline Audit System", () => {
         const created = await service.createItem({ ...dto, childId: "child-1", signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
         const anchoredProof = {
             version: 1,
-            hash: "hash-v1",
-            txHash: "0xabc",
+            hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             blockNumber: "42",
             anchoredAt: "2026-02-03T00:00:00.000Z"
         };

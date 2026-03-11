@@ -11,6 +11,7 @@ import { createForensicController } from "../adapters/rest/forensic/ForensicCont
 import { createChildController } from "../adapters/rest/family/ChildController";
 import { createAdminController } from "../adapters/rest/auth/AdminController";
 import { formatErrorResponse, mapErrorToStatus } from "../adapters/rest/common/errorMapper";
+import { DEFAULT_DEV_DAD_ID, DEFAULT_DEV_MOM_ID, ensureMockFamily, getDevKeyPair } from "../adapters/rest/auth/devMockFamily";
 import { wireDependencies } from "./wireDependencies";
 import { registerSchedulerHandlers } from "./registerSchedulerHandlers";
 import { TaskType } from "../domain/shared/ports/TaskScheduler";
@@ -152,6 +153,37 @@ export async function createApp() {
                 if ((deps.blockchainAnchor as any).reset) (deps.blockchainAnchor as any).reset();
 
                 return { status: "cleared" };
+            })
+            .post("/api/test/dev/seed-mock-family", async () => {
+                const devKeyPair = await getDevKeyPair();
+                const family = await ensureMockFamily({
+                    dadUserId: DEFAULT_DEV_DAD_ID,
+                    momUserId: DEFAULT_DEV_MOM_ID,
+                    devPublicKey: devKeyPair.publicKey
+                });
+
+                return {
+                    status: "seeded",
+                    familyId: family._id.toString(),
+                    parentIds: family.parentIds,
+                    childrenCount: family.children.length
+                };
+            })
+            .post("/api/test/dev/seed-mock-family-demo", async () => {
+                const devKeyPair = await getDevKeyPair();
+                const family = await ensureMockFamily({
+                    dadUserId: DEFAULT_DEV_DAD_ID,
+                    momUserId: DEFAULT_DEV_MOM_ID,
+                    devPublicKey: devKeyPair.publicKey,
+                    includeDemoChild: true
+                });
+
+                return {
+                    status: "seeded",
+                    familyId: family._id.toString(),
+                    parentIds: family.parentIds,
+                    childrenCount: family.children.length
+                };
             })
             .get("/api/test/routes", () => {
                 return finalApp.routes;

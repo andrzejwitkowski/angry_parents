@@ -25,9 +25,9 @@ describe("TimelineProofController", () => {
 
     it("returns the latest anchored proof for an event", async () => {
         mockApiService.getEventProof.mockResolvedValue({
-            txHash: "0xccc",
+            txHash: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             blockNumber: "201",
-            hash: "hash-v3-latest"
+            hash: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         });
 
         const response = await controller.handle(
@@ -40,9 +40,9 @@ describe("TimelineProofController", () => {
 
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
-            txHash: "0xccc",
+            txHash: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             blockNumber: "201",
-            hash: "hash-v3-latest"
+            hash: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         });
         expect(mockApiService.getEventProof).toHaveBeenCalledWith("event-123", {
             id: "user-123",
@@ -89,9 +89,9 @@ describe("TimelineProofController", () => {
 
     it("returns deleted-event proof when an anchored deleted item is requested", async () => {
         mockApiService.getEventProof.mockResolvedValue({
-            txHash: "0xdeleted",
+            txHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             blockNumber: "404",
-            hash: "deleted-hash"
+            hash: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         });
 
         const response = await controller.handle(
@@ -104,9 +104,9 @@ describe("TimelineProofController", () => {
 
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
-            txHash: "0xdeleted",
+            txHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             blockNumber: "404",
-            hash: "deleted-hash"
+            hash: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         });
     });
 
@@ -151,9 +151,9 @@ describe("TimelineProofController", () => {
 
     it("allows authenticated proof recovery publishing through a normal route", async () => {
         mockApiService.publishEventProof.mockResolvedValue({
-            txHash: "0xfeedface",
+            txHash: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             blockNumber: "123",
-            hash: "hash-v2"
+            hash: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
         });
 
         const response = await controller.handle(
@@ -167,9 +167,9 @@ describe("TimelineProofController", () => {
 
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
-            txHash: "0xfeedface",
+            txHash: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             blockNumber: "123",
-            hash: "hash-v2"
+            hash: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
         });
         expect(mockApiService.publishEventProof).toHaveBeenCalledWith("event-123", expect.objectContaining({ id: "user-123" }));
     });

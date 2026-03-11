@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
+const EVM_TX_HASH_RE = /^0x[0-9a-f]{64}$/;
+
 const AuditEntrySchema = z.object({
     timestamp: z.string().datetime(),
     userId: z.string(),
@@ -20,8 +23,8 @@ const TimelineItemTypeSchema = z.enum([
 
 const EventProofRecordSchema = z.object({
     version: z.number().int().positive(),
-    hash: z.string(),
-    txHash: z.string().optional(),
+    hash: z.string().regex(SHA256_HEX_RE),
+    txHash: z.string().regex(EVM_TX_HASH_RE).optional(),
     blockNumber: z.string().regex(/^\d+$/).optional(),
     anchoredAt: z.string().datetime().optional(),
 });

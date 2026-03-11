@@ -50,7 +50,7 @@ export function createBlockchainAnchor(env: NodeJS.ProcessEnv = process.env): Co
         : new ViemBlockchainAnchor({
             privateKey: env.BLOCKCHAIN_PRIVATE_KEY,
             rpcUrl: env.BLOCKCHAIN_RPC_URL,
-            nodeEnv: env.NODE_ENV
+            blockchainChain: env.BLOCKCHAIN_CHAIN === "amoy" ? "amoy" : env.BLOCKCHAIN_CHAIN === "polygon" ? "polygon" : undefined
         });
 }
 
