@@ -22,6 +22,37 @@ import { TimelineServiceImpl } from "../domain/events/service/TimelineService";
 import { ScheduleService } from "../domain/events/service/ScheduleService";
 import { PropagationService } from "../domain/events/service/PropagationService";
 import { ChildService } from "../domain/family/service/ChildService";
+import { TimelineEventProofService } from "../domain/events/service/TimelineEventProofService";
+import type { IBlockchainAnchor } from "../domain/shared/ports/IBlockchainAnchor";
+import type { IEventBlockchainAnchor } from "../domain/shared/ports/IEventBlockchainAnchor";
+
+type CombinedBlockchainAnchor = IBlockchainAnchor & IEventBlockchainAnchor;
+
+export function createBlockchainAnchor(env: NodeJS.ProcessEnv = process.env): CombinedBlockchainAnchor {
+    const isProduction = env.NODE_ENV === "production";
+    const explicitMock =
+        env.USE_MOCK_BLOCKCHAIN === "true" ||
+        env.E2E_TEST === "true" ||
+        env.INTEGRATION_TEST === "true";
+    const missingConfig = !env.BLOCKCHAIN_PRIVATE_KEY || !env.BLOCKCHAIN_RPC_URL;
+
+    if (isProduction && missingConfig) {
+        throw new Error(
+            "BLOCKCHAIN_PRIVATE_KEY and BLOCKCHAIN_RPC_URL are required in production. " +
+            "Set USE_MOCK_BLOCKCHAIN=true to explicitly opt into mock anchoring."
+        );
+    }
+
+    const useMockBlockchain = explicitMock || missingConfig;
+
+    return useMockBlockchain
+        ? new MockBlockchainAnchor()
+        : new ViemBlockchainAnchor({
+            privateKey: env.BLOCKCHAIN_PRIVATE_KEY,
+            rpcUrl: env.BLOCKCHAIN_RPC_URL,
+            blockchainChain: env.BLOCKCHAIN_CHAIN === "amoy" ? "amoy" : env.BLOCKCHAIN_CHAIN === "polygon" ? "polygon" : undefined
+        });
+}
 
 export async function wireDependencies() {
     const mongoUri = process.env.MONGODB_URI;
@@ -61,14 +92,12 @@ export async function wireDependencies() {
     const passkeyRepository = new MongoPasskeyRepository();
 
     const cryptoService = new BunCryptoService();
-    const useMockBlockchain =
-        process.env.USE_MOCK_BLOCKCHAIN === "true" ||
-        process.env.NODE_ENV === "test" ||
-        process.env.E2E_TEST === "true";
-
-    const blockchainAnchor = useMockBlockchain
-        ? new MockBlockchainAnchor()
-        : new ViemBlockchainAnchor();
+    const blockchainAnchor = createBlockchainAnchor(process.env);
+    const timelineEventProofService = new TimelineEventProofService(
+        timelineRepository,
+        blockchainAnchor,
+        dateProvider
+    );
 
     const forensicService = new ForensicService(forensicRepository, blockchainAnchor, cryptoService, taskManager);
     const timelineService = new TimelineServiceImpl(
@@ -79,13 +108,13 @@ export async function wireDependencies() {
         childRepository,
         passkeyRepository,
         forensicIntentRepository,
-        taskManager
+        taskManager,
     );
     const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
     const propagationService = new PropagationService(scheduleRepository);
     const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
 
-    const timelineApiService = new TimelineApiService(timelineService, childRepository);
+    const timelineApiService = new TimelineApiService(timelineService, childRepository, timelineRepository, timelineEventProofService);
     const custodyApiService = new CustodyApiService(custodyRepository, scheduleService, propagationService, uuidProvider);
     const familyApiService = new FamilyApiService(childService);
     const forensicApiService = new ForensicApiService(forensicService, forensicRepository);
@@ -102,6 +131,7 @@ export async function wireDependencies() {
         passkeyRepository,
         cryptoService,
         blockchainAnchor,
+        timelineEventProofService,
         forensicService,
         timelineService,
         scheduleService,

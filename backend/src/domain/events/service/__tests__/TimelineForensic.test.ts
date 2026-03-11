@@ -21,11 +21,12 @@ class MockCryptoService implements ICryptoService {
 
 describe("Timeline Forensic Integration", () => {
     let service: TimelineServiceImpl;
+    let repository: InMemoryTimelineRepository;
     let forensicIntentSave: ReturnType<typeof vi.fn>;
     let scheduleTask: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
-        const repository = new InMemoryTimelineRepository();
+        repository = new InMemoryTimelineRepository();
 
         forensicIntentSave = vi.fn().mockResolvedValue(undefined);
         const mockForensicIntentRepository: ForensicIntentRepository = {
@@ -114,7 +115,7 @@ describe("Timeline Forensic Integration", () => {
         await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(1);
-        expect(scheduleTask).toHaveBeenCalledTimes(1);
+        expect(scheduleTask).toHaveBeenCalledTimes(2);
     });
 
     it("update triggers forensic document creation", async () => {
@@ -135,7 +136,60 @@ describe("Timeline Forensic Integration", () => {
         }, "User");
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(2);
-        expect(scheduleTask).toHaveBeenCalledTimes(2);
+        expect(scheduleTask).toHaveBeenCalledTimes(4);
+    });
+
+    it("update forensic intent keeps proof history and adds a new versioned snapshot", async () => {
+        const dto = {
+            type: "NOTE",
+            date: "2026-01-27",
+            createdBy: "user-123",
+            childId: "child-1",
+            encryption: "ENCRYPTED",
+            encryptedPayload: { "user-123": "encrypted-note" },
+        } as any;
+
+        const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
+        const anchoredProof = {
+            version: 1,
+            hash: "hash-v1",
+            txHash: "0xabc",
+            blockNumber: "42",
+            anchoredAt: "2026-01-27T00:00:00.000Z"
+        };
+
+        await repository.update(created.id, {
+            versionHistory: [{
+                ...(created as any).versionHistory?.[0],
+                proofHistory: [anchoredProof]
+            }]
+        } as any);
+
+        await service.updateItem(created.id, {
+            ...dto,
+            id: created.id,
+            createdAt: created.createdAt,
+            auditTrail: created.auditTrail,
+            isDeleted: false,
+            encryptedPayload: { "user-123": "encrypted-note-v2" }
+        } as any, "user-123", "child-1", {
+            signatureBase64: "mock-sig",
+            timestamp: "2024-01-01T12:00:00.000Z",
+            keyId: "key1"
+        }, "User");
+
+        const updatedTimelineItem = forensicIntentSave.mock.calls[1][0].timelineItem;
+
+        expect(updatedTimelineItem.eventVersion).toBe(2);
+        expect(updatedTimelineItem.versionHistory).toHaveLength(2);
+        expect(updatedTimelineItem.versionHistory[0].proofHistory).toEqual([anchoredProof]);
+        expect(updatedTimelineItem.versionHistory[1]).toMatchObject({
+            version: 2,
+            proofHistory: [],
+            snapshot: {
+                encryptedPayload: { "user-123": "encrypted-note-v2" }
+            }
+        });
     });
 
     it("delete triggers forensic document creation", async () => {
@@ -156,6 +210,6 @@ describe("Timeline Forensic Integration", () => {
         }, "User");
 
         expect(forensicIntentSave).toHaveBeenCalledTimes(2);
-        expect(scheduleTask).toHaveBeenCalledTimes(2);
+        expect(scheduleTask).toHaveBeenCalledTimes(4);
     });
 });

@@ -9,7 +9,7 @@ import type { PasskeyRepository } from "../../../auth/ports/PasskeyRepository";
 import type { ChildRepository } from "../../../family/ports/ChildRepository";
 import type { ForensicIntentRepository } from "../../../forensic/ports/ForensicIntentRepository";
 import type { ITaskManager } from "../../../shared/ports/TaskScheduler";
-
+import { TaskType } from "../../../shared/ports/TaskScheduler";
 // Mock Crypto Service that just returns a predictable string
 class MockCryptoService implements ICryptoService {
     async verifySignature(): Promise<boolean> { return true; }
@@ -82,7 +82,7 @@ describe("TimelineService", () => {
             mockChildRepository,
             mockPasskeyRepository,
             mockForensicIntentRepository,
-            mockTaskManager
+            mockTaskManager,
         );
     });
 
@@ -117,6 +117,34 @@ describe("TimelineService", () => {
             expect(item.type).toBe("MEDICAL_VISIT");
             expect(item.encryption).toBe("ENCRYPTED");
             expect(item.encryptedPayload["mom-1"]).toBe("encrypted-content-for-mom");
+            expect(mockTaskManager.schedule).toHaveBeenCalledWith(
+                TaskType.PUBLISH_EVENT_PROOF,
+                { itemId: item.id, version: 1 },
+                { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+            );
+        });
+
+        it("passes the created version number to async proof publishing", async () => {
+            const dto: CreateTimelineItemDto & { childId: string } = {
+                type: "NOTE",
+                date: "2026-01-27",
+                childId: "child-1",
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "mom-1": "payload", "dad-1": "payload" }
+            };
+
+            const item = await service.createItem({
+                ...dto,
+                ...mockSignature,
+                createdBy: "user-123",
+                createdByName: "Tester"
+            } as any);
+
+            expect(mockTaskManager.schedule).toHaveBeenCalledWith(
+                TaskType.PUBLISH_EVENT_PROOF,
+                { itemId: item.id, version: 1 },
+                { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+            );
         });
 
         it("should create a medication item", async () => {

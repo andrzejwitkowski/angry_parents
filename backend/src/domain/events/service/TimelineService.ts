@@ -1,6 +1,6 @@
 import type { TimelineRepository } from "../ports/TimelineRepository";
 import type { ChildRepository } from "../../family/ports/ChildRepository";
-import type { TimelineItem, CreateTimelineItemDto, AuditEntry, EncryptedTimelineItem, TimelineItemVisitor } from "../model/TimelineItem";
+import type { TimelineItem, CreateTimelineItemDto, AuditEntry, EncryptedTimelineItem, TimelineItemVisitor, EventProofRecord, TimelineItemVersion, EncryptedTimelineVersionSnapshot } from "../model/TimelineItem";
 import { TimelineItemSchema, acceptTimelineItemVisitor } from "../model/TimelineItem";
 import { DateProvider } from "../../shared/ports/DateProvider";
 import { UuidProvider } from "../../shared/ports/UuidProvider";
@@ -9,7 +9,7 @@ import type { PasskeyRepository } from "../../auth/ports/PasskeyRepository";
 import type { ForensicIntentRecord, ForensicIntentRepository } from "../../forensic/ports/ForensicIntentRepository";
 import type { ITaskManager } from "../../shared/ports/TaskScheduler";
 import { TaskType } from "../../shared/ports/TaskScheduler";
-import type { ProcessForensicIntentPayload } from "../../../scheduler/types";
+import type { ProcessForensicIntentPayload, PublishEventProofPayload } from "../../../scheduler/types";
 
 export type SignatureData = {
     signatureBase64: string;
@@ -36,6 +36,8 @@ export class TimelineServiceImpl {
         "encryption",
         "encryptedPayload",
         "ciphertext",
+        "eventVersion",
+        "versionHistory",
     ]);
 
     constructor(
@@ -46,8 +48,27 @@ export class TimelineServiceImpl {
         private readonly childRepository: ChildRepository,
         private readonly passkeyRepository: PasskeyRepository,
         private readonly forensicIntentRepository: ForensicIntentRepository,
-        private readonly taskManager: ITaskManager
+        private readonly taskManager: ITaskManager,
     ) { }
+
+    private scheduleEventProof(itemId: string, version: number): void {
+        void this.taskManager.schedule<PublishEventProofPayload>(
+            TaskType.PUBLISH_EVENT_PROOF,
+            { itemId, version },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        ).catch((error) => {
+            console.error(
+                `[TimelineService] Failed to schedule event proof task`,
+                {
+                    itemId,
+                    version,
+                    errorType: error instanceof Error ? error.constructor.name : typeof error,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                    retryHint: `POST /api/events/${itemId}/proof/publish`
+                }
+            );
+        });
+    }
 
     private async filterItemsByFamily(
         items: EncryptedTimelineItem[],
@@ -149,6 +170,66 @@ export class TimelineServiceImpl {
         }
     }
 
+    private normalizeCreatedAt(value: unknown, itemId?: string): string {
+        try {
+            if (typeof value === "string" && value.includes("T") && value.endsWith("Z")) {
+                return value;
+            }
+
+            const parsed = new Date(value as any);
+            if (Number.isNaN(parsed.getTime())) {
+                console.warn(`[TimelineService] Invalid createdAt timestamp for item ${itemId ?? "unknown"}, falling back to now`);
+                return this.dateProvider.getIsoString();
+            }
+
+            return parsed.toISOString();
+        } catch (error) {
+            console.warn(`[TimelineService] Failed to sanitize date for item ${itemId ?? "unknown"}:`, error);
+            return this.dateProvider.getIsoString();
+        }
+    }
+
+    private buildVersionSnapshot(item: EncryptedTimelineItem): EncryptedTimelineVersionSnapshot {
+        return {
+            id: item.id,
+            type: item.type,
+            date: item.date,
+            createdAt: this.normalizeCreatedAt(item.createdAt, item.id),
+            createdBy: item.createdBy,
+            createdByName: item.createdByName,
+            auditTrail: [...item.auditTrail],
+            isDeleted: item.isDeleted,
+            childIds: [...item.childIds],
+            encryption: item.encryption,
+            encryptedPayload: { ...item.encryptedPayload },
+            ...(item.ciphertext ? { ciphertext: item.ciphertext } : {}),
+        };
+    }
+
+    private buildVersionEntry(item: EncryptedTimelineItem, version: number, proofHistory: EventProofRecord[]): TimelineItemVersion {
+        return {
+            version,
+            snapshot: this.buildVersionSnapshot(item),
+            proofHistory: [...proofHistory],
+        };
+    }
+
+    private appendNextVersionEntry(item: EncryptedTimelineItem, previousVersions: TimelineItemVersion[]): TimelineItemVersion[] {
+        return [
+            ...previousVersions,
+            this.buildVersionEntry(item, item.eventVersion, [])
+        ];
+    }
+
+    private bootstrapExistingVersionHistory(item: EncryptedTimelineItem): TimelineItemVersion[] {
+        if (Array.isArray(item.versionHistory) && item.versionHistory.length > 0) {
+            return [...item.versionHistory];
+        }
+
+        const currentVersion = item.eventVersion ?? 1;
+        return [this.buildVersionEntry(item, currentVersion, [])];
+    }
+
     async createItem(dto: CreateTimelineItemDto & {
         childId: string;
         createdBy: string;
@@ -177,6 +258,8 @@ export class TimelineServiceImpl {
             childIds: [dto.childId],
             createdBy: (dto as any).createdBy, // These will be assigned by service if missing, but typically come from DTO in controller
             createdByName: (dto as any).createdByName,
+            eventVersion: 1,
+            versionHistory: [],
         };
 
         // Validate using Zod schema
@@ -189,6 +272,8 @@ export class TimelineServiceImpl {
 
         // Apply domain business rules
         this.validateDomainRules(validated);
+
+        validated.versionHistory = [this.buildVersionEntry(validated, validated.eventVersion, [])];
 
         const encryptedItem = validated;
         const signerPublicKey = await this.resolveSignerPublicKey(dto.createdBy, dto.keyId);
@@ -205,10 +290,13 @@ export class TimelineServiceImpl {
             retryCount: 0
         };
 
-        return this.saveWithForensicIntent(
+        const savedItem = await this.saveWithForensicIntent(
             (session?: unknown) => this.repository.save(encryptedItem, session),
             intent
-        ) as Promise<EncryptedTimelineItem>;
+        ) as EncryptedTimelineItem;
+
+        this.scheduleEventProof(savedItem.id, savedItem.eventVersion);
+        return savedItem;
     }
 
     async getItemsByDate(date: string, familyId?: string): Promise<EncryptedTimelineItem[]> {
@@ -273,24 +361,9 @@ export class TimelineServiceImpl {
 
         // Sanitize createdAt: Mongoose might have stored it as a Date or a non-ISO string
         // If it's not a valid ISO string, convert it defensively.
-        let sanitizedCreatedAt: string;
-        try {
-            const existingCreatedAt = existing.createdAt as any;
-            if (typeof existingCreatedAt === 'string' && existingCreatedAt.includes('T') && existingCreatedAt.endsWith('Z')) {
-                sanitizedCreatedAt = existingCreatedAt;
-            } else {
-                const parsed = new Date(existingCreatedAt);
-                if (Number.isNaN(parsed.getTime())) {
-                    console.warn(`[TimelineService] Invalid createdAt timestamp for item ${id}, falling back to now`);
-                    sanitizedCreatedAt = this.dateProvider.getIsoString();
-                } else {
-                    sanitizedCreatedAt = parsed.toISOString();
-                }
-            }
-        } catch (e) {
-            console.warn(`[TimelineService] Failed to sanitize date for item ${id}:`, e);
-            sanitizedCreatedAt = this.dateProvider.getIsoString();
-        }
+        const sanitizedCreatedAt = this.normalizeCreatedAt(existing.createdAt, id);
+
+        const existingVersionHistory = this.bootstrapExistingVersionHistory(existing);
 
         const validated = TimelineItemSchema.parse({
             ...(fullPlaintextUpdate as any),
@@ -300,6 +373,8 @@ export class TimelineServiceImpl {
             createdByName: existing.createdByName,
             childIds: existing.childIds,
             isDeleted: existing.isDeleted,
+            eventVersion: ((existing as any).eventVersion ?? 1) + 1,
+            versionHistory: existingVersionHistory,
         }) as EncryptedTimelineItem;
 
         // Apply domain business rules
@@ -314,6 +389,7 @@ export class TimelineServiceImpl {
         };
 
         validated.auditTrail = [...existing.auditTrail, auditEntry];
+        validated.versionHistory = this.appendNextVersionEntry(validated, existingVersionHistory);
 
         const encryptedUpdatedItem = validated;
 
@@ -331,10 +407,13 @@ export class TimelineServiceImpl {
             retryCount: 0
         };
 
-        return this.saveWithForensicIntent(
+        const savedItem = await this.saveWithForensicIntent(
             (session?: unknown) => this.repository.update(id, encryptedUpdatedItem, session),
             intent
-        ) as Promise<EncryptedTimelineItem>;
+        ) as EncryptedTimelineItem;
+
+        this.scheduleEventProof(savedItem.id, savedItem.eventVersion);
+        return savedItem;
     }
 
     async deleteItem(
@@ -362,11 +441,15 @@ export class TimelineServiceImpl {
             action: "DELETED",
         };
 
+        const existingVersionHistory = this.bootstrapExistingVersionHistory(existing);
+
         const updated = {
             ...existing,
+            eventVersion: ((existing as any).eventVersion ?? 1) + 1,
             isDeleted: true,
             auditTrail: [...existing.auditTrail, auditEntry]
-        };
+        } as EncryptedTimelineItem;
+        updated.versionHistory = this.appendNextVersionEntry(updated, existingVersionHistory);
         const signerPublicKey = await this.resolveSignerPublicKey(userId, keyId);
 
         const intent: ForensicIntentRecord = {
@@ -385,6 +468,8 @@ export class TimelineServiceImpl {
             (session?: unknown) => this.repository.update(id, updated as EncryptedTimelineItem, session),
             intent
         );
+
+        this.scheduleEventProof(id, updated.eventVersion);
     }
 
     /**

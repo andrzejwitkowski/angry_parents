@@ -1,11 +1,53 @@
 import { z } from "zod";
 
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
+const EVM_TX_HASH_RE = /^0x[0-9a-f]{64}$/;
+
 const AuditEntrySchema = z.object({
     timestamp: z.string().datetime(),
     userId: z.string(),
     userName: z.string().optional(),
     action: z.enum(["CREATED", "UPDATED", "DELETED"]),
     changes: z.any().optional(), // Field name to new value mapping
+});
+
+const TimelineItemTypeSchema = z.enum([
+    "NOTE",
+    "HANDOVER",
+    "MEDS",
+    "MEDICAL_VISIT",
+    "INCIDENT",
+    "VACATION",
+    "ATTACHMENT",
+]);
+
+const EventProofRecordSchema = z.object({
+    version: z.number().int().positive(),
+    hash: z.string().regex(SHA256_HEX_RE),
+    txHash: z.string().regex(EVM_TX_HASH_RE).optional(),
+    blockNumber: z.string().regex(/^\d+$/).optional(),
+    anchoredAt: z.string().datetime().optional(),
+});
+
+const EncryptedTimelineVersionSnapshotSchema = z.object({
+    id: z.string().uuid(),
+    type: TimelineItemTypeSchema,
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    createdAt: z.string().datetime(),
+    createdBy: z.string(),
+    createdByName: z.string().optional(),
+    auditTrail: z.array(AuditEntrySchema).default([]),
+    isDeleted: z.boolean().default(false),
+    childIds: z.array(z.string()).default([]),
+    encryption: z.literal("ENCRYPTED"),
+    encryptedPayload: z.record(z.string(), z.string()),
+    ciphertext: z.string().optional(),
+});
+
+const TimelineItemVersionSchema = z.object({
+    version: z.number().int().positive(),
+    snapshot: EncryptedTimelineVersionSnapshotSchema,
+    proofHistory: z.array(EventProofRecordSchema).default([]),
 });
 
 // Base schema for all timeline items
@@ -107,16 +149,9 @@ export type IncidentItem = z.infer<typeof IncidentItemSchema>;
 export type VacationItem = z.infer<typeof VacationItemSchema>;
 export type AttachmentItem = z.infer<typeof AttachmentItemSchema>;
 export type PlainTimelineItem = z.infer<typeof PlainTimelineItemSchema>;
-
-export const TimelineItemTypeSchema = z.enum([
-    "NOTE",
-    "HANDOVER",
-    "MEDS",
-    "MEDICAL_VISIT",
-    "INCIDENT",
-    "VACATION",
-    "ATTACHMENT",
-]);
+export type EventProofRecord = z.infer<typeof EventProofRecordSchema>;
+export type EncryptedTimelineVersionSnapshot = z.infer<typeof EncryptedTimelineVersionSnapshotSchema>;
+export type TimelineItemVersion = z.infer<typeof TimelineItemVersionSchema>;
 
 // Note: types and schemas are now defined together below
 
@@ -137,6 +172,8 @@ export const TimelineItemSchema = z.discriminatedUnion("encryption", [
         childIds: z.array(z.string()).default([]),
         encryptedPayload: z.record(z.string(), z.string()),
         ciphertext: z.string().optional(),
+        eventVersion: z.number().int().positive().default(1),
+        versionHistory: z.array(TimelineItemVersionSchema).default([]),
     })
 ]);
 

@@ -1,5 +1,5 @@
 import { TimelineRepository } from "../../../../domain/events/ports/TimelineRepository";
-import { EncryptedTimelineItem } from "../../../../domain/events/model/TimelineItem";
+import { EncryptedTimelineItem, EventProofRecord } from "../../../../domain/events/model/TimelineItem";
 import { TimelineItemModel } from "../../models/TimelineItemModel";
 import mongoose, { ClientSession } from "mongoose";
 
@@ -36,9 +36,35 @@ export class MongoTimelineRepository implements TimelineRepository {
         return item as unknown as EncryptedTimelineItem;
     }
 
+    async findByIdIncludingDeleted(id: string): Promise<EncryptedTimelineItem | null> {
+        const item = await TimelineItemModel.findOne({ id }).lean();
+        if (!item) return null;
+        return item as unknown as EncryptedTimelineItem;
+    }
+
     async update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
         const mongooseSession = session as ClientSession | undefined;
         const existing = await TimelineItemModel.findOne({ id, isDeleted: false }, null, { session: mongooseSession }).lean();
+        if (!existing) {
+            throw new Error(`Item with id ${id} not found`);
+        }
+
+        const result = await TimelineItemModel.findOneAndUpdate(
+            { id },
+            { $set: updates },
+            { returnDocument: "after", session: mongooseSession }
+        ).lean();
+
+        if (!result) {
+            throw new Error(`Item with id ${id} not found on update`);
+        }
+
+        return result as unknown as EncryptedTimelineItem;
+    }
+
+    async updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
+        const mongooseSession = session as ClientSession | undefined;
+        const existing = await TimelineItemModel.findOne({ id }, null, { session: mongooseSession }).lean();
         if (!existing) {
             throw new Error(`Item with id ${id} not found`);
         }
@@ -67,6 +93,77 @@ export class MongoTimelineRepository implements TimelineRepository {
         if (result.matchedCount === 0) {
             throw new Error(`Item with id ${id} not found`);
         }
+    }
+
+    async appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
+        const mongooseSession = session as ClientSession | undefined;
+        const versionEntry = await this.findVersionEntry(id, proof.version, mongooseSession);
+        const proofExists = versionEntry.proofHistory.some((p) => p.hash === proof.hash);
+
+        const result = proofExists
+            ? await this.mergeExistingProofEntry(id, proof, mongooseSession)
+            : await this.pushNewProofEntry(id, proof, mongooseSession);
+
+        if (!result) {
+            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+        }
+
+        return result as unknown as EncryptedTimelineItem;
+    }
+
+    private async findVersionEntry(id: string, version: number, session: ClientSession | undefined) {
+        const existing = await TimelineItemModel.findOne(
+            { id, "versionHistory.version": version },
+            null,
+            { session }
+        ).lean();
+
+        if (!existing) {
+            throw new Error(`Item with id ${id} and version ${version} not found`);
+        }
+
+        const timelineItem = existing as unknown as EncryptedTimelineItem;
+        const versionEntry = timelineItem.versionHistory.find((entry) => entry.version === version);
+        if (!versionEntry) {
+            throw new Error(`Item with id ${id} and version ${version} not found`);
+        }
+
+        return versionEntry;
+    }
+
+    private async mergeExistingProofEntry(id: string, proof: EventProofRecord, session: ClientSession | undefined) {
+        return TimelineItemModel.findOneAndUpdate(
+            { id, "versionHistory.version": proof.version },
+            {
+                $set: {
+                    "versionHistory.$[ver].proofHistory.$[prf]": proof,
+                },
+            },
+            {
+                arrayFilters: [
+                    { "ver.version": proof.version },
+                    { "prf.hash": proof.hash },
+                ],
+                returnDocument: "after",
+                session,
+            }
+        ).lean();
+    }
+
+    private async pushNewProofEntry(id: string, proof: EventProofRecord, session: ClientSession | undefined) {
+        return TimelineItemModel.findOneAndUpdate(
+            { id, "versionHistory.version": proof.version },
+            {
+                $push: {
+                    "versionHistory.$[ver].proofHistory": proof,
+                },
+            },
+            {
+                arrayFilters: [{ "ver.version": proof.version }],
+                returnDocument: "after",
+                session,
+            }
+        ).lean();
     }
 
     async countByChildId(childId: string): Promise<number> {

@@ -4,6 +4,8 @@ import { createSyncUserPendingDocsHandler } from "../scheduler/handlers/SyncUser
 import { createProcessDocumentIntegrityHandler } from "../scheduler/handlers/ProcessDocumentIntegrity";
 import { createBlockchainPublishHandler } from "../scheduler/handlers/BlockchainPublish";
 import { createProcessForensicIntentHandler } from "../scheduler/handlers/ProcessForensicIntent";
+import { createPublishEventProofHandler } from "../scheduler/handlers/PublishEventProof";
+import type { IEventProofPublisher } from "../scheduler/handlers/PublishEventProof";
 import type { IForensicRepository } from "../domain/forensic/ports/IForensicRepository";
 import type { ICryptoService } from "../domain/shared/ports/ICryptoService";
 import type { PasskeyRepository } from "../domain/auth/ports/PasskeyRepository";
@@ -18,6 +20,7 @@ type SchedulerDependencies = {
     blockchainAnchor: IBlockchainAnchor;
     forensicIntentRepository: ForensicIntentRepository;
     forensicService: ForensicService;
+    timelineEventProofService: IEventProofPublisher;
 };
 
 export function registerSchedulerHandlers(deps: SchedulerDependencies) {
@@ -39,5 +42,10 @@ export function registerSchedulerHandlers(deps: SchedulerDependencies) {
     taskManager.registerHandler(
         TaskType.PROCESS_FORENSIC_INTENT,
         createProcessForensicIntentHandler(deps.forensicIntentRepository, deps.forensicService)
+    );
+
+    taskManager.registerHandler(
+        TaskType.PUBLISH_EVENT_PROOF,
+        createPublishEventProofHandler(deps.timelineEventProofService)
     );
 }

@@ -8,6 +8,8 @@
     "dev:frontend": "vite",
     "dev:backend": "bun --watch backend/src/index.ts",
     "dev:all": "bun scripts/dev-all.ts",
+    "dev:all-clear": "bun scripts/dev-all.ts --clear",
+    "dev:all-clear-demo": "bun scripts/dev-all.ts --clear --demo",
     "dev:stop": "bun scripts/db-compose.ts down",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

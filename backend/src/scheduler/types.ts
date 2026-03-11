@@ -20,3 +20,10 @@ export interface BlockchainPublishPayload {
 export interface ProcessForensicIntentPayload {
     intentId: string;
 }
+
+export interface PublishEventProofPayload {
+    /** The timeline item ID. Combined with version, this uniquely identifies the anchoring task. */
+    itemId: string;
+    /** The specific version number to anchor. Prevents anchoring the wrong snapshot on concurrent edits. */
+    version: number;
+}

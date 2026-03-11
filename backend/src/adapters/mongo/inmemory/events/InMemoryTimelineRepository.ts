@@ -1,5 +1,5 @@
 import type { TimelineRepository } from "../../../../domain/events/ports/TimelineRepository";
-import type { EncryptedTimelineItem } from "../../../../domain/events/model/TimelineItem";
+import type { EncryptedTimelineItem, EventProofRecord } from "../../../../domain/events/model/TimelineItem";
 
 export class InMemoryTimelineRepository implements TimelineRepository {
     private itemsByDate: Map<string, EncryptedTimelineItem[]> = new Map();
@@ -29,6 +29,11 @@ export class InMemoryTimelineRepository implements TimelineRepository {
     }
 
     async findById(id: string): Promise<EncryptedTimelineItem | null> {
+        const item = this.itemsById.get(id) || null;
+        return item && !item.isDeleted ? item : null;
+    }
+
+    async findByIdIncludingDeleted(id: string): Promise<EncryptedTimelineItem | null> {
         return this.itemsById.get(id) || null;
     }
 
@@ -60,6 +65,10 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return updatedItem;
     }
 
+    async updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
+        return this.update(id, updates, session);
+    }
+
     async delete(id: string, _session?: unknown): Promise<void> {
         const item = this.itemsById.get(id);
         if (!item) {
@@ -72,6 +81,59 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         const items = this.itemsByDate.get(dateKey) || [];
         const filtered = items.filter((i) => i.id !== id);
         this.itemsByDate.set(dateKey, filtered);
+    }
+
+    async appendProofRecord(id: string, proof: EventProofRecord, _session?: unknown): Promise<EncryptedTimelineItem> {
+        const existingItem = this.itemsById.get(id);
+        if (!existingItem) {
+            throw new Error(`Item with id ${id} not found`);
+        }
+
+        const hasMatchingVersion = existingItem.versionHistory.some((entry) => entry.version === proof.version);
+        if (!hasMatchingVersion) {
+            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+        }
+
+        const versionHistory = existingItem.versionHistory.map((entry) => {
+            if (entry.version !== proof.version) {
+                return entry;
+            }
+
+            const existingProofIndex = entry.proofHistory.findIndex((existingProof) => existingProof.hash === proof.hash);
+            if (existingProofIndex !== -1) {
+                const mergedProofHistory = [...entry.proofHistory];
+                mergedProofHistory[existingProofIndex] = {
+                    ...mergedProofHistory[existingProofIndex],
+                    ...proof,
+                };
+
+                return {
+                    ...entry,
+                    proofHistory: mergedProofHistory,
+                };
+            }
+
+            return {
+                ...entry,
+                proofHistory: [...entry.proofHistory, proof],
+            };
+        });
+
+        const updatedItem = {
+            ...existingItem,
+            versionHistory,
+        } satisfies EncryptedTimelineItem;
+
+        this.itemsById.set(id, updatedItem);
+
+        const itemsForDate = this.itemsByDate.get(existingItem.date) || [];
+        const itemIndex = itemsForDate.findIndex((item) => item.id === id);
+        if (itemIndex !== -1) {
+            itemsForDate[itemIndex] = updatedItem;
+            this.itemsByDate.set(existingItem.date, itemsForDate);
+        }
+
+        return updatedItem;
     }
 
     async countByChildId(childId: string): Promise<number> {

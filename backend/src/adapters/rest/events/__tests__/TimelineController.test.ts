@@ -122,3 +122,44 @@ describe("TimelineController Ciphertext Selection", () => {
         warnSpy.mockRestore();
     });
 });
+
+describe("TimelineController proof route wiring", () => {
+    it("should route GET /api/events/:id/proof to the timeline API service", async () => {
+        const token = await signJwt({
+            userId: "user-123",
+            role: "mom",
+            familyId: "family-1",
+            email: "mom@example.com"
+        });
+        const apiService = {
+            getEventProof: vi.fn().mockResolvedValue({
+                txHash: "0xproof",
+                blockNumber: "321",
+                hash: "hash-321"
+            })
+        };
+        const controller = createTimelineController(apiService as any);
+
+        const response = await controller.handle(
+            new Request("http://localhost/api/events/event-123/proof", {
+                headers: {
+                    Cookie: `token=${token}`
+                }
+            })
+        );
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({
+            txHash: "0xproof",
+            blockNumber: "321",
+            hash: "hash-321"
+        });
+        expect(apiService.getEventProof).toHaveBeenCalledWith("event-123", {
+            id: "user-123",
+            name: "mom@example.com",
+            email: "mom@example.com",
+            role: "mom",
+            familyId: "family-1"
+        });
+    });
+});

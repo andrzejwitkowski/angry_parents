@@ -3,7 +3,6 @@ import { auth } from "../../../lib/auth";
 import { Family } from "../../mongo/models/FamilyModel";
 import { Invitation, type Gender } from "../../mongo/models/InvitationModel";
 import { RegistrationStatus, ParentRegistrationStatus } from "../../mongo/models/RegistrationProcessModel";
-import { generateDevRSAKeyPair } from "../../security/BunCryptoService";
 import { MongoRegistrationProcessRepository } from "../../mongo/repositories/auth/MongoRegistrationProcessRepository";
 import { signJwt, verifyJwt } from "../../../lib/jwt";
 import {
@@ -15,6 +14,7 @@ import {
 import { t as translate } from "../../../lib/i18n";
 import { isoUint8Array, isoBase64URL } from "@simplewebauthn/server/helpers";
 import mongoose from "mongoose";
+import { DEFAULT_DEV_DAD_ID, DEFAULT_DEV_MOM_ID, ensureMockFamily, getDevKeyPair } from "./devMockFamily";
 
 const rpName = "Angry Parents Co-Parenting";
 const rpID = "localhost";
@@ -107,15 +107,6 @@ async function consumeAuthChallenge(kind: AuthChallengeKind, key: string): Promi
         console.warn("[AuthChallenge] Falling back to in-memory challenge read:", error);
         return fallback;
     }
-}
-
-let cachedDevKeyPair: { publicKey: string; privateKey: string } | null = null;
-
-async function getDevKeyPair() {
-    if (!cachedDevKeyPair) {
-        cachedDevKeyPair = await generateDevRSAKeyPair();
-    }
-    return cachedDevKeyPair;
 }
 
 function setCookie(token: string): string {
@@ -985,63 +976,17 @@ export const createAuthController = (registrationRepo: MongoRegistrationProcessR
             }
 
             const mockBody = (body || {}) as { userId?: string };
-            const DEFAULT_DEV_DAD_ID = "mock-user-id-dev-test-stable";
             const finalUserId = mockBody.userId || DEFAULT_DEV_DAD_ID;
-            const DUMMY_MOM_ID = "dummy-mom-id-stable";
             let finalFamilyId = "";
 
-            // MOCK IN DB
             try {
-                let family = await Family.findOne({ name: "Mock Family" });
-                if (family) {
-                    finalFamilyId = family._id.toString();
-                    if (!family.parentIds.includes(finalUserId)) {
-                        family.parentIds.push(finalUserId);
-                    }
-                    if (!family.parentIds.includes(DUMMY_MOM_ID)) {
-                        family.parentIds.push(DUMMY_MOM_ID);
-                    }
-                    const devKeyPair = await getDevKeyPair();
-                    const devRsaPublicKey = devKeyPair.publicKey;
-                    const parentPublicKeys = family.parentPublicKeys || [];
-
-                    // Always ensure dev keys match current environment for both parents in mock family
-                    const dadKey = parentPublicKeys.find((k: any) => k.parentId === finalUserId || k.role === "dad");
-                    const momKey = parentPublicKeys.find((k: any) => k.parentId === DUMMY_MOM_ID || k.role === "mom");
-
-                    if (dadKey) {
-                        dadKey.rsaPublicKeyBase64 = devRsaPublicKey;
-                        dadKey.parentId = finalUserId;
-                    } else {
-                        parentPublicKeys.push({ parentId: finalUserId, role: "dad", rsaPublicKeyBase64: devRsaPublicKey });
-                    }
-
-                    if (momKey) {
-                        momKey.rsaPublicKeyBase64 = devRsaPublicKey;
-                        momKey.parentId = DUMMY_MOM_ID;
-                    } else {
-                        parentPublicKeys.push({ parentId: DUMMY_MOM_ID, role: "mom", rsaPublicKeyBase64: devRsaPublicKey });
-                    }
-
-                    family.parentPublicKeys = parentPublicKeys;
-                    await family.save();
-                } else {
-                    const devKeyPair = await getDevKeyPair();
-                    const devRsaPublicKey = devKeyPair.publicKey;
-                    finalFamilyId = new mongoose.Types.ObjectId().toString();
-                    family = new Family({
-                        _id: finalFamilyId,
-                        name: "Mock Family",
-                        parentIds: [finalUserId, DUMMY_MOM_ID],
-                        children: [],
-                        custodyPatterns: [],
-                        parentPublicKeys: [
-                            { parentId: finalUserId, role: "dad", rsaPublicKeyBase64: devRsaPublicKey },
-                            { parentId: DUMMY_MOM_ID, role: "mom", rsaPublicKeyBase64: devRsaPublicKey }
-                        ]
-                    });
-                    await family.save();
-                }
+                const devKeyPair = await getDevKeyPair();
+                const family = await ensureMockFamily({
+                    dadUserId: finalUserId,
+                    momUserId: DEFAULT_DEV_MOM_ID,
+                    devPublicKey: devKeyPair.publicKey
+                });
+                finalFamilyId = family._id.toString();
             } catch (e) {
                 console.log("[Login] Mock DB error", e);
                 finalFamilyId = new mongoose.Types.ObjectId().toString();
