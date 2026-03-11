@@ -71,19 +71,18 @@ export class TimelineApiService {
             throw new Error("Timeline item family mismatch");
         }
 
-        for (const childId of childIds) {
-            let child;
+        const children = await Promise.all(childIds.map(async (childId) => {
             try {
-                child = await this.childRepository.findById(childId);
+                return await this.childRepository!.findById(childId);
             } catch (error) {
                 const infrastructureError = new Error(`Failed to resolve child ownership for timeline item: ${(error as Error).message}`);
                 (infrastructureError as any).cause = error;
                 throw infrastructureError;
             }
+        }));
 
-            if (!child || child.familyId !== familyId) {
-                throw new Error("Timeline item family mismatch");
-            }
+        if (children.some((child) => !child || child.familyId !== familyId)) {
+            throw new Error("Timeline item family mismatch");
         }
     }
 

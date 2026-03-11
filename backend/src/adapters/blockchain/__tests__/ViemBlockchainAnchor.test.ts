@@ -8,6 +8,7 @@ const waitForReceiptRequests: Array<Record<string, unknown>> = [];
 let selectedChain: { id: number; name: string } | undefined;
 let selectedRpcUrl: string | undefined;
 let nextReceiptBlockNumber = 123n;
+const validTxHash = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
 mock.module("viem", () => ({
     createWalletClient: ({ account, chain }: { account: { address: string }; chain: { id: number; name: string } }) => ({
@@ -17,14 +18,14 @@ mock.module("viem", () => ({
                 sendTransaction: async (request: Record<string, unknown>) => {
                     calls.push("sendTransaction");
                     sendTransactionRequests.push(request);
-                    return "0xfeedface";
+                    return validTxHash;
                 },
                 waitForTransactionReceipt: async (request: Record<string, unknown>) => {
                     calls.push("waitForTransactionReceipt");
                     waitForReceiptRequests.push(request);
                     return {
                         blockNumber: nextReceiptBlockNumber,
-                        transactionHash: "0xfeedface"
+                        transactionHash: validTxHash
                     };
                 },
                 getTransaction: async ({ hash }: { hash: string }) => ({
@@ -128,9 +129,9 @@ describe("ViemBlockchainAnchor", () => {
                 data: `0x${Buffer.from("event-proof-hash").toString("hex")}`
             }
         ]);
-        expect(waitForReceiptRequests).toEqual([{ hash: "0xfeedface" }]);
+        expect(waitForReceiptRequests).toEqual([{ hash: validTxHash }]);
         expect(result).toEqual({
-            txHash: "0xfeedface",
+            txHash: validTxHash,
             blockNumber: 987n
         });
     });
@@ -142,9 +143,9 @@ describe("ViemBlockchainAnchor", () => {
             blockchainChain: "amoy"
         });
 
-        await expect(anchor.anchorHash("event-proof-hash")).resolves.toBe("0xfeedface");
-        await expect(anchor.verifyAnchor("event-proof-hash", "0xfeedface")).resolves.toBe(true);
-        await expect(anchor.verifyAnchor("different-hash", "0xfeedface")).resolves.toBe(false);
+        await expect(anchor.anchorHash("event-proof-hash")).resolves.toBe(validTxHash);
+        await expect(anchor.verifyAnchor("event-proof-hash", validTxHash)).resolves.toBe(true);
+        await expect(anchor.verifyAnchor("different-hash", validTxHash)).resolves.toBe(false);
     });
 
     it("wireDependencies prefers the mock blockchain when USE_MOCK_BLOCKCHAIN is true", () => {

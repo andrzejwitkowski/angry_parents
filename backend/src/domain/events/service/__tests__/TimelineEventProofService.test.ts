@@ -109,6 +109,7 @@ describe("TimelineEventProofService", () => {
     let repository: InMemoryTimelineRepository;
     let blockchainAnchor: IEventBlockchainAnchor;
     let service: TimelineEventProofService;
+    const validPublishedTxHash = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
     beforeEach(async () => {
         repository = new InMemoryTimelineRepository();
@@ -116,7 +117,7 @@ describe("TimelineEventProofService", () => {
 
         blockchainAnchor = {
             publishHash: vi.fn().mockResolvedValue({
-                txHash: "0xfeedface",
+                txHash: validPublishedTxHash,
                 blockNumber: 987n,
             }),
         };
@@ -134,7 +135,7 @@ describe("TimelineEventProofService", () => {
         expect(result).toEqual({
             version: 2,
             hash: expectedHash,
-            txHash: "0xfeedface",
+            txHash: validPublishedTxHash,
             blockNumber: "987",
             anchoredAt,
         });
@@ -154,7 +155,7 @@ describe("TimelineEventProofService", () => {
             {
                 version: 2,
                 hash: expectedHash,
-                txHash: "0xfeedface",
+                txHash: validPublishedTxHash,
                 blockNumber: "987",
                 anchoredAt,
             },
@@ -214,7 +215,7 @@ describe("TimelineEventProofService", () => {
         expect(result).toMatchObject({
             version: 2,
             hash,
-            txHash: "0xfeedface",
+            txHash: validPublishedTxHash,
             blockNumber: "987",
             anchoredAt,
         });
@@ -229,7 +230,7 @@ describe("TimelineEventProofService", () => {
 
         const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
 
-        expect(result.txHash).toBe("0xfeedface");
+        expect(result.txHash).toBe(validPublishedTxHash);
         expect(blockchainAnchor.publishHash).toHaveBeenCalledWith(hash);
     });
 
@@ -244,7 +245,7 @@ describe("TimelineEventProofService", () => {
         const result = await deletedService.publishProof(deletedItem.id);
 
         expect(result.version).toBe(2);
-        expect(result.txHash).toBe("0xfeedface");
+        expect(result.txHash).toBe(validPublishedTxHash);
     });
 
     it("normalizes legacy non-ISO createdAt before bootstrapping snapshot history", async () => {
