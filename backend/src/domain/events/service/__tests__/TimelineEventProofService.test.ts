@@ -7,6 +7,7 @@ import { TimelineEventProofService } from "../TimelineEventProofService";
 import { calculateEventProofHash } from "../eventProofHash";
 
 const anchoredAt = "2026-03-10T12:00:00.000Z";
+const submittedAt = "2026-03-10T11:59:00.000Z";
 
 const fixedDateProvider: DateProvider = {
     getNow: () => new Date(anchoredAt),
@@ -62,6 +63,8 @@ function buildEncryptedTimelineItem(): EncryptedTimelineItem {
                 proofHistory: [{
                     version: 1,
                     hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    status: "CONFIRMED",
+                    submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                     txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                     blockNumber: "44",
                     anchoredAt: "2026-03-10T11:00:00.000Z",
@@ -105,21 +108,57 @@ function buildEncryptedTimelineItem(): EncryptedTimelineItem {
     };
 }
 
+async function waitForProofStatus(
+    repository: InMemoryTimelineRepository,
+    itemId: string,
+    version: number,
+    status: string,
+): Promise<void> {
+    for (let attempt = 0; attempt < 10; attempt++) {
+        const item = await repository.findByIdIncludingDeleted(itemId);
+        const proof = item?.versionHistory
+            .find((entry) => entry.version === version)
+            ?.proofHistory[0];
+
+        if (proof?.status === status) {
+            return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    throw new Error(`Proof for item ${itemId} version ${version} did not reach status ${status}`);
+}
+
 describe("TimelineEventProofService", () => {
     let repository: InMemoryTimelineRepository;
     let blockchainAnchor: IEventBlockchainAnchor;
     let service: TimelineEventProofService;
     const validPublishedTxHash = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
+    function createDeferredReceipt() {
+        let resolve!: (value: { txHash: string; blockNumber: bigint }) => void;
+        const promise = new Promise<{ txHash: string; blockNumber: bigint }>((res) => {
+            resolve = res;
+        });
+
+        return { promise, resolve };
+    }
+
     beforeEach(async () => {
         repository = new InMemoryTimelineRepository();
         await repository.save(buildEncryptedTimelineItem());
 
         blockchainAnchor = {
-            publishHash: vi.fn().mockResolvedValue({
+            submitHash: vi.fn().mockResolvedValue(validPublishedTxHash),
+            waitForPublication: vi.fn().mockResolvedValue({
                 txHash: validPublishedTxHash,
                 blockNumber: 987n,
             }),
+            publishHash: vi.fn().mockResolvedValue({
+                txHash: validPublishedTxHash,
+                blockNumber: 987n,
+            })
         };
 
         service = new TimelineEventProofService(repository, blockchainAnchor, fixedDateProvider);
@@ -131,10 +170,13 @@ describe("TimelineEventProofService", () => {
 
         const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2");
 
-        expect(blockchainAnchor.publishHash).toHaveBeenCalledWith(expectedHash);
+        expect(blockchainAnchor.submitHash).toHaveBeenCalledWith(expectedHash);
+        expect(blockchainAnchor.waitForPublication).toHaveBeenCalledWith(validPublishedTxHash);
         expect(result).toEqual({
             version: 2,
             hash: expectedHash,
+            status: "CONFIRMED",
+            submittedTxHash: validPublishedTxHash,
             txHash: validPublishedTxHash,
             blockNumber: "987",
             anchoredAt,
@@ -146,6 +188,8 @@ describe("TimelineEventProofService", () => {
             {
                 version: 1,
                 hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                status: "CONFIRMED",
+                submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 blockNumber: "44",
                 anchoredAt: "2026-03-10T11:00:00.000Z",
@@ -155,6 +199,9 @@ describe("TimelineEventProofService", () => {
             {
                 version: 2,
                 hash: expectedHash,
+                status: "CONFIRMED",
+                submittedTxHash: validPublishedTxHash,
+                lastAttemptAt: anchoredAt,
                 txHash: validPublishedTxHash,
                 blockNumber: "987",
                 anchoredAt,
@@ -164,6 +211,8 @@ describe("TimelineEventProofService", () => {
 
     it("wraps blockchain adapter failures with a readable event proof error", async () => {
         const failedAnchor: IEventBlockchainAnchor = {
+            submitHash: vi.fn().mockRejectedValue(new Error("rpc timeout")),
+            waitForPublication: vi.fn(),
             publishHash: vi.fn().mockRejectedValue(new Error("rpc timeout")),
         };
 
@@ -194,12 +243,13 @@ describe("TimelineEventProofService", () => {
         await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
             version: 2,
             hash: calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot),
+            status: "CLAIMED",
         });
 
         await expect(service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2")).rejects.toThrow(
             "Proof publication already pending for timeline item 6f133670-8d3a-4f53-a033-0f2da65e45d2 version 2; manual recovery required"
         );
-        expect(blockchainAnchor.publishHash).toHaveBeenCalledTimes(0);
+        expect(blockchainAnchor.submitHash).toHaveBeenCalledTimes(0);
     });
 
     it("retries a pending proof marker when retryPending is enabled", async () => {
@@ -207,14 +257,17 @@ describe("TimelineEventProofService", () => {
         await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
             version: 2,
             hash,
+            status: "CLAIMED",
         });
 
         const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
 
-        expect(blockchainAnchor.publishHash).toHaveBeenCalledWith(hash);
+        expect(blockchainAnchor.submitHash).toHaveBeenCalledWith(hash);
         expect(result).toMatchObject({
             version: 2,
             hash,
+            status: "CONFIRMED",
+            submittedTxHash: validPublishedTxHash,
             txHash: validPublishedTxHash,
             blockNumber: "987",
             anchoredAt,
@@ -226,12 +279,49 @@ describe("TimelineEventProofService", () => {
         await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
             version: 2,
             hash,
+            status: "CLAIMED",
         });
 
         const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
 
         expect(result.txHash).toBe(validPublishedTxHash);
-        expect(blockchainAnchor.publishHash).toHaveBeenCalledWith(hash);
+        expect(blockchainAnchor.submitHash).toHaveBeenCalledWith(hash);
+    });
+
+    it("stores submitted transaction metadata before waiting for final receipt", async () => {
+        const deferredReceipt = createDeferredReceipt();
+        const submitFirstAnchor: IEventBlockchainAnchor = {
+            submitHash: vi.fn().mockResolvedValue(validPublishedTxHash),
+            waitForPublication: vi.fn().mockReturnValue(deferredReceipt.promise),
+            publishHash: vi.fn().mockReturnValue(deferredReceipt.promise),
+        };
+        service = new TimelineEventProofService(repository, submitFirstAnchor, {
+            ...fixedDateProvider,
+            getIsoString: () => submittedAt,
+        });
+
+        const pendingPublication = service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        await waitForProofStatus(repository, "6f133670-8d3a-4f53-a033-0f2da65e45d2", 2, "SUBMITTED");
+
+        const duringSubmit = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(duringSubmit?.versionHistory[1].proofHistory).toEqual([
+            {
+                version: 2,
+                hash: calculateEventProofHash(duringSubmit!.versionHistory[1].snapshot),
+                status: "SUBMITTED",
+                submittedTxHash: validPublishedTxHash,
+                lastAttemptAt: submittedAt,
+            },
+        ]);
+
+        deferredReceipt.resolve({
+            txHash: validPublishedTxHash,
+            blockNumber: 987n,
+        });
+
+        const result = await pendingPublication;
+        expect(result.status).toBe("CONFIRMED");
+        expect(result.submittedTxHash).toBe(validPublishedTxHash);
     });
 
     it("can publish proof for a deleted timeline item version", async () => {

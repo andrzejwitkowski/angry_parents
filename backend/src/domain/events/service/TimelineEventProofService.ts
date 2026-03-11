@@ -35,14 +35,14 @@ export class TimelineEventProofService {
         const hash = calculateEventProofHash(versionEntry.snapshot);
 
         const existingConfirmedProof = versionEntry.proofHistory.find(
-            (proof) => proof.hash === hash && proof.txHash && proof.blockNumber !== undefined && proof.anchoredAt
+            (proof) => proof.hash === hash && proof.status === "CONFIRMED" && proof.txHash && proof.blockNumber !== undefined && proof.anchoredAt
         );
         if (existingConfirmedProof) {
             return existingConfirmedProof as Required<EventProofRecord> as EventProofRecord;
         }
 
         const existingPendingProof = versionEntry.proofHistory.find(
-            (proof) => proof.hash === hash && (!proof.txHash || proof.blockNumber === undefined || !proof.anchoredAt)
+            (proof) => proof.hash === hash && proof.status !== "CONFIRMED"
         );
         if (existingPendingProof) {
             if (options.retryPending) {
@@ -56,6 +56,7 @@ export class TimelineEventProofService {
         await this.repository.appendProofRecord(id, {
             version: versionEntry.version,
             hash,
+            status: "CLAIMED",
         });
 
         return this.completeProofPublication(id, versionEntry.version, hash);
@@ -63,10 +64,21 @@ export class TimelineEventProofService {
 
     private async completeProofPublication(id: string, version: number, hash: string): Promise<EventProofRecord> {
         try {
-            const published = await this.blockchainAnchor.publishHash(hash);
+            const submittedTxHash = await this.blockchainAnchor.submitHash(hash);
+            await this.repository.markProofSubmitted(id, {
+                version,
+                hash,
+                status: "SUBMITTED",
+                submittedTxHash,
+                lastAttemptAt: this.dateProvider.getIsoString(),
+            });
+
+            const published = await this.blockchainAnchor.waitForPublication(submittedTxHash);
             const proofRecord: EventProofRecord = {
                 version,
                 hash,
+                status: "CONFIRMED",
+                submittedTxHash,
                 txHash: published.txHash,
                 blockNumber: published.blockNumber.toString(),
                 anchoredAt: this.dateProvider.getIsoString(),

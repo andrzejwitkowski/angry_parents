@@ -18,12 +18,20 @@ export class MockBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
         return txHash;
     }
 
-    async publishHash(hash: string): Promise<PublishedHashResult> {
-        const txHash = await this.anchorHash(hash);
+    async submitHash(hash: string): Promise<string> {
+        return this.anchorHash(hash);
+    }
+
+    async waitForPublication(txHash: string): Promise<PublishedHashResult> {
         return {
             txHash,
             blockNumber: BigInt(`0x${txHash.slice(2, 18)}`)
         };
+    }
+
+    async publishHash(hash: string): Promise<PublishedHashResult> {
+        const txHash = await this.submitHash(hash);
+        return this.waitForPublication(txHash);
     }
 
     async verifyAnchor(hash: string, txHash: string): Promise<boolean> {

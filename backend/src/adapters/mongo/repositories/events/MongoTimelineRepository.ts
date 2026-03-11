@@ -111,6 +111,10 @@ export class MongoTimelineRepository implements TimelineRepository {
         return result as unknown as EncryptedTimelineItem;
     }
 
+    async markProofSubmitted(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
+        return this.appendProofRecord(id, proof, session);
+    }
+
     private async findVersionEntry(id: string, version: number, session: ClientSession | undefined) {
         const existing = await TimelineItemModel.findOne(
             { id, "versionHistory.version": version },
@@ -132,11 +136,18 @@ export class MongoTimelineRepository implements TimelineRepository {
     }
 
     private async mergeExistingProofEntry(id: string, proof: EventProofRecord, session: ClientSession | undefined) {
+        const existing = await this.findVersionEntry(id, proof.version, session);
+        const existingProof = existing.proofHistory.find((candidate) => candidate.hash === proof.hash);
+        const mergedProof = {
+            ...existingProof,
+            ...proof,
+        };
+
         return TimelineItemModel.findOneAndUpdate(
             { id, "versionHistory.version": proof.version },
             {
                 $set: {
-                    "versionHistory.$[ver].proofHistory.$[prf]": proof,
+                    "versionHistory.$[ver].proofHistory.$[prf]": mergedProof,
                 },
             },
             {

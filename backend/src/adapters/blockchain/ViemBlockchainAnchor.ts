@@ -53,6 +53,16 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
     }
 
     async publishHash(hash: string): Promise<PublishedHashResult> {
+        try {
+            const txHash = await this.submitHash(hash);
+            return this.waitForPublication(txHash);
+        } catch (error) {
+            console.error("Failed to anchor hash to blockchain", error);
+            throw error;
+        }
+    }
+
+    async submitHash(hash: string): Promise<string> {
         const client = this.client;
         const account = this.account;
 
@@ -60,22 +70,25 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
             throw new Error("Blockchain client not initialized");
         }
 
-        try {
-            const txHash = await client.sendTransaction({
-                to: account.address,
-                value: 0n,
-                data: toHex(hash)
-            });
-            const receipt = await client.waitForTransactionReceipt({ hash: txHash });
+        return client.sendTransaction({
+            to: account.address,
+            value: 0n,
+            data: toHex(hash)
+        });
+    }
 
-            return {
-                txHash,
-                blockNumber: receipt.blockNumber
-            };
-        } catch (error) {
-            console.error("Failed to anchor hash to blockchain", error);
-            throw error;
+    async waitForPublication(txHash: string): Promise<PublishedHashResult> {
+        const client = this.client;
+        if (!client) {
+            throw new Error("Blockchain client not initialized");
         }
+
+        const receipt = await client.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
+
+        return {
+            txHash,
+            blockNumber: receipt.blockNumber
+        };
     }
 
     async anchorHash(hash: string): Promise<string> {

@@ -18,11 +18,11 @@ describe("MongoTimelineRepository", () => {
     beforeAll(async () => {
         mongoServer = await connectMongoMemory();
         repository = new MongoTimelineRepository();
-    });
+    }, 300000);
 
     afterAll(async () => {
         await disconnectMongoMemory(mongoServer);
-    });
+    }, 300000);
 
     beforeEach(async () => {
         await TimelineItemModel.deleteMany({});
@@ -148,5 +148,53 @@ describe("MongoTimelineRepository", () => {
 
     it("should throw when deleting non-existent item", async () => {
         await expect(repository.delete("missing-id")).rejects.toThrow("not found");
+    });
+
+    it("stores submitted transaction metadata separately from final confirmation", async () => {
+        const itemWithVersionHistory: TimelineItem = encrypted({
+            ...mockItem,
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: mockItem.id,
+                    type: "NOTE",
+                    date: mockItem.date,
+                    createdAt: mockItem.createdAt,
+                    createdBy: mockItem.createdBy,
+                    createdByName: mockItem.createdByName,
+                    auditTrail: mockItem.auditTrail,
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-1": "ciphertext" }
+                },
+                proofHistory: [{
+                    version: 1,
+                    hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    status: "CLAIMED"
+                }]
+            }]
+        }) as any;
+
+        await repository.save(itemWithVersionHistory as any);
+        await repository.markProofSubmitted(mockItem.id, {
+            version: 1,
+            hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            status: "SUBMITTED",
+            submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            lastAttemptAt: "2026-03-11T12:00:00.000Z"
+        } as any);
+
+        const found = await repository.findById(mockItem.id);
+        expect((found as any).versionHistory[0].proofHistory).toEqual([
+            {
+                version: 1,
+                hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                status: "SUBMITTED",
+                submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                lastAttemptAt: "2026-03-11T12:00:00.000Z"
+            }
+        ]);
     });
 });

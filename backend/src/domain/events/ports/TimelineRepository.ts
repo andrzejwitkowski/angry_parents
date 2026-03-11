@@ -54,6 +54,11 @@ export interface TimelineRepository {
      */
     appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem>;
 
+    /**
+     * Persist submitted transaction metadata before final confirmation.
+     */
+    markProofSubmitted(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem>;
+
     withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T>;
 
     /**

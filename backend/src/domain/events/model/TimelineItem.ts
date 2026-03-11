@@ -3,6 +3,14 @@ import { z } from "zod";
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
 const EVM_TX_HASH_RE = /^0x[0-9a-f]{64}$/;
 
+export const EventProofStatusSchema = z.enum([
+    "CLAIMED",
+    "SUBMITTED",
+    "CONFIRMED",
+    "FAILED",
+    "RECONCILING",
+]);
+
 const AuditEntrySchema = z.object({
     timestamp: z.string().datetime(),
     userId: z.string(),
@@ -24,6 +32,10 @@ const TimelineItemTypeSchema = z.enum([
 const EventProofRecordSchema = z.object({
     version: z.number().int().positive(),
     hash: z.string().regex(SHA256_HEX_RE),
+    status: EventProofStatusSchema.default("CLAIMED"),
+    submittedTxHash: z.string().regex(EVM_TX_HASH_RE).optional(),
+    lastAttemptAt: z.string().datetime().optional(),
+    lastError: z.string().min(1).optional(),
     txHash: z.string().regex(EVM_TX_HASH_RE).optional(),
     blockNumber: z.string().regex(/^\d+$/).optional(),
     anchoredAt: z.string().datetime().optional(),
@@ -149,6 +161,7 @@ export type IncidentItem = z.infer<typeof IncidentItemSchema>;
 export type VacationItem = z.infer<typeof VacationItemSchema>;
 export type AttachmentItem = z.infer<typeof AttachmentItemSchema>;
 export type PlainTimelineItem = z.infer<typeof PlainTimelineItemSchema>;
+export type EventProofStatus = z.infer<typeof EventProofStatusSchema>;
 export type EventProofRecord = z.infer<typeof EventProofRecordSchema>;
 export type EncryptedTimelineVersionSnapshot = z.infer<typeof EncryptedTimelineVersionSnapshotSchema>;
 export type TimelineItemVersion = z.infer<typeof TimelineItemVersionSchema>;

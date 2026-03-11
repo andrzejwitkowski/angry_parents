@@ -136,6 +136,10 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return updatedItem;
     }
 
+    async markProofSubmitted(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
+        return this.appendProofRecord(id, proof, session);
+    }
+
     async countByChildId(childId: string): Promise<number> {
         let count = 0;
         for (const item of this.itemsById.values()) {

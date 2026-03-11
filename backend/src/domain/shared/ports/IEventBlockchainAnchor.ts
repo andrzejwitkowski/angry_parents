@@ -4,5 +4,7 @@ export interface PublishedHashResult {
 }
 
 export interface IEventBlockchainAnchor {
+    submitHash(hash: string): Promise<string>;
+    waitForPublication(txHash: string): Promise<PublishedHashResult>;
     publishHash(hash: string): Promise<PublishedHashResult>;
 }
