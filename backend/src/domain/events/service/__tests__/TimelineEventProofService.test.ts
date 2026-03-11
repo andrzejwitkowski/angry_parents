@@ -235,7 +235,7 @@ describe("TimelineEventProofService", () => {
         });
     });
 
-    it("retries pending proof publication by default for internal flow", async () => {
+    it("retries pending proof publication when retryPending is enabled", async () => {
         const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
         await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
             version: 2,

@@ -36,7 +36,7 @@ export function createBlockchainAnchor(env: NodeJS.ProcessEnv = process.env): Co
         env.INTEGRATION_TEST === "true";
     const missingConfig = !env.BLOCKCHAIN_PRIVATE_KEY || !env.BLOCKCHAIN_RPC_URL;
 
-    if (isProduction && missingConfig) {
+    if (isProduction && missingConfig && !explicitMock) {
         throw new Error(
             "BLOCKCHAIN_PRIVATE_KEY and BLOCKCHAIN_RPC_URL are required in production. " +
             "Set USE_MOCK_BLOCKCHAIN=true to explicitly opt into mock anchoring."

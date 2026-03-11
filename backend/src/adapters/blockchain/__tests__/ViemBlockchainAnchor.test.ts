@@ -168,6 +168,17 @@ describe("ViemBlockchainAnchor", () => {
         expect(anchor).toBeInstanceOf(MockBlockchainAnchor);
     });
 
+    it("wireDependencies allows an explicit mock in production even when blockchain config is missing", () => {
+        const anchor = createBlockchainAnchor({
+            NODE_ENV: "production",
+            USE_MOCK_BLOCKCHAIN: "true",
+            BLOCKCHAIN_PRIVATE_KEY: "",
+            BLOCKCHAIN_RPC_URL: "",
+        } as NodeJS.ProcessEnv);
+
+        expect(anchor).toBeInstanceOf(MockBlockchainAnchor);
+    });
+
     it("wireDependencies allows Viem in test env when blockchain config is present", () => {
         const anchor = createBlockchainAnchor({
             ...process.env,

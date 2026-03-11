@@ -165,12 +165,26 @@ export class MongoTimelineRepository implements TimelineRepository {
     }
 
     private async mergeExistingProofEntry(id: string, proof: EventProofRecord, session: ClientSession | undefined) {
+        const setOperations: Record<string, string> = {
+            "versionHistory.$[ver].proofHistory.$[prf].hash": proof.hash,
+        };
+
+        if (proof.txHash !== undefined) {
+            setOperations["versionHistory.$[ver].proofHistory.$[prf].txHash"] = proof.txHash;
+        }
+
+        if (proof.blockNumber !== undefined) {
+            setOperations["versionHistory.$[ver].proofHistory.$[prf].blockNumber"] = proof.blockNumber;
+        }
+
+        if (proof.anchoredAt !== undefined) {
+            setOperations["versionHistory.$[ver].proofHistory.$[prf].anchoredAt"] = proof.anchoredAt;
+        }
+
         return TimelineItemModel.findOneAndUpdate(
             { id, "versionHistory.version": proof.version },
             {
-                $set: {
-                    "versionHistory.$[ver].proofHistory.$[prf]": proof,
-                },
+                $set: setOperations,
             },
             {
                 arrayFilters: [

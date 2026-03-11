@@ -256,4 +256,32 @@ describe("MongoTimelineRepository", () => {
             },
         ]);
     });
+
+    it("preserves anchored proof metadata when a later partial update for the same hash arrives", async () => {
+        await repository.save(proofReadyItem as any);
+
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 1,
+            hash: "hash-3",
+            txHash: "0xdef",
+            blockNumber: "77",
+            anchoredAt: "2026-03-10T15:00:00.000Z",
+        });
+
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 1,
+            hash: "hash-3",
+        });
+
+        const stored = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(stored?.versionHistory[0].proofHistory).toEqual([
+            {
+                version: 1,
+                hash: "hash-3",
+                txHash: "0xdef",
+                blockNumber: "77",
+                anchoredAt: "2026-03-10T15:00:00.000Z",
+            },
+        ]);
+    });
 });
