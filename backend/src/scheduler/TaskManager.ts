@@ -76,6 +76,7 @@ export class TaskManager implements ITaskManager {
     private model: Model<ITaskDocument>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private handlers: Map<TaskType, TaskHandler<any>> = new Map();
+    private failureHandlers: Map<TaskType, (payload: unknown, errorMessage: string) => Promise<void>> = new Map();
     private isRunning = false;
     private workerId: string;
     private pollIntervalMs: number;
@@ -105,6 +106,13 @@ export class TaskManager implements ITaskManager {
             console.warn(`[TaskManager] Overwriting handler for task type ${type}`);
         }
         this.handlers.set(type, handler);
+    }
+
+    public registerFailureHandler(type: TaskType, handler: (payload: unknown, errorMessage: string) => Promise<void>): void {
+        if (this.failureHandlers.has(type)) {
+            console.warn(`[TaskManager] Overwriting failure handler for task type ${type}`);
+        }
+        this.failureHandlers.set(type, handler);
     }
 
     public async schedule<T>(
@@ -289,6 +297,15 @@ export class TaskManager implements ITaskManager {
     }
 
     private async failTask(task: ITaskDocument, errorMessage: string): Promise<void> {
+        const failureHandler = this.failureHandlers.get(task.type as TaskType);
+        if (failureHandler) {
+            try {
+                await failureHandler(task.payload, errorMessage);
+            } catch (handlerError) {
+                console.error(`[TaskManager] Failed to run failure handler for task type ${task.type}`, handlerError);
+            }
+        }
+
         await this.model.updateOne(
             { _id: task._id },
             {

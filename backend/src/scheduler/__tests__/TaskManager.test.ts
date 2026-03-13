@@ -1,12 +1,12 @@
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'bun:test';
+import { describe, it, expect, beforeAll, afterAll, afterEach, mock } from 'bun:test';
 import { TaskManager } from '../TaskManager';
 import { TaskType, SyncUserPendingDocsPayload, BlockchainPublishPayload } from '../types';
 import { createSyncUserPendingDocsHandler } from '../handlers/SyncUserPendingDocs';
 import { createProcessDocumentIntegrityHandler } from '../handlers/ProcessDocumentIntegrity';
 import { createBlockchainPublishHandler } from '../handlers/BlockchainPublish';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { IForensicRepository } from '../../domain/forensic/ports/IForensicRepository';
 import { ICryptoService } from '../../domain/shared/ports/ICryptoService';
 import { PasskeyRepository } from '../../domain/auth/ports/PasskeyRepository';
@@ -15,6 +15,11 @@ import { ForensicDocument } from '../../domain/forensic/model/ForensicDocument';
 import { SystemState } from '../../domain/forensic/model/SystemState';
 import { Passkey } from '../../domain/auth/model/Passkey';
 import { ObservabilityService } from '../../domain/shared/ports/ObservabilityService';
+import { MongoTimelineRepository } from '../../adapters/mongo/repositories/events/MongoTimelineRepository';
+import { TimelineEventProofService } from '../../domain/events/service/TimelineEventProofService';
+import type { EncryptedTimelineItem } from '../../domain/events/model/TimelineItem';
+import { createReconcileEventProofHandler } from '../handlers/ReconcileEventProof';
+import { connectMongoMemory, disconnectMongoMemory } from '../../adapters/mongo/__tests__/mongoMemoryServer';
 
 // --- Mocks ---
 
@@ -111,6 +116,83 @@ class MockBlockchainAnchor implements IBlockchainAnchor {
     }
 }
 
+function buildEncryptedTimelineItem(): EncryptedTimelineItem {
+    return {
+        id: "6f133670-8d3a-4f53-a033-0f2da65e45d2",
+        type: "NOTE",
+        date: "2026-03-10",
+        createdAt: "2026-03-10T10:30:00.000Z",
+        createdBy: "dad-1",
+        createdByName: "Alice",
+        auditTrail: [{
+            timestamp: "2026-03-10T10:30:00.000Z",
+            userId: "dad-1",
+            userName: "Alice",
+            action: "CREATED",
+        }],
+        isDeleted: false,
+        childIds: ["child-1"],
+        encryption: "ENCRYPTED",
+        encryptedPayload: {
+            "dad-1": "ciphertext-v2",
+            "mom-1": "ciphertext-v2-mom",
+        },
+        eventVersion: 2,
+        versionHistory: [
+            {
+                version: 1,
+                snapshot: {
+                    id: "6f133670-8d3a-4f53-a033-0f2da65e45d2",
+                    type: "NOTE",
+                    date: "2026-03-10",
+                    createdAt: "2026-03-10T10:30:00.000Z",
+                    createdBy: "dad-1",
+                    createdByName: "Alice",
+                    auditTrail: [{
+                        timestamp: "2026-03-10T10:30:00.000Z",
+                        userId: "dad-1",
+                        userName: "Alice",
+                        action: "CREATED",
+                    }],
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: {
+                        "dad-1": "ciphertext-v1",
+                        "mom-1": "ciphertext-v1-mom",
+                    },
+                },
+                proofHistory: [],
+            },
+            {
+                version: 2,
+                snapshot: {
+                    id: "6f133670-8d3a-4f53-a033-0f2da65e45d2",
+                    type: "NOTE",
+                    date: "2026-03-10",
+                    createdAt: "2026-03-10T10:30:00.000Z",
+                    createdBy: "dad-1",
+                    createdByName: "Alice",
+                    auditTrail: [{
+                        timestamp: "2026-03-10T10:30:00.000Z",
+                        userId: "dad-1",
+                        userName: "Alice",
+                        action: "CREATED",
+                    }],
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: {
+                        "dad-1": "ciphertext-v2",
+                        "mom-1": "ciphertext-v2-mom",
+                    },
+                },
+                proofHistory: [],
+            },
+        ],
+    };
+}
+
 // --- Tests ---
 
 describe('Task Scheduler & Integrity Pipeline', () => {
@@ -122,14 +204,11 @@ describe('Task Scheduler & Integrity Pipeline', () => {
     let mockBlockchain: MockBlockchainAnchor;
 
     beforeAll(async () => {
-        mongoServer = await MongoMemoryServer.create();
-        const uri = mongoServer.getUri();
-        await mongoose.connect(uri);
+        mongoServer = await connectMongoMemory();
     });
 
     afterAll(async () => {
-        await mongoose.disconnect();
-        await mongoServer.stop();
+        await disconnectMongoMemory(mongoServer);
     });
 
     afterEach(async () => {
@@ -165,6 +244,30 @@ describe('Task Scheduler & Integrity Pipeline', () => {
         // Verify only ONE task in DB (excluding completed/failed if implemented differently, but here active)
         const count = await mongoose.connection.db?.collection('tasks').countDocuments({});
         expect(count).toBe(1);
+    });
+
+    it('uses an injected failure handler when reconciliation retries are exhausted', async () => {
+        taskManager = new TaskManager(new MockObservabilityService(), 50);
+        const failureHandler = mock(async () => {});
+        taskManager.registerFailureHandler(TaskType.RECONCILE_EVENT_PROOF, failureHandler as any);
+
+        taskManager.registerHandler(TaskType.RECONCILE_EVENT_PROOF, async () => {
+            throw new Error('receipt lookup exhausted');
+        });
+
+        await taskManager.schedule(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: 'item-123', version: 2, submittedTxHash: '0xabc' },
+            { retryPolicy: { maxRetries: 0, initialDelayMinutes: 1 } }
+        );
+
+        await taskManager.start();
+        await new Promise(r => setTimeout(r, 250));
+
+        expect(failureHandler).toHaveBeenCalledWith(
+            { itemId: 'item-123', version: 2, submittedTxHash: '0xabc' },
+            'receipt lookup exhausted'
+        );
     });
 
     it('Full Pipeline Flow: Sync -> Integrity -> Blockchain', async () => {
@@ -418,5 +521,76 @@ describe('Task Scheduler & Integrity Pipeline', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         expect((task as any).workerId).not.toBe('dead-worker');
     });
-});
 
+    it('marks proof as FAILED when reconciliation task exhausts retries', async () => {
+        taskManager = new TaskManager(new MockObservabilityService(), 10);
+        const timelineRepository = new MongoTimelineRepository();
+        const timelineItem = buildEncryptedTimelineItem();
+        await timelineRepository.save(timelineItem as any);
+
+        const proofService = new TimelineEventProofService(
+            timelineRepository,
+            {
+                submitHash: async () => "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                waitForPublication: async () => { throw new Error('receipt delayed'); },
+                getReceipt: async () => null,
+                publishHash: async () => { throw new Error('not used'); },
+            },
+            { getNow: () => new Date('2026-03-10T12:00:00.000Z'), getIsoString: () => '2026-03-10T12:00:00.000Z' },
+        );
+
+        await proofService.publishProof('6f133670-8d3a-4f53-a033-0f2da65e45d2');
+
+        const { EventProofReconciliationService } = await import('../../domain/events/service/EventProofReconciliationService');
+        const reconcileHandler = createReconcileEventProofHandler(new EventProofReconciliationService(
+            timelineRepository,
+            {
+                submitHash: async () => { throw new Error('not used'); },
+                waitForPublication: async () => { throw new Error('not used'); },
+                publishHash: async () => { throw new Error('not used'); },
+                getReceipt: async () => null,
+            },
+            { getNow: () => new Date('2026-03-10T13:00:00.000Z'), getIsoString: () => '2026-03-10T13:00:00.000Z' }
+        ));
+
+        taskManager.registerHandler(TaskType.RECONCILE_EVENT_PROOF, reconcileHandler);
+        const reconciliationService = new (await import('../../domain/events/service/EventProofReconciliationService')).EventProofReconciliationService(
+            timelineRepository,
+            {
+                submitHash: async () => { throw new Error('not used'); },
+                waitForPublication: async () => { throw new Error('not used'); },
+                publishHash: async () => { throw new Error('not used'); },
+                getReceipt: async () => null,
+            },
+            { getNow: () => new Date('2026-03-10T13:00:00.000Z'), getIsoString: () => '2026-03-10T13:00:00.000Z' }
+        );
+        taskManager.registerFailureHandler(
+            TaskType.RECONCILE_EVENT_PROOF,
+            async (payload, errorMessage) => {
+                const typedPayload = payload as { itemId: string; version: number; submittedTxHash?: string };
+                await reconciliationService.markProofReconciliationFailed(
+                    typedPayload.itemId,
+                    typedPayload.version,
+                    errorMessage,
+                    typedPayload.submittedTxHash
+                );
+            }
+        );
+
+        await taskManager.schedule(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: '6f133670-8d3a-4f53-a033-0f2da65e45d2', version: 2 },
+            { retryPolicy: { maxRetries: 0, initialDelayMinutes: 1 } }
+        );
+
+        await taskManager.start();
+        await new Promise(r => setTimeout(r, 200));
+        await taskManager.stop();
+
+        const updated = await timelineRepository.findByIdIncludingDeleted('6f133670-8d3a-4f53-a033-0f2da65e45d2');
+        expect(updated?.versionHistory[1].proofHistory[0]).toMatchObject({
+            status: 'FAILED',
+            lastError: 'Event proof receipt not available yet for item 6f133670-8d3a-4f53-a033-0f2da65e45d2 version 2',
+        });
+    });
+});

@@ -6,6 +6,8 @@ import { createBlockchainPublishHandler } from "../scheduler/handlers/Blockchain
 import { createProcessForensicIntentHandler } from "../scheduler/handlers/ProcessForensicIntent";
 import { createPublishEventProofHandler } from "../scheduler/handlers/PublishEventProof";
 import type { IEventProofPublisher } from "../scheduler/handlers/PublishEventProof";
+import { createReconcileEventProofHandler } from "../scheduler/handlers/ReconcileEventProof";
+import type { IEventProofReconciler } from "../scheduler/handlers/ReconcileEventProof";
 import type { IForensicRepository } from "../domain/forensic/ports/IForensicRepository";
 import type { ICryptoService } from "../domain/shared/ports/ICryptoService";
 import type { PasskeyRepository } from "../domain/auth/ports/PasskeyRepository";
@@ -21,6 +23,7 @@ type SchedulerDependencies = {
     forensicIntentRepository: ForensicIntentRepository;
     forensicService: ForensicService;
     timelineEventProofService: IEventProofPublisher;
+    eventProofReconciliationService: IEventProofReconciler;
 };
 
 export function registerSchedulerHandlers(deps: SchedulerDependencies) {
@@ -47,5 +50,27 @@ export function registerSchedulerHandlers(deps: SchedulerDependencies) {
     taskManager.registerHandler(
         TaskType.PUBLISH_EVENT_PROOF,
         createPublishEventProofHandler(deps.timelineEventProofService)
+    );
+
+    taskManager.registerHandler(
+        TaskType.RECONCILE_EVENT_PROOF,
+        createReconcileEventProofHandler(deps.eventProofReconciliationService)
+    );
+
+    taskManager.registerFailureHandler?.(
+        TaskType.RECONCILE_EVENT_PROOF,
+        async (payload, errorMessage) => {
+            const typedPayload = payload as { itemId?: string; version?: number; submittedTxHash?: string };
+            if (!typedPayload.itemId || typeof typedPayload.version !== "number") {
+                return;
+            }
+
+            await deps.eventProofReconciliationService.markProofReconciliationFailed(
+                typedPayload.itemId,
+                typedPayload.version,
+                errorMessage,
+                typedPayload.submittedTxHash
+            );
+        }
     );
 }

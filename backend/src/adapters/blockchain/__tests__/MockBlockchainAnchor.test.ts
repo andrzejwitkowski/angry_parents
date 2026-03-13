@@ -21,4 +21,12 @@ describe("MockBlockchainAnchor", () => {
         await expect(anchor.verifyAnchor("event-proof-hash", txHash)).resolves.toBe(true);
         await expect(anchor.verifyAnchor("different-hash", txHash)).resolves.toBe(false);
     });
+
+    it("returns null for receipts that were never submitted", async () => {
+        const anchor = new MockBlockchainAnchor();
+
+        await expect(
+            anchor.getReceipt("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        ).resolves.toBeNull();
+    });
 });

@@ -4,10 +4,12 @@ import { MockBlockchainAnchor } from "../MockBlockchainAnchor";
 const calls: string[] = [];
 const sendTransactionRequests: Array<Record<string, unknown>> = [];
 const waitForReceiptRequests: Array<Record<string, unknown>> = [];
+const getReceiptRequests: Array<Record<string, unknown>> = [];
 
 let selectedChain: { id: number; name: string } | undefined;
 let selectedRpcUrl: string | undefined;
 let nextReceiptBlockNumber = 123n;
+let nextReceiptLookupError: Error | undefined;
 const validTxHash = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
 mock.module("viem", () => ({
@@ -23,6 +25,17 @@ mock.module("viem", () => ({
                 waitForTransactionReceipt: async (request: Record<string, unknown>) => {
                     calls.push("waitForTransactionReceipt");
                     waitForReceiptRequests.push(request);
+                    return {
+                        blockNumber: nextReceiptBlockNumber,
+                        transactionHash: validTxHash
+                    };
+                },
+                getTransactionReceipt: async (request: Record<string, unknown>) => {
+                    calls.push("getTransactionReceipt");
+                    getReceiptRequests.push(request);
+                    if (nextReceiptLookupError) {
+                        throw nextReceiptLookupError;
+                    }
                     return {
                         blockNumber: nextReceiptBlockNumber,
                         transactionHash: validTxHash
@@ -66,9 +79,11 @@ describe("ViemBlockchainAnchor", () => {
         calls.length = 0;
         sendTransactionRequests.length = 0;
         waitForReceiptRequests.length = 0;
+        getReceiptRequests.length = 0;
         selectedChain = undefined;
         selectedRpcUrl = undefined;
         nextReceiptBlockNumber = 123n;
+        nextReceiptLookupError = undefined;
 
         process.env.BLOCKCHAIN_PRIVATE_KEY = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         process.env.BLOCKCHAIN_RPC_URL = "https://rpc.example.test";
@@ -148,6 +163,38 @@ describe("ViemBlockchainAnchor", () => {
         await expect(anchor.verifyAnchor("different-hash", validTxHash)).resolves.toBe(false);
     });
 
+    it("looks up an existing transaction receipt without waiting for publication", async () => {
+        nextReceiptBlockNumber = 654n;
+        const anchor = new ViemBlockchainAnchor();
+
+        const result = await anchor.getReceipt(validTxHash);
+
+        expect(calls).toEqual(["getTransactionReceipt"]);
+        expect(getReceiptRequests).toEqual([{ hash: validTxHash }]);
+        expect(result).toEqual({
+            txHash: validTxHash,
+            blockNumber: 654n
+        });
+    });
+
+    it("returns null when a submitted transaction receipt is not available yet", async () => {
+        nextReceiptLookupError = new Error(`Transaction receipt with hash \"${validTxHash}\" could not be found`);
+        const anchor = new ViemBlockchainAnchor();
+
+        const result = await anchor.getReceipt(validTxHash);
+
+        expect(result).toBeNull();
+        expect(calls).toEqual(["getTransactionReceipt"]);
+    });
+
+    it("rethrows blockchain lookup errors that do not mean a missing receipt", async () => {
+        nextReceiptLookupError = new Error("rpc timeout");
+        const anchor = new ViemBlockchainAnchor();
+
+        await expect(anchor.getReceipt(validTxHash)).rejects.toThrow("rpc timeout");
+        expect(calls).toEqual(["getTransactionReceipt"]);
+    });
+
     it("wireDependencies prefers the mock blockchain when USE_MOCK_BLOCKCHAIN is true", () => {
         const anchor = createBlockchainAnchor({
             ...process.env,
@@ -162,6 +209,7 @@ describe("ViemBlockchainAnchor", () => {
         const anchor = createBlockchainAnchor({
             ...process.env,
             NODE_ENV: "test",
+            E2E_TEST: "false",
             INTEGRATION_TEST: "false",
             USE_MOCK_BLOCKCHAIN: "false",
             BLOCKCHAIN_CHAIN: "amoy",
@@ -178,6 +226,8 @@ describe("ViemBlockchainAnchor", () => {
         expect(() => createBlockchainAnchor({
             ...process.env,
             NODE_ENV: "production",
+            E2E_TEST: "false",
+            INTEGRATION_TEST: "false",
             USE_MOCK_BLOCKCHAIN: "false",
             BLOCKCHAIN_PRIVATE_KEY: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             BLOCKCHAIN_RPC_URL: "https://rpc.example.test"

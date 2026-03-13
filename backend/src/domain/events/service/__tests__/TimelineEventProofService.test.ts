@@ -3,6 +3,7 @@ import { InMemoryTimelineRepository } from "../../../../adapters/mongo/inmemory/
 import type { EncryptedTimelineItem } from "../../model/TimelineItem";
 import type { DateProvider } from "../../../shared/ports/DateProvider";
 import type { IEventBlockchainAnchor } from "../../../shared/ports/IEventBlockchainAnchor";
+import { TaskType } from "../../../shared/ports/TaskScheduler";
 import { TimelineEventProofService } from "../TimelineEventProofService";
 import { calculateEventProofHash } from "../eventProofHash";
 
@@ -134,11 +135,21 @@ describe("TimelineEventProofService", () => {
     let repository: InMemoryTimelineRepository;
     let blockchainAnchor: IEventBlockchainAnchor;
     let service: TimelineEventProofService;
+    let taskManager: { schedule: ReturnType<typeof vi.fn> };
     const validPublishedTxHash = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
     function createDeferredReceipt() {
         let resolve!: (value: { txHash: string; blockNumber: bigint }) => void;
         const promise = new Promise<{ txHash: string; blockNumber: bigint }>((res) => {
+            resolve = res;
+        });
+
+        return { promise, resolve };
+    }
+
+    function createDeferredValue<T>() {
+        let resolve!: (value: T) => void;
+        const promise = new Promise<T>((res) => {
             resolve = res;
         });
 
@@ -155,13 +166,18 @@ describe("TimelineEventProofService", () => {
                 txHash: validPublishedTxHash,
                 blockNumber: 987n,
             }),
+            getReceipt: vi.fn(),
             publishHash: vi.fn().mockResolvedValue({
                 txHash: validPublishedTxHash,
                 blockNumber: 987n,
             })
         };
 
-        service = new TimelineEventProofService(repository, blockchainAnchor, fixedDateProvider);
+        taskManager = {
+            schedule: vi.fn().mockResolvedValue(undefined)
+        };
+
+        service = new TimelineEventProofService(repository, blockchainAnchor, fixedDateProvider, taskManager as any);
     });
 
     it("computes a deterministic hash from the stored snapshot, publishes it, and appends anchored proof history", async () => {
@@ -213,10 +229,11 @@ describe("TimelineEventProofService", () => {
         const failedAnchor: IEventBlockchainAnchor = {
             submitHash: vi.fn().mockRejectedValue(new Error("rpc timeout")),
             waitForPublication: vi.fn(),
+            getReceipt: vi.fn(),
             publishHash: vi.fn().mockRejectedValue(new Error("rpc timeout")),
         };
 
-        service = new TimelineEventProofService(repository, failedAnchor, fixedDateProvider);
+        service = new TimelineEventProofService(repository, failedAnchor, fixedDateProvider, taskManager as any);
 
         await expect(service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2")).rejects.toThrow(
             "Failed to publish event proof for timeline item 6f133670-8d3a-4f53-a033-0f2da65e45d2 version 2: rpc timeout"
@@ -230,7 +247,7 @@ describe("TimelineEventProofService", () => {
         (legacyItem as any).versionHistory = [];
         await legacyRepository.save(legacyItem);
 
-        const legacyService = new TimelineEventProofService(legacyRepository, blockchainAnchor, fixedDateProvider);
+        const legacyService = new TimelineEventProofService(legacyRepository, blockchainAnchor, fixedDateProvider, taskManager as any);
         const result = await legacyService.publishProof(legacyItem.id);
 
         expect(result.version).toBe(1);
@@ -293,12 +310,13 @@ describe("TimelineEventProofService", () => {
         const submitFirstAnchor: IEventBlockchainAnchor = {
             submitHash: vi.fn().mockResolvedValue(validPublishedTxHash),
             waitForPublication: vi.fn().mockReturnValue(deferredReceipt.promise),
+            getReceipt: vi.fn(),
             publishHash: vi.fn().mockReturnValue(deferredReceipt.promise),
         };
         service = new TimelineEventProofService(repository, submitFirstAnchor, {
             ...fixedDateProvider,
             getIsoString: () => submittedAt,
-        });
+        }, taskManager as any);
 
         const pendingPublication = service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2");
         await waitForProofStatus(repository, "6f133670-8d3a-4f53-a033-0f2da65e45d2", 2, "SUBMITTED");
@@ -322,6 +340,300 @@ describe("TimelineEventProofService", () => {
         const result = await pendingPublication;
         expect(result.status).toBe("CONFIRMED");
         expect(result.submittedTxHash).toBe(validPublishedTxHash);
+        expect(taskManager.schedule).toHaveBeenCalledWith(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: "6f133670-8d3a-4f53-a033-0f2da65e45d2", version: 2, submittedTxHash: validPublishedTxHash },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+    });
+
+    it("returns a submitted proof and schedules reconciliation instead of resubmitting", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result).toEqual({
+            version: 2,
+            hash,
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        });
+        expect(blockchainAnchor.submitHash).not.toHaveBeenCalled();
+        expect(blockchainAnchor.waitForPublication).not.toHaveBeenCalled();
+        expect(taskManager.schedule).toHaveBeenCalledWith(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: "6f133670-8d3a-4f53-a033-0f2da65e45d2", version: 2, submittedTxHash: validPublishedTxHash },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+    });
+
+    it("retries a failed proof with a submitted tx hash by resuming reconciliation instead of submitting again", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "FAILED",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+            lastError: "receipt lookup exhausted",
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result).toEqual({
+            version: 2,
+            hash,
+            status: "RECONCILING",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: anchoredAt,
+            lastError: "receipt lookup exhausted",
+        });
+        expect(blockchainAnchor.submitHash).not.toHaveBeenCalled();
+        expect(blockchainAnchor.waitForPublication).not.toHaveBeenCalled();
+        expect(taskManager.schedule).toHaveBeenCalledWith(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: "6f133670-8d3a-4f53-a033-0f2da65e45d2", version: 2, submittedTxHash: validPublishedTxHash },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory).toEqual([
+            {
+                version: 2,
+                hash,
+                status: "RECONCILING",
+                submittedTxHash: validPublishedTxHash,
+                lastAttemptAt: anchoredAt,
+                lastError: "receipt lookup exhausted",
+            },
+        ]);
+    });
+
+    it("does not double-submit when retrying a claimed proof concurrently", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "CLAIMED",
+        });
+
+        const deferredTxHash = createDeferredValue<string>();
+        const delayedReceiptAnchor: IEventBlockchainAnchor = {
+            submitHash: vi.fn().mockReturnValue(deferredTxHash.promise),
+            waitForPublication: vi.fn().mockRejectedValue(new Error("receipt delayed")),
+            getReceipt: vi.fn(),
+            publishHash: vi.fn().mockRejectedValue(new Error("receipt delayed")),
+        };
+
+        const firstService = new TimelineEventProofService(repository, delayedReceiptAnchor, fixedDateProvider, taskManager as any);
+        const secondService = new TimelineEventProofService(repository, delayedReceiptAnchor, fixedDateProvider, taskManager as any);
+
+        const firstPublication = firstService.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+        const secondPublication = secondService.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(delayedReceiptAnchor.submitHash).toHaveBeenCalledTimes(1);
+
+        deferredTxHash.resolve(validPublishedTxHash);
+
+        const [firstResult, secondResult] = await Promise.all([firstPublication, secondPublication]);
+        expect([firstResult.status, secondResult.status].sort()).toEqual(["RECONCILING", "SUBMITTED"]);
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory[0]).toMatchObject({
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+        });
+    });
+
+    it("returns a submitted proof when receipt waiting is delayed after tx submission", async () => {
+        const delayedReceiptAnchor: IEventBlockchainAnchor = {
+            submitHash: vi.fn().mockResolvedValue(validPublishedTxHash),
+            waitForPublication: vi.fn().mockRejectedValue(new Error("receipt delayed")),
+            getReceipt: vi.fn(),
+            publishHash: vi.fn().mockRejectedValue(new Error("receipt delayed")),
+        };
+        service = new TimelineEventProofService(repository, delayedReceiptAnchor, fixedDateProvider, taskManager as any);
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+
+        expect(result).toEqual({
+            version: 2,
+            hash: calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot),
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: anchoredAt,
+        });
+        expect(taskManager.schedule).toHaveBeenCalledWith(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: "6f133670-8d3a-4f53-a033-0f2da65e45d2", version: 2, submittedTxHash: validPublishedTxHash },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+    });
+
+    it("does not swallow non-recoverable publication errors after tx submission", async () => {
+        const failedReceiptAnchor: IEventBlockchainAnchor = {
+            submitHash: vi.fn().mockResolvedValue(validPublishedTxHash),
+            waitForPublication: vi.fn().mockRejectedValue(new Error("rpc timeout")),
+            getReceipt: vi.fn(),
+            publishHash: vi.fn().mockRejectedValue(new Error("rpc timeout")),
+        };
+        service = new TimelineEventProofService(repository, failedReceiptAnchor, fixedDateProvider, taskManager as any);
+
+        await expect(service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2")).rejects.toThrow(
+            "Failed to publish event proof for timeline item 6f133670-8d3a-4f53-a033-0f2da65e45d2 version 2: rpc timeout"
+        );
+    });
+
+    it("keeps a claimed proof recoverable when submitHash fails before any tx hash is persisted", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        const failedSubmitAnchor: IEventBlockchainAnchor = {
+            submitHash: vi.fn().mockRejectedValue(new Error("rpc timeout")),
+            waitForPublication: vi.fn(),
+            getReceipt: vi.fn(),
+            publishHash: vi.fn().mockRejectedValue(new Error("rpc timeout")),
+        };
+        service = new TimelineEventProofService(repository, failedSubmitAnchor, fixedDateProvider, taskManager as any);
+
+        await expect(service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2")).rejects.toThrow(
+            "Failed to publish event proof for timeline item 6f133670-8d3a-4f53-a033-0f2da65e45d2 version 2: rpc timeout"
+        );
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory).toEqual([
+            {
+                version: 2,
+                hash,
+                status: "CLAIMED",
+            },
+        ]);
+    });
+
+    it("preserves the submitted tx hash in proof history when submit succeeds but persisting SUBMITTED fails", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "CLAIMED",
+        });
+
+        const realMarkProofSubmitted = repository.markProofSubmitted.bind(repository);
+        let firstCall = true;
+        repository.markProofSubmitted = vi.fn(async (id, proof, session) => {
+            if (firstCall) {
+                firstCall = false;
+                throw new Error("mongo unavailable");
+            }
+
+            return realMarkProofSubmitted(id, proof, session);
+        });
+
+        await expect(service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true })).rejects.toThrow(
+            "Failed to publish event proof for timeline item 6f133670-8d3a-4f53-a033-0f2da65e45d2 version 2: mongo unavailable"
+        );
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory).toEqual([
+            {
+                version: 2,
+                hash,
+                status: "SUBMITTED",
+                submittedTxHash: validPublishedTxHash,
+                lastAttemptAt: anchoredAt,
+                lastError: "mongo unavailable",
+            },
+        ]);
+    });
+
+    it("schedules reconciliation with the submitted tx hash when proof persistence failed after submit", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "CLAIMED",
+        });
+
+        repository.markProofSubmitted = vi.fn(async () => {
+            throw new Error("mongo unavailable");
+        });
+        repository.replaceProofRecord = vi.fn(async () => {
+            throw new Error("mongo unavailable");
+        });
+
+        const firstResult = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+        expect(firstResult).toMatchObject({
+            version: 2,
+            hash,
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastError: "mongo unavailable",
+        });
+        expect(blockchainAnchor.submitHash).toHaveBeenCalledTimes(1);
+        expect(taskManager.schedule).toHaveBeenCalledWith(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: "6f133670-8d3a-4f53-a033-0f2da65e45d2", version: 2, submittedTxHash: validPublishedTxHash },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+    });
+
+    it("treats reconciliation scheduling as best effort after persisting submitted state", async () => {
+        taskManager.schedule.mockRejectedValueOnce(new Error("scheduler offline"));
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+
+        expect(result.status).toBe("CONFIRMED");
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory[0]).toMatchObject({
+            status: "CONFIRMED",
+            submittedTxHash: validPublishedTxHash,
+        });
+    });
+
+    it("persists a recoverable submitted proof when post-submit persistence and reconciliation scheduling both fail", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "CLAIMED",
+        });
+
+        repository.markProofSubmitted = vi.fn(async () => {
+            throw new Error("mongo unavailable");
+        });
+        repository.replaceProofRecord = vi.fn(async () => {
+            throw new Error("replace failed");
+        });
+        taskManager.schedule.mockRejectedValue(new Error("scheduler offline"));
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result).toMatchObject({
+            version: 2,
+            hash,
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastError: "mongo unavailable",
+        });
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory).toEqual([
+            {
+                version: 2,
+                hash,
+                status: "SUBMITTED",
+                submittedTxHash: validPublishedTxHash,
+                lastAttemptAt: anchoredAt,
+                lastError: "mongo unavailable",
+            },
+        ]);
     });
 
     it("can publish proof for a deleted timeline item version", async () => {
@@ -331,7 +643,7 @@ describe("TimelineEventProofService", () => {
         deletedItem.versionHistory[1].snapshot.isDeleted = true;
         await deletedRepository.save(deletedItem);
 
-        const deletedService = new TimelineEventProofService(deletedRepository, blockchainAnchor, fixedDateProvider);
+        const deletedService = new TimelineEventProofService(deletedRepository, blockchainAnchor, fixedDateProvider, taskManager as any);
         const result = await deletedService.publishProof(deletedItem.id);
 
         expect(result.version).toBe(2);
@@ -346,7 +658,7 @@ describe("TimelineEventProofService", () => {
         (legacyItem as any).versionHistory = [];
         await legacyRepository.save(legacyItem);
 
-        const legacyService = new TimelineEventProofService(legacyRepository, blockchainAnchor, fixedDateProvider);
+        const legacyService = new TimelineEventProofService(legacyRepository, blockchainAnchor, fixedDateProvider, taskManager as any);
         await legacyService.publishProof(legacyItem.id);
 
         const updated = await legacyRepository.findByIdIncludingDeleted(legacyItem.id);

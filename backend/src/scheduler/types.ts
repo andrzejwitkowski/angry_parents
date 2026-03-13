@@ -27,3 +27,12 @@ export interface PublishEventProofPayload {
     /** The specific version number to anchor. Prevents anchoring the wrong snapshot on concurrent edits. */
     version: number;
 }
+
+export interface ReconcileEventProofPayload {
+    /** The timeline item ID. Combined with version, this uniquely identifies the proof reconciliation target. */
+    itemId: string;
+    /** The specific version number to reconcile. Prevents reconciling the wrong snapshot on concurrent edits. */
+    version: number;
+    /** Optional tx hash captured before persistence failed; allows recovery without re-submitting on-chain. */
+    submittedTxHash?: string;
+}

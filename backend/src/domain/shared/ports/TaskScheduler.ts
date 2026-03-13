@@ -4,6 +4,7 @@ export enum TaskType {
     BLOCKCHAIN_PUBLISH = 'BLOCKCHAIN_PUBLISH',
     PROCESS_FORENSIC_INTENT = 'PROCESS_FORENSIC_INTENT',
     PUBLISH_EVENT_PROOF = 'PUBLISH_EVENT_PROOF',
+    RECONCILE_EVENT_PROOF = 'RECONCILE_EVENT_PROOF',
 }
 
 export enum TaskStatus {
@@ -48,6 +49,7 @@ export interface ScheduleOptions {
 
 export interface ITaskManager {
     registerHandler<T>(type: TaskType, handler: (payload: T) => Promise<void>): void;
+    registerFailureHandler?(type: TaskType, handler: (payload: unknown, errorMessage: string) => Promise<void>): void;
     start(): Promise<void>;
     stop(): Promise<void>;
     schedule<T>(type: TaskType, payload: T, options?: ScheduleOptions): Promise<ITask<T>>;

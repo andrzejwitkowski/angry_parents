@@ -152,8 +152,8 @@ describe("Timeline Forensic Integration", () => {
         const created = await service.createItem({ ...dto, signatureBase64: "mock-sig", timestamp: "2024-01-01T12:00:00.000Z", keyId: "key1" } as any);
         const anchoredProof = {
             version: 1,
-            hash: "hash-v1",
-            txHash: "0xabc",
+            hash: "a".repeat(64),
+            txHash: `0x${"b".repeat(64)}`,
             blockNumber: "42",
             anchoredAt: "2026-01-27T00:00:00.000Z"
         };

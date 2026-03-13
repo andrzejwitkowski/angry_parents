@@ -16,6 +16,45 @@ function resolveBlockchainChain(chainName: SupportedBlockchainChain): Chain {
     return chainName === "amoy" ? polygonAmoy : polygon;
 }
 
+function isMissingReceiptError(error: unknown): boolean {
+    const visited = new Set<unknown>();
+    const queue: unknown[] = [error];
+    const missingReceiptMarkers = [
+        "receipt not found",
+        "transaction receipt not found",
+        "could not find transaction receipt",
+        "transaction receipt with hash",
+    ];
+
+    while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current || visited.has(current)) {
+            continue;
+        }
+        visited.add(current);
+
+        if (typeof current === "string") {
+            const normalized = current.toLowerCase();
+            if (missingReceiptMarkers.some((marker) => normalized.includes(marker))) {
+                return true;
+            }
+            continue;
+        }
+
+        if (current instanceof Error) {
+            queue.push(current.name, current.message, (current as Error & { cause?: unknown }).cause);
+            continue;
+        }
+
+        if (typeof current === "object") {
+            const record = current as Record<string, unknown>;
+            queue.push(record.name, record.message, record.shortMessage, record.details, record.cause);
+        }
+    }
+
+    return false;
+}
+
 export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchainAnchor {
     private client: (WalletClient<Transport, Chain, LocalAccount> & PublicActions<Transport, Chain, LocalAccount>) | undefined;
     private account: LocalAccount | undefined;
@@ -89,6 +128,27 @@ export class ViemBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
             txHash,
             blockNumber: receipt.blockNumber
         };
+    }
+
+    async getReceipt(txHash: string): Promise<PublishedHashResult | null> {
+        const client = this.client;
+        if (!client) {
+            throw new Error("Blockchain client not initialized");
+        }
+
+        try {
+            const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` });
+            return {
+                txHash,
+                blockNumber: receipt.blockNumber
+            };
+        } catch (error) {
+            if (isMissingReceiptError(error)) {
+                return null;
+            }
+
+            throw error;
+        }
     }
 
     async anchorHash(hash: string): Promise<string> {

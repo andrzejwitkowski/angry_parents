@@ -2,8 +2,9 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'bun:test';
 import { TaskManager } from '../TaskManager';
 import { TaskStatus, TaskType } from '../types';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import { ObservabilityService } from '../../domain/shared/ports/ObservabilityService';
+import type { MongoMemoryServer } from 'mongodb-memory-server';
+import { connectMongoMemory, disconnectMongoMemory } from '../../adapters/mongo/__tests__/mongoMemoryServer';
 
 class MockObservability implements ObservabilityService {
     public timeouts: { taskType: string; taskId: string; metadata: any }[] = [];
@@ -24,14 +25,11 @@ describe('TaskManager Timeout Logic', () => {
     let mockObservability: MockObservability;
 
     beforeAll(async () => {
-        mongoServer = await MongoMemoryServer.create();
-        const uri = mongoServer.getUri();
-        await mongoose.connect(uri);
+        mongoServer = await connectMongoMemory();
     });
 
     afterAll(async () => {
-        await mongoose.disconnect();
-        await mongoServer.stop();
+        await disconnectMongoMemory(mongoServer);
     });
 
     afterEach(async () => {

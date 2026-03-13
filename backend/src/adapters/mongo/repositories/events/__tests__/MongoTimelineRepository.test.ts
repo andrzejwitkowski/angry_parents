@@ -1,4 +1,5 @@
-import { describe, expect, it, beforeAll, afterAll, beforeEach } from "bun:test";
+import { describe, expect, it, beforeAll, afterAll, beforeEach, mock } from "bun:test";
+import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { MongoTimelineRepository } from "../MongoTimelineRepository";
 import { TimelineItemModel } from "../../../models/TimelineItemModel";
@@ -150,6 +151,19 @@ describe("MongoTimelineRepository", () => {
         await expect(repository.delete("missing-id")).rejects.toThrow("not found");
     });
 
+    it("falls back to running the operation without a transaction when transactions are unavailable", async () => {
+        const originalStartSession = mongoose.startSession;
+        mongoose.startSession = mock(async () => {
+            throw new Error("Transaction numbers are only allowed on a replica set member or mongos");
+        }) as any;
+
+        try {
+            await expect(repository.withTransaction(async () => "ok")).resolves.toBe("ok");
+        } finally {
+            mongoose.startSession = originalStartSession;
+        }
+    });
+
     it("stores submitted transaction metadata separately from final confirmation", async () => {
         const itemWithVersionHistory: TimelineItem = encrypted({
             ...mockItem,
@@ -194,6 +208,118 @@ describe("MongoTimelineRepository", () => {
                 status: "SUBMITTED",
                 submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 lastAttemptAt: "2026-03-11T12:00:00.000Z"
+            }
+        ]);
+    });
+
+    it("atomically claims a proof transition only once under concurrent Mongo calls", async () => {
+        const itemWithVersionHistory: TimelineItem = encrypted({
+            ...mockItem,
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: mockItem.id,
+                    type: "NOTE",
+                    date: mockItem.date,
+                    createdAt: mockItem.createdAt,
+                    createdBy: mockItem.createdBy,
+                    createdByName: mockItem.createdByName,
+                    auditTrail: mockItem.auditTrail,
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-1": "ciphertext" }
+                },
+                proofHistory: [{
+                    version: 1,
+                    hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    status: "CLAIMED"
+                }]
+            }]
+        }) as any;
+
+        await repository.save(itemWithVersionHistory as any);
+
+        const [first, second] = await Promise.all([
+            repository.markProofTransitionInProgress(
+                mockItem.id,
+                1,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ),
+            repository.markProofTransitionInProgress(
+                mockItem.id,
+                1,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            )
+        ]);
+
+        const successfulClaims = [first, second].filter(Boolean);
+        expect(successfulClaims).toHaveLength(1);
+        expect([first, second]).toContain(null);
+
+        const found = await repository.findById(mockItem.id);
+        expect((found as any).versionHistory[0].proofHistory).toEqual([
+            {
+                version: 1,
+                hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                status: "RECONCILING"
+            }
+        ]);
+    });
+
+    it("atomically resets an in-progress Mongo proof claim only once under concurrent calls", async () => {
+        const itemWithVersionHistory: TimelineItem = encrypted({
+            ...mockItem,
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: mockItem.id,
+                    type: "NOTE",
+                    date: mockItem.date,
+                    createdAt: mockItem.createdAt,
+                    createdBy: mockItem.createdBy,
+                    createdByName: mockItem.createdByName,
+                    auditTrail: mockItem.auditTrail,
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-1": "ciphertext" }
+                },
+                proofHistory: [{
+                    version: 1,
+                    hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    status: "RECONCILING"
+                }]
+            }]
+        }) as any;
+
+        await repository.save(itemWithVersionHistory as any);
+
+        const [first, second] = await Promise.all([
+            repository.resetProofTransitionClaim(
+                mockItem.id,
+                1,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ),
+            repository.resetProofTransitionClaim(
+                mockItem.id,
+                1,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            )
+        ]);
+
+        const successfulResets = [first, second].filter(Boolean);
+        expect(successfulResets).toHaveLength(1);
+        expect([first, second]).toContain(null);
+
+        const found = await repository.findById(mockItem.id);
+        expect((found as any).versionHistory[0].proofHistory).toEqual([
+            {
+                version: 1,
+                hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                status: "CLAIMED"
             }
         ]);
     });

@@ -43,15 +43,38 @@ export async function createApp() {
         forensicIntentRepository: deps.forensicIntentRepository,
         forensicService: deps.forensicService,
         timelineEventProofService: deps.timelineEventProofService,
+        eventProofReconciliationService: deps.eventProofReconciliationService,
     });
 
     try {
         await taskManager.start();
+        await deps.taskOutboxDispatcher.dispatchNext().catch((error: unknown) => {
+            console.error("[TaskOutboxDispatcher] Initial dispatch failed:", error instanceof Error ? error.message : String(error));
+        });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error("[TaskManager] Failed to start:", message);
         throw new Error(`TaskManager startup failed: ${message}`);
     }
+
+    let outboxDispatchInFlight = false;
+    const outboxDispatchLoop = setInterval(async () => {
+        if (outboxDispatchInFlight) {
+            return;
+        }
+
+        outboxDispatchInFlight = true;
+        try {
+            while (await deps.taskOutboxDispatcher.dispatchNext()) {
+                // Drain available outbox work before yielding.
+            }
+        } catch (error) {
+            console.error("[TaskOutboxDispatcher] Background dispatch failed:", error instanceof Error ? error.message : String(error));
+        } finally {
+            outboxDispatchInFlight = false;
+        }
+    }, 200);
+    outboxDispatchLoop.unref?.();
 
     const app = new Elysia();
     const finalApp = app
@@ -133,11 +156,50 @@ export async function createApp() {
             .post("/api/test/process-tasks", async () => {
                 let processedCount = 0;
                 const tm = taskManager as any;
-                if (tm.claimAndProcess) {
+                if (typeof tm.claimTask === "function" && typeof tm.processTask === "function") {
+                    const task = await tm.claimTask();
+                    if (task) {
+                        await tm.processTask(task);
+                        processedCount++;
+                    }
+                } else if (tm.claimAndProcess) {
                     await tm.claimAndProcess();
                     processedCount++;
                 }
                 return { status: "processed", count: processedCount };
+            })
+            .post("/api/test/process-outbox", async () => {
+                const dispatched = await deps.taskOutboxDispatcher.dispatchNext().catch(() => false);
+                return { status: "processed", dispatched };
+            })
+            .post("/api/test/outbox/disable", async () => {
+                (deps.taskOutboxDispatcher as any).setDisabled?.(true);
+                return { status: "disabled" };
+            })
+            .post("/api/test/outbox/enable", async () => {
+                (deps.taskOutboxDispatcher as any).setDisabled?.(false);
+                return { status: "enabled" };
+            })
+            .post("/api/test/events/delay-receipt", async ({ body, set }) => {
+                const blockchainAnchor = deps.blockchainAnchor as any;
+                if (typeof blockchainAnchor.delayNextReceipt !== "function") {
+                    set.status = 400;
+                    return { error: "receipt delay hook unavailable" };
+                }
+
+                blockchainAnchor.delayNextReceipt();
+                return { status: "delayed" };
+            })
+            .get("/api/test/events/blockchain-stats", ({ set }) => {
+                const blockchainAnchor = deps.blockchainAnchor as any;
+                if (typeof blockchainAnchor.getSubmitCount !== "function") {
+                    set.status = 400;
+                    return { error: "blockchain stats unavailable" };
+                }
+
+                return {
+                    submitCount: blockchainAnchor.getSubmitCount()
+                };
             })
             .delete("/api/test/database", async () => {
                 if (mongoose.connection.db) {

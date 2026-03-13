@@ -140,6 +140,166 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return this.appendProofRecord(id, proof, session);
     }
 
+    async markProofTransitionInProgress(id: string, version: number, hash: string, _session?: unknown): Promise<EncryptedTimelineItem | null> {
+        const existingItem = this.itemsById.get(id);
+        if (!existingItem) {
+            throw new Error(`Item with id ${id} not found`);
+        }
+
+        let didClaim = false;
+        const versionHistory = existingItem.versionHistory.map((entry) => {
+            if (entry.version !== version) {
+                return entry;
+            }
+
+            const proofIndex = entry.proofHistory.findIndex((proof) => proof.hash === hash);
+            if (proofIndex === -1) {
+                throw new Error(`Item with id ${id} and version ${version} not found`);
+            }
+
+            const proof = entry.proofHistory[proofIndex];
+            if (proof.status !== "CLAIMED") {
+                return entry;
+            }
+
+            didClaim = true;
+            const updatedProofHistory = [...entry.proofHistory];
+            updatedProofHistory[proofIndex] = {
+                ...proof,
+                status: "RECONCILING",
+            };
+
+            return {
+                ...entry,
+                proofHistory: updatedProofHistory,
+            };
+        });
+
+        if (!didClaim) {
+            return null;
+        }
+
+        const updatedItem = {
+            ...existingItem,
+            versionHistory,
+        } satisfies EncryptedTimelineItem;
+
+        this.itemsById.set(id, updatedItem);
+
+        const itemsForDate = this.itemsByDate.get(existingItem.date) || [];
+        const itemIndex = itemsForDate.findIndex((item) => item.id === id);
+        if (itemIndex !== -1) {
+            itemsForDate[itemIndex] = updatedItem;
+            this.itemsByDate.set(existingItem.date, itemsForDate);
+        }
+
+        return updatedItem;
+    }
+
+    async resetProofTransitionClaim(id: string, version: number, hash: string, _session?: unknown): Promise<EncryptedTimelineItem | null> {
+        const existingItem = this.itemsById.get(id);
+        if (!existingItem) {
+            throw new Error(`Item with id ${id} not found`);
+        }
+
+        let didReset = false;
+        const versionHistory = existingItem.versionHistory.map((entry) => {
+            if (entry.version !== version) {
+                return entry;
+            }
+
+            const proofIndex = entry.proofHistory.findIndex((proof) => proof.hash === hash);
+            if (proofIndex === -1) {
+                throw new Error(`Item with id ${id} and version ${version} not found`);
+            }
+
+            const proof = entry.proofHistory[proofIndex];
+            if (proof.status !== "RECONCILING") {
+                return entry;
+            }
+
+            didReset = true;
+            const updatedProofHistory = [...entry.proofHistory];
+            updatedProofHistory[proofIndex] = {
+                ...proof,
+                status: "CLAIMED",
+            };
+
+            return {
+                ...entry,
+                proofHistory: updatedProofHistory,
+            };
+        });
+
+        if (!didReset) {
+            return null;
+        }
+
+        const updatedItem = {
+            ...existingItem,
+            versionHistory,
+        } satisfies EncryptedTimelineItem;
+
+        this.itemsById.set(id, updatedItem);
+
+        const itemsForDate = this.itemsByDate.get(existingItem.date) || [];
+        const itemIndex = itemsForDate.findIndex((item) => item.id === id);
+        if (itemIndex !== -1) {
+            itemsForDate[itemIndex] = updatedItem;
+            this.itemsByDate.set(existingItem.date, itemsForDate);
+        }
+
+        return updatedItem;
+    }
+
+    async replaceProofRecord(id: string, proof: EventProofRecord, _session?: unknown): Promise<EncryptedTimelineItem> {
+        const existingItem = this.itemsById.get(id);
+        if (!existingItem) {
+            throw new Error(`Item with id ${id} not found`);
+        }
+
+        let didReplace = false;
+        const versionHistory = existingItem.versionHistory.map((entry) => {
+            if (entry.version !== proof.version) {
+                return entry;
+            }
+
+            const proofIndex = entry.proofHistory.findIndex((existingProof) => existingProof.hash === proof.hash);
+            if (proofIndex === -1) {
+                throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+            }
+
+            didReplace = true;
+            const updatedProofHistory = [...entry.proofHistory];
+            updatedProofHistory[proofIndex] = proof;
+
+            return {
+                ...entry,
+                proofHistory: updatedProofHistory,
+            };
+        });
+
+        if (!didReplace) {
+            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+        }
+
+        const updatedItem = {
+            ...existingItem,
+            versionHistory,
+        } satisfies EncryptedTimelineItem;
+
+        this.itemsById.set(id, updatedItem);
+
+        const itemsForDate = this.itemsByDate.get(existingItem.date) || [];
+        const itemIndex = itemsForDate.findIndex((item) => item.id === id);
+        if (itemIndex !== -1) {
+            itemsForDate[itemIndex] = updatedItem;
+            this.itemsByDate.set(existingItem.date, itemsForDate);
+        }
+
+        return updatedItem;
+    }
+
     async countByChildId(childId: string): Promise<number> {
         let count = 0;
         for (const item of this.itemsById.values()) {

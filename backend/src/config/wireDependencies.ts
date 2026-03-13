@@ -9,6 +9,8 @@ import { MongoScheduleRepository } from "../adapters/mongo/repositories/events/M
 import { MongoChildRepository } from "../adapters/mongo/repositories/family/MongoChildRepository";
 import { MongoPasskeyRepository } from "../adapters/mongo/repositories/auth/MongoPasskeyRepository";
 import { MongoForensicIntentRepository } from "../adapters/mongo/repositories/forensic/MongoForensicIntentRepository";
+import { MongoTimelineMutationRequestRepository } from "../adapters/mongo/repositories/events/MongoTimelineMutationRequestRepository";
+import { MongoTaskOutboxRepository } from "../adapters/mongo/repositories/shared/MongoTaskOutboxRepository";
 import { MockBlockchainAnchor } from "../adapters/blockchain/MockBlockchainAnchor";
 import { ViemBlockchainAnchor } from "../adapters/blockchain/ViemBlockchainAnchor";
 import { TimelineApiService } from "../domain/events/service/TimelineApiService";
@@ -23,6 +25,8 @@ import { ScheduleService } from "../domain/events/service/ScheduleService";
 import { PropagationService } from "../domain/events/service/PropagationService";
 import { ChildService } from "../domain/family/service/ChildService";
 import { TimelineEventProofService } from "../domain/events/service/TimelineEventProofService";
+import { EventProofReconciliationService } from "../domain/events/service/EventProofReconciliationService";
+import { TaskOutboxDispatcher } from "../domain/shared/service/TaskOutboxDispatcher";
 import type { IBlockchainAnchor } from "../domain/shared/ports/IBlockchainAnchor";
 import type { IEventBlockchainAnchor } from "../domain/shared/ports/IEventBlockchainAnchor";
 
@@ -86,14 +90,25 @@ export async function wireDependencies() {
     const forensicRepository = new MongoForensicRepository(mongoose.connection.db as any);
     const timelineRepository = new MongoTimelineRepository();
     const forensicIntentRepository = new MongoForensicIntentRepository();
+    const timelineMutationRequestRepository = new MongoTimelineMutationRequestRepository();
+    const taskOutboxRepository = new MongoTaskOutboxRepository();
     const custodyRepository = new MongoCustodyRepository();
     const scheduleRepository = new MongoScheduleRepository();
     const childRepository = new MongoChildRepository();
     const passkeyRepository = new MongoPasskeyRepository();
 
+    await timelineMutationRequestRepository.ensureIndexes();
+    await taskOutboxRepository.ensureIndexes?.();
+
     const cryptoService = new BunCryptoService();
     const blockchainAnchor = createBlockchainAnchor(process.env);
     const timelineEventProofService = new TimelineEventProofService(
+        timelineRepository,
+        blockchainAnchor,
+        dateProvider,
+        taskManager
+    );
+    const eventProofReconciliationService = new EventProofReconciliationService(
         timelineRepository,
         blockchainAnchor,
         dateProvider
@@ -109,7 +124,10 @@ export async function wireDependencies() {
         passkeyRepository,
         forensicIntentRepository,
         taskManager,
+        timelineMutationRequestRepository,
+        taskOutboxRepository,
     );
+    const taskOutboxDispatcher = new TaskOutboxDispatcher(taskOutboxRepository, taskManager);
     const scheduleService = new ScheduleService(scheduleRepository, custodyRepository, dateProvider, uuidProvider);
     const propagationService = new PropagationService(scheduleRepository);
     const childService = new ChildService(childRepository, timelineRepository, uuidProvider);
@@ -126,12 +144,16 @@ export async function wireDependencies() {
         timelineRepository,
         forensicIntentRepository,
         custodyRepository,
+        timelineMutationRequestRepository,
+        taskOutboxRepository,
+        taskOutboxDispatcher,
         scheduleRepository,
         childRepository,
         passkeyRepository,
         cryptoService,
         blockchainAnchor,
         timelineEventProofService,
+        eventProofReconciliationService,
         forensicService,
         timelineService,
         scheduleService,

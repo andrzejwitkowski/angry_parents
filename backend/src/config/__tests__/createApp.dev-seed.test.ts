@@ -1,67 +1,40 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { Elysia } from "elysia";
 import { connectMongoMemory, disconnectMongoMemory } from "../../adapters/mongo/__tests__/mongoMemoryServer";
 import { Family } from "../../adapters/mongo/models/FamilyModel";
+import { TaskType } from "../../scheduler/types";
+import * as wireDependenciesModule from "../wireDependencies";
+const scheduleMock = vi.fn();
+const registerHandlerMock = vi.fn();
+
+const createMockDeps = () => ({
+    timelineApiService: {},
+    custodyApiService: {},
+    familyApiService: {},
+    passkeyRepository: {},
+    dateProvider: { getIsoString: () => "2026-03-11T12:00:00.000Z" },
+    registrationProcessRepository: {},
+    forensicApiService: {},
+    forensicRepository: {},
+    cryptoService: {},
+    blockchainAnchor: {},
+    forensicIntentRepository: {},
+    forensicService: {},
+    timelineEventProofService: {},
+    eventProofReconciliationService: {},
+    timelineMutationRequestRepository: { ensureIndexes: vi.fn().mockResolvedValue(undefined) },
+    taskOutboxRepository: { ensureIndexes: vi.fn().mockResolvedValue(undefined) },
+    taskOutboxDispatcher: { dispatchNext: vi.fn().mockResolvedValue(false) },
+    timelineRepository: {},
+    custodyRepository: {}
+});
 
 vi.mock("../../scheduler/instance", () => ({
     taskManager: {
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn(),
-        schedule: vi.fn(),
-        registerHandler: vi.fn()
+        schedule: scheduleMock,
+        registerHandler: registerHandlerMock
     }
-}));
-
-vi.mock("../registerSchedulerHandlers", () => ({
-    registerSchedulerHandlers: vi.fn()
-}));
-
-vi.mock("../../adapters/rest/events/TimelineController", () => ({
-    createTimelineController: () => new Elysia()
-}));
-
-vi.mock("../../adapters/rest/events/CustodyController", () => ({
-    createCustodyController: () => new Elysia()
-}));
-
-vi.mock("../../adapters/rest/auth/WebAuthnController", () => ({
-    createWebAuthnController: () => new Elysia()
-}));
-
-vi.mock("../../adapters/rest/auth/AuthController", () => ({
-    createAuthController: () => new Elysia()
-}));
-
-vi.mock("../../adapters/rest/forensic/ForensicController", () => ({
-    createForensicController: () => new Elysia()
-}));
-
-vi.mock("../../adapters/rest/family/ChildController", () => ({
-    createChildController: () => new Elysia()
-}));
-
-vi.mock("../../adapters/rest/auth/AdminController", () => ({
-    createAdminController: () => new Elysia()
-}));
-
-vi.mock("../wireDependencies", () => ({
-    wireDependencies: vi.fn().mockResolvedValue({
-        timelineApiService: {},
-        custodyApiService: {},
-        familyApiService: {},
-        passkeyRepository: {},
-        dateProvider: { getIsoString: () => "2026-03-11T12:00:00.000Z" },
-        registrationProcessRepository: {},
-        forensicApiService: {},
-        forensicRepository: {},
-        cryptoService: {},
-        blockchainAnchor: {},
-        forensicIntentRepository: {},
-        forensicService: {},
-        timelineEventProofService: {},
-        timelineRepository: {},
-        custodyRepository: {}
-    })
 }));
 
 describe("createApp dev seed endpoint", () => {
@@ -73,6 +46,10 @@ describe("createApp dev seed endpoint", () => {
     });
 
     beforeEach(() => {
+        vi.restoreAllMocks();
+        vi.spyOn(wireDependenciesModule, "wireDependencies").mockResolvedValue(createMockDeps() as any);
+        scheduleMock.mockReset();
+        registerHandlerMock.mockReset();
         return connectMongoMemory().then(async () => {
             await Family.deleteMany({});
         });
@@ -102,6 +79,64 @@ describe("createApp dev seed endpoint", () => {
 
         const stored = await Family.findOne({ name: "Mock Family" }).lean();
         expect(stored?.children).toEqual([]);
+    });
+
+    it("registers the reconciliation task handler during app creation", async () => {
+        const { createApp } = await import("../createApp");
+
+        await createApp();
+
+        const registeredTaskTypes = registerHandlerMock.mock.calls.map((call: any[]) => call[0]);
+        expect(registeredTaskTypes).toContain(TaskType.RECONCILE_EVENT_PROOF);
+    });
+
+    it("exposes a delayed-receipt test endpoint for recovery smoke coverage", async () => {
+        process.env.E2E_TEST = "true";
+        const delayNextReceipt = vi.fn();
+        const getSubmitCount = vi.fn().mockReturnValue(1);
+        const publishProof = vi.fn().mockResolvedValue({
+            status: "SUBMITTED",
+            hash: "a".repeat(64),
+            submittedTxHash: `0x${"b".repeat(64)}`
+        });
+        vi.spyOn(wireDependenciesModule, "wireDependencies").mockResolvedValue({
+            ...createMockDeps(),
+            blockchainAnchor: { delayNextReceipt, getSubmitCount },
+            timelineEventProofService: { publishProof },
+        } as any);
+
+        const { createApp } = await import("../createApp");
+        const { app } = await createApp();
+
+        const response = await app.handle(new Request("http://localhost/api/test/events/delay-receipt", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({})
+        }));
+
+        expect(response.status).toBe(200);
+        expect(delayNextReceipt).toHaveBeenCalledTimes(1);
+        expect(publishProof).not.toHaveBeenCalled();
+
+        delete process.env.E2E_TEST;
+    });
+
+    it("exposes blockchain submit stats for smoke assertions", async () => {
+        process.env.E2E_TEST = "true";
+        vi.spyOn(wireDependenciesModule, "wireDependencies").mockResolvedValue({
+            ...createMockDeps(),
+            blockchainAnchor: { getSubmitCount: () => 2 },
+        } as any);
+
+        const { createApp } = await import("../createApp");
+        const { app } = await createApp();
+
+        const response = await app.handle(new Request("http://localhost/api/test/events/blockchain-stats"));
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ submitCount: 2 });
+
+        delete process.env.E2E_TEST;
     });
 
     it("seeds mock family with one demo child via demo endpoint", async () => {

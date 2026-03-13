@@ -3,6 +3,22 @@ import type { CreateTimelineItemDto } from "../model/TimelineItem";
 import type { SessionUser } from "../../shared/types/SessionUser";
 import type { ChildRepository } from "../../family/ports/ChildRepository";
 import type { TimelineRepository } from "../ports/TimelineRepository";
+import type { EventProofRecord, EventProofStatus } from "../model/TimelineItem";
+
+export type EventProofReadModel =
+    | {
+        status: Exclude<EventProofStatus, "CONFIRMED">;
+        hash: string;
+        submittedTxHash?: string;
+        lastAttemptAt?: string;
+        lastError?: string;
+      }
+    | {
+        status: "CONFIRMED";
+        hash: string;
+        txHash: string;
+        blockNumber: string;
+      };
 
 function isParentRole(role?: string): role is "mom" | "dad" {
     return role === "mom" || role === "dad";
@@ -34,6 +50,39 @@ function selectCiphertextForUser(items: any[], userId: string) {
 
 function selectSingleCiphertextForUser(item: any, userId: string) {
     return selectCiphertextForUser([item], userId)[0];
+}
+
+function toEventProofReadModel(proof: EventProofRecord): EventProofReadModel {
+    if (proof.status === "CONFIRMED") {
+        return {
+            status: "CONFIRMED",
+            hash: proof.hash,
+            txHash: proof.txHash!,
+            blockNumber: proof.blockNumber!,
+        };
+    }
+
+    return {
+        status: proof.status,
+        hash: proof.hash,
+        submittedTxHash: proof.submittedTxHash,
+        lastAttemptAt: proof.lastAttemptAt,
+        lastError: proof.lastError,
+    };
+}
+
+function getPreferredProofForVersion(proofHistory: EventProofRecord[]): EventProofRecord | null {
+    const confirmedProof = [...proofHistory].reverse().find((proof) => (
+        proof.status === "CONFIRMED"
+        && Boolean(proof.txHash)
+        && proof.blockNumber !== undefined
+        && Boolean(proof.anchoredAt)
+    ));
+    if (confirmedProof) {
+        return confirmedProof;
+    }
+
+    return proofHistory[proofHistory.length - 1] ?? null;
 }
 
 export class TimelineApiService {
@@ -98,7 +147,7 @@ export class TimelineApiService {
         return { items: selectCiphertextForUser(items, user.id) };
     }
 
-    async getEventProof(id: string, user: SessionUser | null) {
+    async getEventProof(id: string, user: SessionUser | null): Promise<EventProofReadModel> {
         this.assertAuthorizedTimelineUser(user);
 
         if (!this.timelineRepository) {
@@ -123,18 +172,10 @@ export class TimelineApiService {
             throw new Error(`Timeline item with id ${id} proof not found`);
         }
 
-        for (let versionIndex = item.versionHistory.length - 1; versionIndex >= 0; versionIndex--) {
-            const proofHistory = item.versionHistory[versionIndex]?.proofHistory ?? [];
-            const latestProof = [...proofHistory].reverse().find((proof) => (
-                Boolean(proof.txHash) && proof.blockNumber !== undefined && Boolean(proof.anchoredAt)
-            ));
-            if (latestProof) {
-                return {
-                    txHash: latestProof.txHash,
-                    blockNumber: latestProof.blockNumber,
-                    hash: latestProof.hash,
-                };
-            }
+        const latestVersion = item.versionHistory[item.versionHistory.length - 1];
+        const latestProof = getPreferredProofForVersion(latestVersion?.proofHistory ?? []);
+        if (latestProof) {
+            return toEventProofReadModel(latestProof);
         }
 
         throw new Error(`Timeline item with id ${id} proof not found`);
@@ -173,8 +214,8 @@ export class TimelineApiService {
     async createItem(body: any, user: SessionUser | null) {
         this.assertAuthorizedTimelineUser(user);
 
-        if (!body.childId || !body.signatureBase64 || !body.timestamp || !body.keyId) {
-            const error = new Error("childId, signatureBase64, timestamp, and keyId are required for data integrity");
+        if (!body.childId || !body.signatureBase64 || !body.timestamp || !body.keyId || !body.idempotencyKey) {
+            const error = new Error("childId, signatureBase64, timestamp, keyId, and idempotencyKey are required for data integrity");
             (error as any).status = 400;
             throw error;
         }
@@ -200,6 +241,7 @@ export class TimelineApiService {
             signatureBase64: body.signatureBase64,
             timestamp: body.timestamp,
             keyId: body.keyId,
+            idempotencyKey: body.idempotencyKey,
             createdBy: userId,
             createdByName: userName
         } as any);
