@@ -7,6 +7,7 @@ import { MongoClient } from "mongodb";
 export const TEST_API_URL = "http://127.0.0.1:3002";
 const TEST_PORT = 3002;
 const LOCK_DIR = path.join(tmpdir(), "angry_e2e_lock_3002");
+const TEST_MUTEX_DIR = path.join(tmpdir(), "angry_e2e_suite_mutex");
 
 async function isPortOpen(port: number): Promise<boolean> {
     try {
@@ -145,5 +146,28 @@ export async function ensureTestBackend() {
             throw new Error("Timeout waiting for another worker to start the backend");
         }
         await new Promise(r => setTimeout(r, 1000));
+    }
+}
+
+export async function acquireE2ETestMutex(timeoutMs = 120000) {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+        try {
+            fs.mkdirSync(TEST_MUTEX_DIR);
+            return;
+        } catch {
+            await new Promise(r => setTimeout(r, 100));
+        }
+    }
+
+    throw new Error("Timed out waiting for E2E test mutex");
+}
+
+export function releaseE2ETestMutex() {
+    try {
+        fs.rmdirSync(TEST_MUTEX_DIR);
+    } catch {
+        // Ignore double-release or missing lock cleanup.
     }
 }

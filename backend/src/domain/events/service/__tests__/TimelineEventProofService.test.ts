@@ -225,6 +225,12 @@ describe("TimelineEventProofService", () => {
         ]);
     });
 
+    it("does not enqueue reconciliation when publication confirms in the same call", async () => {
+        await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+
+        expect(taskManager.schedule).not.toHaveBeenCalled();
+    });
+
     it("wraps blockchain adapter failures with a readable event proof error", async () => {
         const failedAnchor: IEventBlockchainAnchor = {
             submitHash: vi.fn().mockRejectedValue(new Error("rpc timeout")),
@@ -413,6 +419,45 @@ describe("TimelineEventProofService", () => {
                 submittedTxHash: validPublishedTxHash,
                 lastAttemptAt: anchoredAt,
                 lastError: "receipt lookup exhausted",
+            },
+        ]);
+    });
+
+    it("returns the persisted reconciling proof instead of fabricating a submitted status", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "RECONCILING",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result).toEqual({
+            version: 2,
+            hash,
+            status: "RECONCILING",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        });
+        expect(blockchainAnchor.submitHash).not.toHaveBeenCalled();
+        expect(blockchainAnchor.waitForPublication).not.toHaveBeenCalled();
+        expect(taskManager.schedule).toHaveBeenCalledWith(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: "6f133670-8d3a-4f53-a033-0f2da65e45d2", version: 2, submittedTxHash: validPublishedTxHash },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory).toEqual([
+            {
+                version: 2,
+                hash,
+                status: "RECONCILING",
+                submittedTxHash: validPublishedTxHash,
+                lastAttemptAt: submittedAt,
             },
         ]);
     });

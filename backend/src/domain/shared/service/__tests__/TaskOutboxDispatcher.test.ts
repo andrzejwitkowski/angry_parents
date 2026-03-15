@@ -61,4 +61,27 @@ describe("TaskOutboxDispatcher", () => {
             { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
         );
     });
+
+    it("does not requeue the outbox entry when scheduling succeeded but markDispatched fails", async () => {
+        class MarkDispatchedFailsRepository extends InMemoryTaskOutboxRepository {
+            override async markDispatched(): Promise<void> {
+                throw new Error("outbox write failed");
+            }
+        }
+
+        const outboxRepository = new MarkDispatchedFailsRepository();
+        await outboxRepository.append({
+            taskType: "PUBLISH_EVENT_PROOF",
+            payload: { itemId: "event-3", version: 4 },
+            payloadHash: "hash-4",
+        });
+
+        const schedule = vi.fn().mockResolvedValue({ id: "task-3" });
+        const dispatcher = new TaskOutboxDispatcher(outboxRepository as any, { schedule } as any);
+
+        await expect(dispatcher.dispatchNext()).rejects.toThrow("outbox write failed");
+
+        const entries = await outboxRepository.getAll();
+        expect(entries[0].status).toBe("CLAIMED");
+    });
 });

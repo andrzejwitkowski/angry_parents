@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeAll } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { TestApi } from "./utils/api";
-import { ensureTestBackend, TEST_API_URL } from "./utils/ensure";
+import { acquireE2ETestMutex, ensureTestBackend, releaseE2ETestMutex, TEST_API_URL } from "./utils/ensure";
 
 const nativeFetch = Bun.fetch.bind(Bun);
 const BASE_URL = process.env.API_URL || TEST_API_URL;
@@ -33,6 +33,7 @@ describe.skipIf(!process.env.E2E_TEST)("Admin-Initiated Full Registration Flow",
     let sharedFamilyId: string;
 
     beforeAll(async () => {
+        await acquireE2ETestMutex();
         await ensureTestBackend();
         adminApi = new TestApi(BASE_URL);
         dadApi = new TestApi(BASE_URL);
@@ -42,6 +43,10 @@ describe.skipIf(!process.env.E2E_TEST)("Admin-Initiated Full Registration Flow",
 
         console.log("[E2E] Resetting DB...");
         await adminApi.delete("/api/test/database");
+    }, 30000);
+
+    afterAll(() => {
+        releaseE2ETestMutex();
     });
 
     // --- PHASE 1: Admin Initiation ---

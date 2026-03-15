@@ -75,4 +75,23 @@ describe("timelineApi.create", () => {
         expect(body.encryptedPayload["mom-1"]).toContain('"content":"hello"');
         expect(body.encryptedPayload["mom-1"]).not.toContain("idempotencyKey");
     });
+
+    it("requires a caller-stable idempotencyKey for create", async () => {
+        const signature: MutationSignature = {
+            signatureBase64: "sig",
+            timestamp: "2026-03-12T10:00:00.000Z",
+            keyId: "key-1",
+        };
+
+        await expect(timelineApi.create({
+            type: "NOTE",
+            date: "2026-03-12",
+            childId: "child-1",
+            encryption: "PLAINTEXT",
+            content: "hello",
+        }, signature)).rejects.toThrow("Timeline create requires a stable idempotencyKey");
+
+        const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
 });

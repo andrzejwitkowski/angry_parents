@@ -80,10 +80,7 @@ export class TimelineEventProofService {
                 if (existingPendingProof.status === "RECONCILING") {
                     if (existingPendingProof.submittedTxHash) {
                         await this.scheduleReconciliation(id, versionEntry.version, existingPendingProof.submittedTxHash);
-                        return {
-                            ...existingPendingProof,
-                            status: "SUBMITTED",
-                        };
+                        return existingPendingProof;
                     }
                     return existingPendingProof;
                 }
@@ -155,16 +152,43 @@ export class TimelineEventProofService {
                 }
                 throw error;
             }
-            void this.scheduleReconciliation(id, version, submittedTxHash);
+
+            let reconciliationScheduled = false;
+            const scheduleReconciliationIfNeeded = async () => {
+                if (reconciliationScheduled) {
+                    return;
+                }
+
+                reconciliationScheduled = true;
+                await this.scheduleReconciliation(id, version, submittedTxHash);
+            };
+
+            let publicationSettled = false;
+            const waitForPublication = this.blockchainAnchor.waitForPublication(submittedTxHash).then(
+                (published) => {
+                    publicationSettled = true;
+                    return published;
+                },
+                (error) => {
+                    publicationSettled = true;
+                    throw error;
+                }
+            );
+
+            await Promise.resolve();
+            if (!publicationSettled) {
+                await scheduleReconciliationIfNeeded();
+            }
 
             let published;
             try {
-                published = await this.blockchainAnchor.waitForPublication(submittedTxHash);
+                published = await waitForPublication;
             } catch (error) {
                 if (!isDelayedReceiptError(error)) {
                     throw error;
                 }
 
+                await scheduleReconciliationIfNeeded();
                 return submittedProof;
             }
 

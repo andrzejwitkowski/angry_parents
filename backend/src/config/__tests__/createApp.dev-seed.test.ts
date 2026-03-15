@@ -5,6 +5,7 @@ import { TaskType } from "../../scheduler/types";
 import * as wireDependenciesModule from "../wireDependencies";
 const scheduleMock = vi.fn();
 const registerHandlerMock = vi.fn();
+const registerFailureHandlerMock = vi.fn();
 
 const createMockDeps = () => ({
     timelineApiService: {},
@@ -20,7 +21,7 @@ const createMockDeps = () => ({
     forensicIntentRepository: {},
     forensicService: {},
     timelineEventProofService: {},
-    eventProofReconciliationService: {},
+    eventProofReconciliationService: { markProofReconciliationFailed: vi.fn().mockResolvedValue(undefined) },
     timelineMutationRequestRepository: { ensureIndexes: vi.fn().mockResolvedValue(undefined) },
     taskOutboxRepository: { ensureIndexes: vi.fn().mockResolvedValue(undefined) },
     taskOutboxDispatcher: { dispatchNext: vi.fn().mockResolvedValue(false) },
@@ -33,7 +34,8 @@ vi.mock("../../scheduler/instance", () => ({
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn(),
         schedule: scheduleMock,
-        registerHandler: registerHandlerMock
+        registerHandler: registerHandlerMock,
+        registerFailureHandler: registerFailureHandlerMock,
     }
 }));
 
@@ -50,6 +52,7 @@ describe("createApp dev seed endpoint", () => {
         vi.spyOn(wireDependenciesModule, "wireDependencies").mockResolvedValue(createMockDeps() as any);
         scheduleMock.mockReset();
         registerHandlerMock.mockReset();
+        registerFailureHandlerMock.mockReset();
         return connectMongoMemory().then(async () => {
             await Family.deleteMany({});
         });

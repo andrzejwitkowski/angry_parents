@@ -748,6 +748,62 @@ describe("TimelineService", () => {
             ]);
         });
 
+        it("persists idempotency request state transitions inside the transaction session", async () => {
+            const transactionSession = { id: "transaction-session" };
+
+            class SessionAwareTimelineRepository extends InMemoryTimelineRepository {
+                override async withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T> {
+                    return operation(transactionSession);
+                }
+            }
+
+            class RecordingMutationRepository extends InMemoryTimelineMutationRequestRepository {
+                readonly saveSessions: unknown[] = [];
+                readonly updateSessions: unknown[] = [];
+
+                override async save(record: TimelineMutationRequestRecord, session?: unknown): Promise<void> {
+                    this.saveSessions.push(session);
+                    return super.save(record);
+                }
+
+                override async update(record: TimelineMutationRequestRecord, session?: unknown): Promise<void> {
+                    this.updateSessions.push(session);
+                    return super.update(record);
+                }
+            }
+
+            const sessionAwareRepository = new SessionAwareTimelineRepository();
+            const mutationRepository = new RecordingMutationRepository();
+            const transactionalService = new TimelineServiceImpl(
+                sessionAwareRepository,
+                new RealDateProvider(),
+                new RealUuidProvider(),
+                new MockCryptoService(),
+                mockChildRepository,
+                mockPasskeyRepository,
+                mockForensicIntentRepository,
+                mockTaskManager,
+                mutationRepository,
+                new InMemoryTaskOutboxRepository(),
+            );
+
+            const created = await transactionalService.createItem({
+                type: "NOTE",
+                date: "2026-01-27",
+                childId: "child-1",
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                ...mockSignature,
+                idempotencyKey: "idem-transaction-session",
+                createdBy: "user-123",
+                createdByName: "Tester"
+            } as any);
+
+            expect(created.id).toBeDefined();
+            expect(mutationRepository.saveSessions).toEqual([transactionSession]);
+            expect(mutationRepository.updateSessions).toEqual([transactionSession]);
+        });
+
         it("should create a medication item", async () => {
             const dto: CreateTimelineItemDto & { childId: string } = {
                 type: "MEDS",

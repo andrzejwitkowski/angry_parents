@@ -82,6 +82,10 @@ export class TestApi {
         return res;
     }
 
+    resetCookies() {
+        this.cookieJar = "";
+    }
+
     private updateCookies(res: Response) {
         // Use getSetCookie() to get ALL Set-Cookie headers as an array (Bun/modern fetch).
         // Fall back to splitting get("set-cookie") for older runtimes.

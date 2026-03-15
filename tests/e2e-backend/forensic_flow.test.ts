@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, jest } from "bun:test";
 import { TestApi } from "./utils/api";
 import { TestCrypto } from "./utils/crypto";
-import { ensureTestBackend, TEST_API_URL } from "./utils/ensure";
+import { acquireE2ETestMutex, ensureTestBackend, releaseE2ETestMutex, TEST_API_URL } from "./utils/ensure";
 
 // setupGlobals.ts (preloaded by bunfig.toml) replaces global.fetch with a jest mock.
 // These E2E tests hit the real backend server, so we must restore native Bun fetch.
@@ -18,8 +18,8 @@ describe.skipIf(!process.env.E2E_TEST)("Forensic Document Pipeline E2E", () => {
     let apiUserB: TestApi;
 
     // Key pairs for signing
-    let keyPairA: CryptoKeyPair;
-    let keyPairB: CryptoKeyPair;
+    let keyPairA: Awaited<ReturnType<typeof TestCrypto.generateKeyPair>>;
+    let keyPairB: Awaited<ReturnType<typeof TestCrypto.generateKeyPair>>;
     let pubKeyA_Base64: string;
     let pubKeyB_Base64: string;
     let keyIdA_Base64: string;
@@ -29,6 +29,7 @@ describe.skipIf(!process.env.E2E_TEST)("Forensic Document Pipeline E2E", () => {
     const userEmailB = `userB_${Date.now()}@test.com`;
 
     beforeAll(async () => {
+        await acquireE2ETestMutex();
         await ensureTestBackend();
 
         // Restore native fetch — setupGlobals.ts replaces global.fetch with a jest mock
@@ -54,13 +55,13 @@ describe.skipIf(!process.env.E2E_TEST)("Forensic Document Pipeline E2E", () => {
         // If we save SPKI, we might need to conform to what `BunCryptoService` expects.
         // Let's assume standard SubjectPublicKeyInfo (SPKI) fits `crypto.importKey(..., "spki")` which Bun (WebCrypto) uses.
 
-        pubKeyA_Base64 = await TestCrypto.exportPublicKeyBase64(keyPairA.publicKey);
-        pubKeyB_Base64 = await TestCrypto.exportPublicKeyBase64(keyPairB.publicKey);
+        pubKeyA_Base64 = await TestCrypto.exportPublicKeyBase64(keyPairA.publicKey as any);
+        pubKeyB_Base64 = await TestCrypto.exportPublicKeyBase64(keyPairB.publicKey as any);
 
         // Mock generic Key IDs
         keyIdA_Base64 = Buffer.from("keyA").toString("base64url");
         keyIdB_Base64 = Buffer.from("keyB").toString("base64url");
-    });
+    }, 30000);
 
     afterAll(() => {
         // Reinstate mock fetch so other test files (component tests) are not affected
@@ -72,6 +73,7 @@ describe.skipIf(!process.env.E2E_TEST)("Forensic Document Pipeline E2E", () => {
                 headers: new Headers(),
             })
         );
+        releaseE2ETestMutex();
     });
 
     test("User A can register and add a passkey", async () => {
@@ -136,7 +138,7 @@ describe.skipIf(!process.env.E2E_TEST)("Forensic Document Pipeline E2E", () => {
         // Let's rely on our TestCrypto.hashPayload trying to match.
         docHash = await TestCrypto.hashPayload(payloadCandidate); // This must match backend!
 
-        const signatureA = await TestCrypto.sign(keyPairA.privateKey, docHash);
+        const signatureA = await TestCrypto.sign(keyPairA.privateKey as any, docHash);
 
         // 3. Post to /forensic/pending
         const res = await apiUserA.post("/forensic/pending", {
@@ -190,7 +192,7 @@ describe.skipIf(!process.env.E2E_TEST)("Forensic Document Pipeline E2E", () => {
         // expect(pendingDoc.hash).toBe(docHash); // If our local hash calc matches backend
 
         // User B signs the SAME HASH
-        const signatureB = await TestCrypto.sign(keyPairB.privateKey, pendingDoc.hash);
+        const signatureB = await TestCrypto.sign(keyPairB.privateKey as any, pendingDoc.hash);
 
         // Post SAME content etc to /forensic/pending
         // The backend should detect "Existing" and append signature.

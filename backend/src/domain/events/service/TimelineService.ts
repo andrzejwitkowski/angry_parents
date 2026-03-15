@@ -127,7 +127,8 @@ export class TimelineServiceImpl {
     private async saveWithForensicIntent(
         persist: (session?: unknown) => Promise<EncryptedTimelineItem | void>,
         intent: ForensicIntentRecord,
-        outboxEntries?: Array<{ taskType: string; payload: Record<string, unknown> }>
+        outboxEntries?: Array<{ taskType: string; payload: Record<string, unknown> }>,
+        finalize?: (result: EncryptedTimelineItem | void, session?: unknown) => Promise<void>
     ): Promise<EncryptedTimelineItem | void> {
         const persisted = await this.repository.withTransaction(async (session?: unknown) => {
             const result = await persist(session);
@@ -140,6 +141,9 @@ export class TimelineServiceImpl {
                         retryPolicy: TimelineServiceImpl.DEFAULT_TASK_RETRY_POLICY,
                     }, session as any);
                 }
+            }
+            if (finalize) {
+                await finalize(result, session);
             }
             return result;
         });
@@ -370,33 +374,36 @@ export class TimelineServiceImpl {
 
         let savedItem: EncryptedTimelineItem;
         try {
-            if (claimedRequest) {
-                if (existingRequest) {
-                    await this.mutationRequestRepository!.update(claimedRequest);
-                } else {
-                    await this.mutationRequestRepository!.save(claimedRequest);
-                }
-            }
-
             savedItem = await this.saveWithForensicIntent(
                 async (session?: unknown) => {
-                    return inProgressReplayItem
+                    if (claimedRequest) {
+                        if (existingRequest) {
+                            await this.mutationRequestRepository!.update(claimedRequest, session);
+                        } else {
+                            await this.mutationRequestRepository!.save(claimedRequest, session);
+                        }
+                    }
+
+                    const result = inProgressReplayItem
                         ? inProgressReplayItem
                         : await this.repository.save(encryptedItem, session);
+
+                    return result;
                 },
                 intent,
                 [
                     { taskType: TaskType.PROCESS_FORENSIC_INTENT, payload: { intentId: intent.id } },
                     { taskType: TaskType.PUBLISH_EVENT_PROOF, payload: { itemId: encryptedItem.id, version: encryptedItem.eventVersion } },
-                ]
+                ],
+                async (_result, session) => {
+                    if (claimedRequest) {
+                        await this.mutationRequestRepository!.update({
+                            ...claimedRequest,
+                            status: "COMPLETED",
+                        }, session);
+                    }
+                }
             ) as EncryptedTimelineItem;
-
-            if (claimedRequest) {
-                await this.mutationRequestRepository!.update({
-                    ...claimedRequest,
-                    status: "COMPLETED",
-                });
-            }
         } catch (error) {
             if (!dto.idempotencyKey || !this.isDuplicateKeyError(error)) {
                 throw error;

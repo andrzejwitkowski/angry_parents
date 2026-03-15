@@ -183,9 +183,12 @@ export const timelineApi = {
         dto: CreateTimelineItemInput,
         signatureData: MutationSignature
     ): Promise<TimelineItem> {
+        if (!dto.idempotencyKey) {
+            throw new TimelineApiError("Timeline create requires a stable idempotencyKey");
+        }
+
         // Perform client-side encryption of all sensitive fields
         const { type, date, childId, encryption, idempotencyKey, ...contentFields } = dto as any;
-        const resolvedIdempotencyKey = idempotencyKey ?? crypto.randomUUID();
 
         const encryptedPayload = await encryptTimelineItem(type, contentFields);
 
@@ -193,7 +196,7 @@ export const timelineApi = {
             type,
             date,
             childId,
-            idempotencyKey: resolvedIdempotencyKey,
+            idempotencyKey,
             encryption: "ENCRYPTED",
             encryptedPayload,
             ...signatureData

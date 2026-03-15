@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { TestApi } from "./utils/api";
-import { ensureTestBackend, TEST_API_URL } from "./utils/ensure";
+import { acquireE2ETestMutex, ensureTestBackend, releaseE2ETestMutex, TEST_API_URL } from "./utils/ensure";
 
 const nativeFetch = Bun.fetch.bind(Bun);
 
@@ -12,6 +12,7 @@ describe.skipIf(!process.env.E2E_TEST)("Admin-Initiated Registration Flow E2E", 
     let apiMom: TestApi;
 
     beforeAll(async () => {
+        await acquireE2ETestMutex();
         await ensureTestBackend();
         apiAdmin = new TestApi(BASE_URL);
         apiDad = new TestApi(BASE_URL);
@@ -21,10 +22,11 @@ describe.skipIf(!process.env.E2E_TEST)("Admin-Initiated Registration Flow E2E", 
 
         console.log("Resetting DB...");
         await apiAdmin.delete("/api/test/database");
-    });
+    }, 30000);
 
     afterAll(() => {
         console.log("Admin registration flow E2E tests completed");
+        releaseE2ETestMutex();
     });
 
     test("Full flow: Admin -> Parent A -> Parent B", async () => {

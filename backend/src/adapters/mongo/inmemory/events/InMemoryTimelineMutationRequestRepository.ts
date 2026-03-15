@@ -16,6 +16,7 @@ export class InMemoryTimelineMutationRequestRepository implements TimelineMutati
     }
 
     async findByIdempotencyKey(idempotencyKey: string): Promise<TimelineMutationRequestRecord | null> {
-        return this.records.get(idempotencyKey) ?? null;
+        const record = this.records.get(idempotencyKey);
+        return record ? { ...record } : null;
     }
 }

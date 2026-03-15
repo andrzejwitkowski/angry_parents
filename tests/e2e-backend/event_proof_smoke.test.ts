@@ -1,6 +1,6 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { TestApi } from "./utils/api";
-import { ensureTestBackend, TEST_API_URL } from "./utils/ensure";
+import { acquireE2ETestMutex, ensureTestBackend, releaseE2ETestMutex, TEST_API_URL } from "./utils/ensure";
 
 const nativeFetch = Bun.fetch.bind(Bun);
 const BASE_URL = process.env.API_URL || TEST_API_URL;
@@ -53,21 +53,30 @@ async function waitForAnyProofStatus(api: TestApi, eventId: string, expectedStat
 
 describe.skipIf(!process.env.E2E_TEST)("Event proof smoke e2e", () => {
     const api = new TestApi(BASE_URL);
-    const email = `proof_${Date.now()}@test.com`;
 
     beforeAll(async () => {
         await ensureTestBackend();
         // @ts-ignore
         globalThis.fetch = nativeFetch;
+    }, 30000);
+
+    beforeEach(async () => {
+        await acquireE2ETestMutex();
+        api.resetCookies();
         await api.delete("/api/test/database");
 
+        const email = `proof_${Date.now()}_${Math.random().toString(36).slice(2)}@test.com`;
         const registerRes = await api.post("/api/auth/mock-register", {
             email,
             name: "Proof Parent",
             gender: "dad"
         });
         expect(registerRes.status).toBe(200);
-    }, 30000);
+    }, 15000);
+
+    afterEach(() => {
+        releaseE2ETestMutex();
+    });
 
     test("GET /api/events/:id/proof returns 200 for an existing anchored event", async () => {
         const childRes = await api.post("/api/children", {
@@ -75,6 +84,9 @@ describe.skipIf(!process.env.E2E_TEST)("Event proof smoke e2e", () => {
             icon: "star",
             color: "blue"
         });
+        if (childRes.status !== 200) {
+            console.log("[event_proof_smoke] child create failed", childRes.status, await childRes.text());
+        }
         expect(childRes.status).toBe(200);
         const child = await childRes.json();
 
@@ -91,6 +103,9 @@ describe.skipIf(!process.env.E2E_TEST)("Event proof smoke e2e", () => {
             keyId: "test-key-id",
             idempotencyKey: createIdempotencyKey("proof-smoke-anchor")
         });
+        if (createRes.status !== 200) {
+            console.log("[event_proof_smoke] timeline create failed", createRes.status, await createRes.text());
+        }
         expect(createRes.status).toBe(200);
         const event = await createRes.json();
 
@@ -99,9 +114,10 @@ describe.skipIf(!process.env.E2E_TEST)("Event proof smoke e2e", () => {
         });
         expect(publishRes.status).toBe(200);
 
-        const proofRes = await api.get(`/api/events/${event.id}/proof`);
-        expect(proofRes.status).toBe(200);
-        const proof = await proofRes.json();
+        const firstProof = await waitForAnyProofStatus(api, event.id, ["SUBMITTED", "CONFIRMED"]);
+        const proof = firstProof.status === "CONFIRMED"
+            ? firstProof
+            : await waitForProofStatus(api, event.id, "CONFIRMED");
 
         expect(proof.txHash).toMatch(/^0x[0-9a-f]+$/);
         expect(typeof proof.blockNumber).toBe("string");
@@ -119,6 +135,9 @@ describe.skipIf(!process.env.E2E_TEST)("Event proof smoke e2e", () => {
             icon: "star",
             color: "green"
         });
+        if (childRes.status !== 200) {
+            console.log("[event_proof_smoke] delayed child create failed", childRes.status, await childRes.text());
+        }
         expect(childRes.status).toBe(200);
         const child = await childRes.json();
 

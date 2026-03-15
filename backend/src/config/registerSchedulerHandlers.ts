@@ -57,7 +57,16 @@ export function registerSchedulerHandlers(deps: SchedulerDependencies) {
         createReconcileEventProofHandler(deps.eventProofReconciliationService)
     );
 
-    taskManager.registerFailureHandler?.(
+    if (!taskManager.registerFailureHandler) {
+        throw new Error("Task manager must support registerFailureHandler for event proof reconciliation");
+    }
+    if (!deps.eventProofReconciliationService.markProofReconciliationFailed) {
+        throw new Error("Event proof reconciliation service must support markProofReconciliationFailed");
+    }
+
+    const markProofReconciliationFailed = deps.eventProofReconciliationService.markProofReconciliationFailed;
+
+    taskManager.registerFailureHandler(
         TaskType.RECONCILE_EVENT_PROOF,
         async (payload, errorMessage) => {
             const typedPayload = payload as { itemId?: string; version?: number; submittedTxHash?: string };
@@ -65,7 +74,7 @@ export function registerSchedulerHandlers(deps: SchedulerDependencies) {
                 return;
             }
 
-            await deps.eventProofReconciliationService.markProofReconciliationFailed(
+            await markProofReconciliationFailed(
                 typedPayload.itemId,
                 typedPayload.version,
                 errorMessage,
