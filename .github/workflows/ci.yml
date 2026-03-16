@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -45,3 +45,35 @@ jobs:
 
       - name: Run backend e2e tests
         run: bun run test:e2e
+
+  build-and-deploy:
+    needs: test-stack
+    # Odpalamy budowanie tylko na main, żeby nie zaśmiecać rejestru obrazami z branczy testowych
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+      - name: Trigger Coolify Webhook
+        run: |
+          curl -L -X GET "${{ secrets.COOLIFY_WEBHOOK }}"
