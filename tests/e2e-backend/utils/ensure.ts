@@ -8,6 +8,10 @@ export const TEST_API_URL = "http://127.0.0.1:3002";
 const TEST_PORT = 3002;
 const LOCK_DIR = path.join(tmpdir(), "angry_e2e_lock_3002");
 
+type StartupLockResult =
+    | { kind: "acquired"; release: () => void }
+    | { kind: "backend-ready" };
+
 async function isPortOpen(port: number): Promise<boolean> {
     try {
         return await new Promise((resolve) => {
@@ -31,6 +35,81 @@ async function waitForPort(port: number, timeoutMs = 20000) {
         await new Promise(r => setTimeout(r, 500));
     }
     return false;
+}
+
+async function wait(ms: number) {
+    await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function lockAgeMs(lockDir: string): number {
+    return Date.now() - fs.statSync(lockDir).mtimeMs;
+}
+
+export async function acquireTestBackendStartupLock({
+    lockDir = LOCK_DIR,
+    staleAfterMs = 30_000,
+    retryIntervalMs = 500,
+    timeoutMs = 30_000,
+    heartbeatIntervalMs = 1_000,
+    isBackendReady = () => isPortOpen(TEST_PORT),
+}: {
+    lockDir?: string;
+    staleAfterMs?: number;
+    retryIntervalMs?: number;
+    timeoutMs?: number;
+    heartbeatIntervalMs?: number;
+    isBackendReady?: () => Promise<boolean>;
+} = {}): Promise<StartupLockResult> {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+        if (await isBackendReady()) {
+            return { kind: "backend-ready" };
+        }
+
+        try {
+            fs.mkdirSync(lockDir);
+            const heartbeat = setInterval(() => {
+                try {
+                    const now = new Date();
+                    fs.utimesSync(lockDir, now, now);
+                } catch {
+                }
+            }, heartbeatIntervalMs);
+            heartbeat.unref?.();
+
+            return {
+                kind: "acquired",
+                release: () => {
+                    clearInterval(heartbeat);
+                    try {
+                        fs.rmdirSync(lockDir);
+                    } catch {
+                    }
+                }
+            };
+        } catch (error) {
+            const fsError = error as NodeJS.ErrnoException;
+            if (fsError.code !== "EEXIST" && fsError.code !== "EISDIR") {
+                throw error;
+            }
+            try {
+                if (lockAgeMs(lockDir) >= staleAfterMs) {
+                    fs.rmdirSync(lockDir);
+                    continue;
+                }
+            } catch {
+            }
+        }
+
+        await wait(retryIntervalMs);
+    }
+
+    if (await isBackendReady()) {
+        return { kind: "backend-ready" };
+    }
+
+    throw new Error("Timeout waiting for another worker to start the backend");
 }
 
 async function canPingMongo(uri: string): Promise<boolean> {
@@ -92,13 +171,9 @@ export async function ensureTestBackend() {
         return;
     }
 
-    let haveLock = false;
-    try {
-        fs.mkdirSync(LOCK_DIR);
-        haveLock = true;
-    } catch { }
+    const lock = await acquireTestBackendStartupLock();
 
-    if (haveLock) {
+    if (lock.kind === "acquired") {
         try {
             const mongoUri = "mongodb://127.0.0.1:27017/admin";
             if (!(await canPingMongo(mongoUri))) {
@@ -135,15 +210,12 @@ export async function ensureTestBackend() {
             if (!(await waitForPort(TEST_PORT, 30000))) {
                 throw new Error("Backend failed to start on port " + TEST_PORT);
             }
-            await new Promise(r => setTimeout(r, 1000));
+            await wait(1000);
             console.log("[E2E] Backend API is ready!");
         } finally {
-            try { fs.rmdirSync(LOCK_DIR); } catch { }
+            lock.release();
         }
     } else {
-        if (!(await waitForPort(TEST_PORT, 30000))) {
-            throw new Error("Timeout waiting for another worker to start the backend");
-        }
-        await new Promise(r => setTimeout(r, 1000));
+        await wait(1000);
     }
 }

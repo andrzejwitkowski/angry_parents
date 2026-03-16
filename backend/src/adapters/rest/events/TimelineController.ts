@@ -103,7 +103,8 @@ export function createTimelineController(service: TimelineApiService) {
                     encryptedPayload: t.Record(t.String(), t.String()),
                     signatureBase64: t.String(),
                     timestamp: t.String(),
-                    keyId: t.String()
+                    keyId: t.String(),
+                    idempotencyKey: t.String()
                 }),
             }
         )

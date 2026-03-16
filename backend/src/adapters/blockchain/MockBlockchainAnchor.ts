@@ -4,6 +4,8 @@ import { IEventBlockchainAnchor, type PublishedHashResult } from "../../domain/s
 export class MockBlockchainAnchor implements IBlockchainAnchor, IEventBlockchainAnchor {
     private anchors = new Map<string, string>();
     private readonly hashPrefix = "a".repeat(64);
+    private delayNextPublicationAttempt = false;
+    private submitCount = 0;
 
     private toMockTxHash(hash: string): string {
         const normalized = hash.replace(/^0x/, "").toLowerCase().replace(/[^0-9a-f]/g, "");
@@ -18,12 +20,34 @@ export class MockBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
         return txHash;
     }
 
-    async publishHash(hash: string): Promise<PublishedHashResult> {
-        const txHash = await this.anchorHash(hash);
+    async submitHash(hash: string): Promise<string> {
+        this.submitCount += 1;
+        return this.anchorHash(hash);
+    }
+
+    async waitForPublication(txHash: string): Promise<PublishedHashResult> {
+        if (this.delayNextPublicationAttempt) {
+            this.delayNextPublicationAttempt = false;
+            throw new Error(`Receipt for ${txHash} not available yet`);
+        }
+
         return {
             txHash,
             blockNumber: BigInt(`0x${txHash.slice(2, 18)}`)
         };
+    }
+
+    async getReceipt(txHash: string): Promise<PublishedHashResult | null> {
+        if (![...this.anchors.values()].includes(txHash)) {
+            return null;
+        }
+
+        return this.waitForPublication(txHash);
+    }
+
+    async publishHash(hash: string): Promise<PublishedHashResult> {
+        const txHash = await this.submitHash(hash);
+        return this.waitForPublication(txHash);
     }
 
     async verifyAnchor(hash: string, txHash: string): Promise<boolean> {
@@ -35,6 +59,16 @@ export class MockBlockchainAnchor implements IBlockchainAnchor, IEventBlockchain
 
     reset() {
         this.anchors.clear();
+        this.delayNextPublicationAttempt = false;
+        this.submitCount = 0;
         console.log("[MockBlockchain] Reset.");
+    }
+
+    delayNextReceipt() {
+        this.delayNextPublicationAttempt = true;
+    }
+
+    getSubmitCount() {
+        return this.submitCount;
     }
 }

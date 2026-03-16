@@ -3,6 +3,16 @@ import { z } from "zod";
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
 const EVM_TX_HASH_RE = /^0x[0-9a-f]{64}$/;
 
+export const EventProofStatusSchema = z.enum([
+    "CLAIMED",
+    "SUBMITTED",
+    "CONFIRMED",
+    "FAILED",
+    "RECONCILING",
+]);
+
+export type EventProofStatus = z.infer<typeof EventProofStatusSchema>;
+
 const AuditEntrySchema = z.object({
     timestamp: z.string().datetime(),
     userId: z.string(),
@@ -21,13 +31,98 @@ const TimelineItemTypeSchema = z.enum([
     "ATTACHMENT",
 ]);
 
-const EventProofRecordSchema = z.object({
+export function inferEventProofStatus(record: Partial<{
+    status: EventProofStatus;
+    submittedTxHash: string;
+    txHash: string;
+    blockNumber: string;
+    anchoredAt: string;
+}>): EventProofStatus {
+    if (record.status === "FAILED" || record.status === "RECONCILING") {
+        return record.status;
+    }
+
+    if (record.status === "CONFIRMED") {
+        if (record.txHash && record.blockNumber !== undefined && record.anchoredAt) {
+            return "CONFIRMED";
+        }
+
+        return record.submittedTxHash ? "SUBMITTED" : "CLAIMED";
+    }
+
+    if (record.txHash && record.blockNumber !== undefined && record.anchoredAt) {
+        return "CONFIRMED";
+    }
+
+    if (record.submittedTxHash) {
+        return "SUBMITTED";
+    }
+
+    return "CLAIMED";
+}
+
+export function normalizeEventProofRecord(proof: EventProofRecord): EventProofRecord {
+    return {
+        ...proof,
+        status: inferEventProofStatus(proof),
+    };
+}
+
+export function normalizeTimelineItemProofHistory<T extends { versionHistory?: Array<{ proofHistory?: EventProofRecord[] }> }>(item: T): T {
+    const clone = structuredClone(item);
+    if (!Array.isArray(clone.versionHistory)) {
+        return clone;
+    }
+
+    clone.versionHistory = clone.versionHistory.map((entry) => {
+        if (!entry || !Array.isArray(entry.proofHistory)) {
+            return entry;
+        }
+
+        return {
+            ...entry,
+            proofHistory: entry.proofHistory.map((proof) => normalizeEventProofRecord(proof)),
+        };
+    });
+
+    return clone;
+}
+
+function inferLegacyEventProofStatus(record: Record<string, unknown>): EventProofStatus {
+    return inferEventProofStatus({
+        status: typeof record.status === "string" ? record.status as EventProofStatus : undefined,
+        submittedTxHash: typeof record.submittedTxHash === "string" ? record.submittedTxHash : undefined,
+        txHash: typeof record.txHash === "string" ? record.txHash : undefined,
+        blockNumber: typeof record.blockNumber === "string" ? record.blockNumber : undefined,
+        anchoredAt: typeof record.anchoredAt === "string" ? record.anchoredAt : undefined,
+    });
+}
+
+const EventProofRecordSchema = z.preprocess((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    if (record.status) {
+        return record;
+    }
+
+    return {
+        ...record,
+        status: inferLegacyEventProofStatus(record),
+    };
+}, z.object({
     version: z.number().int().positive(),
     hash: z.string().regex(SHA256_HEX_RE),
+    status: EventProofStatusSchema,
+    submittedTxHash: z.string().regex(EVM_TX_HASH_RE).optional(),
+    lastAttemptAt: z.string().datetime().optional(),
+    lastError: z.string().min(1).optional(),
     txHash: z.string().regex(EVM_TX_HASH_RE).optional(),
     blockNumber: z.string().regex(/^\d+$/).optional(),
     anchoredAt: z.string().datetime().optional(),
-});
+}));
 
 const EncryptedTimelineVersionSnapshotSchema = z.object({
     id: z.string().uuid(),

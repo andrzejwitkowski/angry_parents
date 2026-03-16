@@ -1,4 +1,4 @@
-import type { TimelineItem, CreateTimelineItemInput } from "@/types/timeline.types";
+import type { TimelineItem, CreateTimelineItemInput, EventProof } from "@/types/timeline.types";
 import { decryptRSA, importPublicKey, encryptRSA } from "@/lib/crypto-utils";
 import { getActiveE2eeUserId, getTimelinePrivateKey, clearTimelinePrivateKeyCache } from "@/lib/e2ee-session";
 import type { MutationSignature } from "@/lib/signature-provider";
@@ -164,6 +164,18 @@ export const timelineApi = {
         return decryptTimelineItems(data.items);
     },
 
+    async getEventProof(id: string): Promise<EventProof> {
+        const response = await fetch(`${API_BASE_URL}/events/${id}/proof`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+        });
+
+        return handleResponse<EventProof>(response);
+    },
+
     /**
      * Create a new timeline item
      */
@@ -172,7 +184,10 @@ export const timelineApi = {
         signatureData: MutationSignature
     ): Promise<TimelineItem> {
         // Perform client-side encryption of all sensitive fields
-        const { type, date, childId, encryption, ...contentFields } = dto as any;
+        const { type, date, childId, encryption, idempotencyKey, ...contentFields } = dto as CreateTimelineItemInput;
+        if (!idempotencyKey) {
+            throw new TimelineApiError("Timeline create requires a stable idempotencyKey");
+        }
 
         const encryptedPayload = await encryptTimelineItem(type, contentFields);
 
@@ -180,6 +195,7 @@ export const timelineApi = {
             type,
             date,
             childId,
+            idempotencyKey,
             encryption: "ENCRYPTED",
             encryptedPayload,
             ...signatureData

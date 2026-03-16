@@ -1,4 +1,5 @@
 import type { TimelineRepository } from "../ports/TimelineRepository";
+import type { TimelineMutationRequestRepository } from "../ports/TimelineMutationRequestRepository";
 import type { ChildRepository } from "../../family/ports/ChildRepository";
 import type { TimelineItem, CreateTimelineItemDto, AuditEntry, EncryptedTimelineItem, TimelineItemVisitor, EventProofRecord, TimelineItemVersion, EncryptedTimelineVersionSnapshot } from "../model/TimelineItem";
 import { TimelineItemSchema, acceptTimelineItemVisitor } from "../model/TimelineItem";
@@ -9,7 +10,9 @@ import type { PasskeyRepository } from "../../auth/ports/PasskeyRepository";
 import type { ForensicIntentRecord, ForensicIntentRepository } from "../../forensic/ports/ForensicIntentRepository";
 import type { ITaskManager } from "../../shared/ports/TaskScheduler";
 import { TaskType } from "../../shared/ports/TaskScheduler";
+import type { TaskOutboxRepository } from "../../shared/ports/TaskOutboxRepository";
 import type { ProcessForensicIntentPayload, PublishEventProofPayload } from "../../../scheduler/types";
+import { calculatePayloadHash } from "../../../scheduler/utils/crypto";
 
 export type SignatureData = {
     signatureBase64: string;
@@ -39,6 +42,7 @@ export class TimelineServiceImpl {
         "eventVersion",
         "versionHistory",
     ]);
+    private static readonly DEFAULT_TASK_RETRY_POLICY = { maxRetries: 5, initialDelayMinutes: 1 } as const;
 
     constructor(
         private readonly repository: TimelineRepository,
@@ -49,13 +53,21 @@ export class TimelineServiceImpl {
         private readonly passkeyRepository: PasskeyRepository,
         private readonly forensicIntentRepository: ForensicIntentRepository,
         private readonly taskManager: ITaskManager,
+        private readonly mutationRequestRepository?: TimelineMutationRequestRepository,
+        private readonly taskOutboxRepository?: TaskOutboxRepository,
     ) { }
+
+    private isDuplicateKeyError(error: unknown): boolean {
+        return error instanceof Error
+            && "code" in error
+            && (error as Error & { code?: number }).code === 11000;
+    }
 
     private scheduleEventProof(itemId: string, version: number): void {
         void this.taskManager.schedule<PublishEventProofPayload>(
             TaskType.PUBLISH_EVENT_PROOF,
             { itemId, version },
-            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+            { retryPolicy: TimelineServiceImpl.DEFAULT_TASK_RETRY_POLICY }
         ).catch((error) => {
             console.error(
                 `[TimelineService] Failed to schedule event proof task`,
@@ -114,21 +126,60 @@ export class TimelineServiceImpl {
 
     private async saveWithForensicIntent(
         persist: (session?: unknown) => Promise<EncryptedTimelineItem | void>,
-        intent: ForensicIntentRecord
+        intent: ForensicIntentRecord,
+        outboxEntries?: Array<{ taskType: string; payload: Record<string, unknown> }>
     ): Promise<EncryptedTimelineItem | void> {
         const persisted = await this.repository.withTransaction(async (session?: unknown) => {
             const result = await persist(session);
             await this.forensicIntentRepository.save(intent, session);
+            if (this.taskOutboxRepository && outboxEntries) {
+                for (const entry of outboxEntries) {
+                    await this.taskOutboxRepository.append({
+                        ...entry,
+                        payloadHash: calculatePayloadHash(entry.payload),
+                        retryPolicy: TimelineServiceImpl.DEFAULT_TASK_RETRY_POLICY,
+                    }, session as any);
+                }
+            }
             return result;
         });
+
+        if (this.taskOutboxRepository) {
+            return persisted;
+        }
 
         await this.taskManager.schedule<ProcessForensicIntentPayload>(
             TaskType.PROCESS_FORENSIC_INTENT,
             { intentId: intent.id },
-            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+            { retryPolicy: TimelineServiceImpl.DEFAULT_TASK_RETRY_POLICY }
         );
 
         return persisted;
+    }
+
+    private buildCreateForensicIntentId(itemId: string, version: number): string {
+        return `timeline-create:${itemId}:v${version}`;
+    }
+
+    private async repairCreateReplayAsyncWork(item: EncryptedTimelineItem): Promise<void> {
+        if (!this.taskOutboxRepository) {
+            return;
+        }
+
+        const version = 1;
+        const intentId = this.buildCreateForensicIntentId(item.id, version);
+        const entries = [
+            { taskType: TaskType.PROCESS_FORENSIC_INTENT, payload: { intentId } },
+            { taskType: TaskType.PUBLISH_EVENT_PROOF, payload: { itemId: item.id, version } },
+        ];
+
+        for (const entry of entries) {
+            await this.taskOutboxRepository.append({
+                ...entry,
+                payloadHash: calculatePayloadHash(entry.payload),
+                retryPolicy: TimelineServiceImpl.DEFAULT_TASK_RETRY_POLICY,
+            });
+        }
     }
 
     private assertSignatureMetadata(signatureBase64: string, timestamp: string, keyId: string): void {
@@ -234,7 +285,38 @@ export class TimelineServiceImpl {
         childId: string;
         createdBy: string;
         createdByName?: string;
+        idempotencyKey?: string;
     } & SignatureData): Promise<EncryptedTimelineItem> {
+        if (this.mutationRequestRepository && !dto.idempotencyKey) {
+            throw new Error("idempotencyKey is required");
+        }
+
+        const requestHash = calculatePayloadHash({
+            type: dto.type,
+            date: dto.date,
+            childId: dto.childId,
+            encryption: dto.encryption,
+            encryptedPayload: dto.encryptedPayload,
+            signatureBase64: dto.signatureBase64,
+            timestamp: dto.timestamp,
+            keyId: dto.keyId,
+            createdBy: dto.createdBy,
+        });
+
+        const existingRequest = dto.idempotencyKey
+            ? await this.mutationRequestRepository?.findByIdempotencyKey(dto.idempotencyKey)
+            : null;
+        if (existingRequest && existingRequest.requestHash !== requestHash) {
+            throw new Error("idempotencyKey reuse with different payload");
+        }
+        if (existingRequest?.status === "COMPLETED" && existingRequest.timelineItemId) {
+            const existingItem = await this.repository.findByIdIncludingDeleted(existingRequest.timelineItemId);
+            if (existingItem) {
+                await this.repairCreateReplayAsyncWork(existingItem);
+                return existingItem;
+            }
+        }
+
         this.assertSignatureMetadata(dto.signatureBase64, dto.timestamp, dto.keyId);
         await this.assertChildExists(dto.childId);
         const timestamp = this.dateProvider.getIsoString();
@@ -249,9 +331,13 @@ export class TimelineServiceImpl {
 
         // Generate ID and timestamp
         // Map childId (singular from controller) to childIds (plural array expected by domain)
+        const timelineItemId = dto.idempotencyKey
+            ? (existingRequest?.timelineItemId ?? this.uuidProvider.generate())
+            : this.uuidProvider.generate();
+
         const rawItem = {
             ...dto,
-            id: this.uuidProvider.generate(),
+            id: timelineItemId,
             createdAt: timestamp,
             auditTrail: [initialAudit],
             isDeleted: false,
@@ -277,9 +363,23 @@ export class TimelineServiceImpl {
 
         const encryptedItem = validated;
         const signerPublicKey = await this.resolveSignerPublicKey(dto.createdBy, dto.keyId);
+        const inProgressReplayItem = existingRequest?.status === "IN_PROGRESS" && existingRequest.timelineItemId
+            ? await this.repository.findByIdIncludingDeleted(existingRequest.timelineItemId)
+            : null;
+        const claimedRequest = this.mutationRequestRepository && dto.idempotencyKey
+            ? {
+                idempotencyKey: dto.idempotencyKey,
+                operation: "CREATE_TIMELINE_ITEM" as const,
+                status: "IN_PROGRESS" as const,
+                timelineItemId: encryptedItem.id,
+                requestHash,
+            }
+            : null;
 
         const intent: ForensicIntentRecord = {
-            id: this.uuidProvider.generate(),
+            id: dto.idempotencyKey
+                ? this.buildCreateForensicIntentId(encryptedItem.id, encryptedItem.eventVersion)
+                : this.uuidProvider.generate(),
             timelineItem: encryptedItem,
             signerPublicKey,
             signatureBase64: dto.signatureBase64,
@@ -290,12 +390,67 @@ export class TimelineServiceImpl {
             retryCount: 0
         };
 
-        const savedItem = await this.saveWithForensicIntent(
-            (session?: unknown) => this.repository.save(encryptedItem, session),
-            intent
-        ) as EncryptedTimelineItem;
+        let savedItem: EncryptedTimelineItem;
+        try {
+            savedItem = await this.saveWithForensicIntent(
+                async (session?: unknown) => {
+                    if (claimedRequest) {
+                        if (existingRequest) {
+                            await this.mutationRequestRepository!.update(claimedRequest, session);
+                        } else {
+                            await this.mutationRequestRepository!.save(claimedRequest, session);
+                        }
+                    }
 
-        this.scheduleEventProof(savedItem.id, savedItem.eventVersion);
+                    const persistedItem = inProgressReplayItem
+                        ? inProgressReplayItem
+                        : await this.repository.save(encryptedItem, session);
+
+                    if (claimedRequest) {
+                        await this.mutationRequestRepository!.update({
+                            ...claimedRequest,
+                            status: "COMPLETED",
+                        }, session);
+                    }
+
+                    return inProgressReplayItem
+                        ? inProgressReplayItem
+                        : persistedItem;
+                },
+                intent,
+                [
+                    { taskType: TaskType.PROCESS_FORENSIC_INTENT, payload: { intentId: intent.id } },
+                    { taskType: TaskType.PUBLISH_EVENT_PROOF, payload: { itemId: encryptedItem.id, version: encryptedItem.eventVersion } },
+                ]
+            ) as EncryptedTimelineItem;
+
+        } catch (error) {
+            if (!dto.idempotencyKey || !this.isDuplicateKeyError(error)) {
+                throw error;
+            }
+
+            const replayedRequest = await this.mutationRequestRepository?.findByIdempotencyKey(dto.idempotencyKey);
+            if (!replayedRequest) {
+                throw error;
+            }
+            if (replayedRequest.requestHash !== requestHash) {
+                throw new Error("idempotencyKey reuse with different payload");
+            }
+            if (!replayedRequest.timelineItemId) {
+                throw error;
+            }
+
+            const replayedItem = await this.repository.findByIdIncludingDeleted(replayedRequest.timelineItemId);
+            if (!replayedItem) {
+                throw error;
+            }
+
+            return replayedItem;
+        }
+
+        if (!this.taskOutboxRepository) {
+            this.scheduleEventProof(savedItem.id, savedItem.eventVersion);
+        }
         return savedItem;
     }
 
@@ -409,10 +564,16 @@ export class TimelineServiceImpl {
 
         const savedItem = await this.saveWithForensicIntent(
             (session?: unknown) => this.repository.update(id, encryptedUpdatedItem, session),
-            intent
+            intent,
+            [
+                { taskType: TaskType.PROCESS_FORENSIC_INTENT, payload: { intentId: intent.id } },
+                { taskType: TaskType.PUBLISH_EVENT_PROOF, payload: { itemId: encryptedUpdatedItem.id, version: encryptedUpdatedItem.eventVersion } },
+            ]
         ) as EncryptedTimelineItem;
 
-        this.scheduleEventProof(savedItem.id, savedItem.eventVersion);
+        if (!this.taskOutboxRepository) {
+            this.scheduleEventProof(savedItem.id, savedItem.eventVersion);
+        }
         return savedItem;
     }
 
@@ -466,10 +627,16 @@ export class TimelineServiceImpl {
 
         await this.saveWithForensicIntent(
             (session?: unknown) => this.repository.update(id, updated as EncryptedTimelineItem, session),
-            intent
+            intent,
+            [
+                { taskType: TaskType.PROCESS_FORENSIC_INTENT, payload: { intentId: intent.id } },
+                { taskType: TaskType.PUBLISH_EVENT_PROOF, payload: { itemId: id, version: updated.eventVersion } },
+            ]
         );
 
-        this.scheduleEventProof(id, updated.eventVersion);
+        if (!this.taskOutboxRepository) {
+            this.scheduleEventProof(id, updated.eventVersion);
+        }
     }
 
     /**

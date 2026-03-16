@@ -1,10 +1,14 @@
 import { TimelineRepository } from "../../../../domain/events/ports/TimelineRepository";
-import { EncryptedTimelineItem, EventProofRecord } from "../../../../domain/events/model/TimelineItem";
+import { normalizeTimelineItemProofHistory, type EncryptedTimelineItem, type EventProofRecord } from "../../../../domain/events/model/TimelineItem";
 import { TimelineItemModel } from "../../models/TimelineItemModel";
 import mongoose, { ClientSession } from "mongoose";
 
 export class MongoTimelineRepository implements TimelineRepository {
     constructor() { }
+
+    private toDomainItem(item: unknown): EncryptedTimelineItem {
+        return normalizeTimelineItemProofHistory(item as EncryptedTimelineItem);
+    }
 
     async save(item: EncryptedTimelineItem, session?: unknown): Promise<EncryptedTimelineItem> {
         const mongooseSession = session as ClientSession | undefined;
@@ -19,7 +23,7 @@ export class MongoTimelineRepository implements TimelineRepository {
 
     async findByDate(date: string): Promise<EncryptedTimelineItem[]> {
         const items = await TimelineItemModel.find({ date, isDeleted: false }).lean();
-        return items as unknown as EncryptedTimelineItem[];
+        return items.map((item) => this.toDomainItem(item));
     }
 
     async findByDateRange(from: string, to: string): Promise<EncryptedTimelineItem[]> {
@@ -27,19 +31,19 @@ export class MongoTimelineRepository implements TimelineRepository {
             date: { $gte: from, $lte: to },
             isDeleted: false
         }).lean();
-        return items as unknown as EncryptedTimelineItem[];
+        return items.map((item) => this.toDomainItem(item));
     }
 
     async findById(id: string): Promise<EncryptedTimelineItem | null> {
         const item = await TimelineItemModel.findOne({ id, isDeleted: false }).lean();
         if (!item) return null;
-        return item as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(item);
     }
 
     async findByIdIncludingDeleted(id: string): Promise<EncryptedTimelineItem | null> {
         const item = await TimelineItemModel.findOne({ id }).lean();
         if (!item) return null;
-        return item as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(item);
     }
 
     async update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -59,7 +63,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} not found on update`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(result);
     }
 
     async updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -79,7 +83,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} not found on update`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(result);
     }
 
     async delete(id: string, session?: unknown): Promise<void> {
@@ -108,7 +112,163 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} and version ${proof.version} not found`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(result);
+    }
+
+    async markProofSubmitted(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
+        return this.appendProofRecord(id, proof, session);
+    }
+
+    async confirmProofAtomically(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem | null> {
+        const mongooseSession = session as ClientSession | undefined;
+        const result = await TimelineItemModel.findOneAndUpdate(
+            {
+                id,
+                versionHistory: {
+                    $elemMatch: {
+                        version: proof.version,
+                        proofHistory: {
+                            $elemMatch: {
+                                hash: proof.hash,
+                                status: { $in: ["SUBMITTED", "RECONCILING"] },
+                            }
+                        },
+                    }
+                },
+                $nor: [{
+                    versionHistory: {
+                        $elemMatch: {
+                            version: proof.version,
+                            proofHistory: {
+                                $elemMatch: {
+                                    status: "CONFIRMED",
+                                }
+                            },
+                        }
+                    }
+                }],
+            },
+            {
+                $set: {
+                    "versionHistory.$[ver].proofHistory.$[prf].status": "CONFIRMED",
+                    "versionHistory.$[ver].proofHistory.$[prf].submittedTxHash": proof.submittedTxHash,
+                    "versionHistory.$[ver].proofHistory.$[prf].txHash": proof.txHash,
+                    "versionHistory.$[ver].proofHistory.$[prf].blockNumber": proof.blockNumber,
+                    "versionHistory.$[ver].proofHistory.$[prf].anchoredAt": proof.anchoredAt,
+                    "versionHistory.$[ver].proofHistory.$[prf].lastAttemptAt": proof.lastAttemptAt,
+                    "versionHistory.$[ver].proofHistory.$[prf].lastError": proof.lastError,
+                },
+            },
+            {
+                arrayFilters: [
+                    { "ver.version": proof.version },
+                    { "prf.hash": proof.hash, "prf.status": { $in: ["SUBMITTED", "RECONCILING"] } },
+                ],
+                returnDocument: "after",
+                session: mongooseSession,
+            }
+        ).lean();
+
+        return result ? this.toDomainItem(result) : null;
+    }
+
+    async markProofTransitionInProgress(id: string, version: number, hash: string, session?: unknown): Promise<EncryptedTimelineItem | null> {
+        const mongooseSession = session as ClientSession | undefined;
+        const result = await TimelineItemModel.findOneAndUpdate(
+            {
+                id,
+                "versionHistory.version": version,
+                "versionHistory.proofHistory": {
+                    $elemMatch: {
+                        version,
+                        hash,
+                        status: "CLAIMED",
+                    }
+                }
+            },
+            {
+                $set: {
+                    "versionHistory.$[ver].proofHistory.$[prf].status": "RECONCILING",
+                },
+            },
+            {
+                arrayFilters: [
+                    { "ver.version": version },
+                    { "prf.hash": hash, "prf.status": "CLAIMED" },
+                ],
+                returnDocument: "after",
+                session: mongooseSession,
+            }
+        ).lean();
+
+        return result ? this.toDomainItem(result) : null;
+    }
+
+    async resetProofTransitionClaim(id: string, version: number, hash: string, session?: unknown): Promise<EncryptedTimelineItem | null> {
+        const mongooseSession = session as ClientSession | undefined;
+        const result = await TimelineItemModel.findOneAndUpdate(
+            {
+                id,
+                "versionHistory.version": version,
+                "versionHistory.proofHistory": {
+                    $elemMatch: {
+                        version,
+                        hash,
+                        status: "RECONCILING",
+                    }
+                }
+            },
+            {
+                $set: {
+                    "versionHistory.$[ver].proofHistory.$[prf].status": "CLAIMED",
+                },
+            },
+            {
+                arrayFilters: [
+                    { "ver.version": version },
+                    { "prf.hash": hash, "prf.status": "RECONCILING" },
+                ],
+                returnDocument: "after",
+                session: mongooseSession,
+            }
+        ).lean();
+
+        return result ? this.toDomainItem(result) : null;
+    }
+
+    async replaceProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
+        const mongooseSession = session as ClientSession | undefined;
+        const result = await TimelineItemModel.findOneAndUpdate(
+            {
+                id,
+                "versionHistory.version": proof.version,
+                "versionHistory.proofHistory": {
+                    $elemMatch: {
+                        version: proof.version,
+                        hash: proof.hash,
+                    }
+                }
+            },
+            {
+                $set: {
+                    "versionHistory.$[ver].proofHistory.$[prf]": proof,
+                },
+            },
+            {
+                arrayFilters: [
+                    { "ver.version": proof.version },
+                    { "prf.hash": proof.hash },
+                ],
+                returnDocument: "after",
+                session: mongooseSession,
+            }
+        ).lean();
+
+        if (!result) {
+            throw new Error(`Item with id ${id} and version ${proof.version} not found`);
+        }
+
+        return this.toDomainItem(result);
     }
 
     private async findVersionEntry(id: string, version: number, session: ClientSession | undefined) {
@@ -122,7 +282,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} and version ${version} not found`);
         }
 
-        const timelineItem = existing as unknown as EncryptedTimelineItem;
+        const timelineItem = this.toDomainItem(existing);
         const versionEntry = timelineItem.versionHistory.find((entry) => entry.version === version);
         if (!versionEntry) {
             throw new Error(`Item with id ${id} and version ${version} not found`);
@@ -132,11 +292,18 @@ export class MongoTimelineRepository implements TimelineRepository {
     }
 
     private async mergeExistingProofEntry(id: string, proof: EventProofRecord, session: ClientSession | undefined) {
+        const existing = await this.findVersionEntry(id, proof.version, session);
+        const existingProof = existing.proofHistory.find((candidate) => candidate.hash === proof.hash);
+        const mergedProof = {
+            ...existingProof,
+            ...proof,
+        };
+
         return TimelineItemModel.findOneAndUpdate(
             { id, "versionHistory.version": proof.version },
             {
                 $set: {
-                    "versionHistory.$[ver].proofHistory.$[prf]": proof,
+                    "versionHistory.$[ver].proofHistory.$[prf]": mergedProof,
                 },
             },
             {

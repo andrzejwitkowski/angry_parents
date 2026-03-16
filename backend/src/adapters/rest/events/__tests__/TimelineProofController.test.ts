@@ -25,6 +25,7 @@ describe("TimelineProofController", () => {
 
     it("returns the latest anchored proof for an event", async () => {
         mockApiService.getEventProof.mockResolvedValue({
+            status: "CONFIRMED",
             txHash: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             blockNumber: "201",
             hash: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
@@ -40,6 +41,7 @@ describe("TimelineProofController", () => {
 
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
+            status: "CONFIRMED",
             txHash: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             blockNumber: "201",
             hash: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
@@ -89,6 +91,7 @@ describe("TimelineProofController", () => {
 
     it("returns deleted-event proof when an anchored deleted item is requested", async () => {
         mockApiService.getEventProof.mockResolvedValue({
+            status: "CONFIRMED",
             txHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             blockNumber: "404",
             hash: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
@@ -104,16 +107,35 @@ describe("TimelineProofController", () => {
 
         expect(response.status).toBe(200);
         expect(await response.json()).toEqual({
+            status: "CONFIRMED",
             txHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             blockNumber: "404",
             hash: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         });
     });
 
-    // Note: "pending placeholder proof exists" is a service-layer distinction.
-    // From the controller's perspective, both "no proof" and "only pending proof"
-    // result in the same error from getEventProof: "proof not found".
-    // That case is already covered by "returns 404 when the event exists but has no proof yet".
+    it("returns lifecycle status for an in-flight proof", async () => {
+        mockApiService.getEventProof.mockResolvedValue({
+            status: "SUBMITTED",
+            hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            submittedTxHash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        });
+
+        const response = await controller.handle(
+            new Request("http://localhost/api/events/event-123/proof", {
+                headers: {
+                    Cookie: `token=${token}`
+                }
+            })
+        );
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({
+            status: "SUBMITTED",
+            hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            submittedTxHash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        });
+    });
 
     it("returns 404 when the event belongs to a different family scope", async () => {
         mockApiService.getEventProof.mockRejectedValue(new Error("Timeline item with id foreign-event not found"));

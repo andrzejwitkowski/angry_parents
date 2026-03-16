@@ -19,14 +19,31 @@ interface LogComposerProps {
     childId: string;
 }
 
+export function ensureComposerIdempotencyKey(
+    currentKey: string | null,
+    setIdempotencyKey: (key: string) => void,
+    generate: () => string = () => crypto.randomUUID(),
+): string {
+    if (currentKey) {
+        return currentKey;
+    }
+
+    const generatedKey = generate();
+    setIdempotencyKey(generatedKey);
+    return generatedKey;
+}
+
 export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposerProps) {
     const { t } = useTranslation();
     const { ensureUnlocked } = useSecurity();
     const [selectedMode, setSelectedMode] = useState<ActionMode | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
 
     const handleModeSelect = (mode: ActionMode) => {
-        setSelectedMode(prev => (prev === mode ? null : mode));
+        const nextMode = selectedMode === mode ? null : mode;
+        setSelectedMode(nextMode);
+        setIdempotencyKey(nextMode ? crypto.randomUUID() : null);
     };
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
@@ -35,17 +52,20 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
 
         setIsSubmitting(true);
         try {
+            const resolvedIdempotencyKey = ensureComposerIdempotencyKey(idempotencyKey, setIdempotencyKey);
             const dto: CreateTimelineItemInput = {
                 ...(formData as Record<string, unknown>),
                 type: selectedMode,
                 date,
                 encryption: "PLAINTEXT",
+                idempotencyKey: resolvedIdempotencyKey,
                 createdBy,
                 childId,
             };
 
             await timelineApi.create(dto, await getMutationSignature());
             setSelectedMode(null);
+            setIdempotencyKey(null);
             onSuccess();
         } catch (error) {
             console.error("Failed to add entry:", error);

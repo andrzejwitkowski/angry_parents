@@ -54,6 +54,31 @@ export interface TimelineRepository {
      */
     appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem>;
 
+    /**
+     * Persist submitted transaction metadata before final confirmation.
+     */
+    markProofSubmitted(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem>;
+
+    /**
+     * Atomically confirm a pending proof only if no confirmation exists yet for that version.
+     */
+    confirmProofAtomically(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem | null>;
+
+    /**
+     * Atomically claim a pending proof transition before attempting blockchain submission.
+     */
+    markProofTransitionInProgress(id: string, version: number, hash: string, session?: unknown): Promise<EncryptedTimelineItem | null>;
+
+    /**
+     * Roll back an in-progress claim when submission fails before any tx hash is persisted.
+     */
+    resetProofTransitionClaim(id: string, version: number, hash: string, session?: unknown): Promise<EncryptedTimelineItem | null>;
+
+    /**
+     * Replace the latest proof record for a version/hash with a recovered state after infrastructure failure.
+     */
+    replaceProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem>;
+
     withTransaction<T>(operation: (session?: unknown) => Promise<T>): Promise<T>;
 
     /**

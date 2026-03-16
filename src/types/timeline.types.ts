@@ -120,9 +120,27 @@ export type CreateTimelineItemInput = {
     date: string;
     childId: string;
     encryption: "PLAINTEXT";
+    idempotencyKey: string;
     createdBy?: string;
     childIds?: string[];
     [key: string]: unknown;
 };
 
 export type UpdateTimelineItemDto = Partial<CreateTimelineItemDto>;
+
+export type EventProofStatus = "CLAIMED" | "SUBMITTED" | "RECONCILING" | "CONFIRMED" | "FAILED";
+
+export type EventProof =
+    | {
+        status: "CLAIMED" | "SUBMITTED" | "RECONCILING" | "FAILED";
+        hash: string;
+        submittedTxHash?: string;
+        lastAttemptAt?: string;
+        lastError?: string;
+    }
+    | {
+        status: "CONFIRMED";
+        hash: string;
+        txHash: string;
+        blockNumber: string;
+    };

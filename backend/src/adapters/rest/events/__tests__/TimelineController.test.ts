@@ -162,4 +162,40 @@ describe("TimelineController proof route wiring", () => {
             familyId: "family-1"
         });
     });
+
+    it("should require idempotencyKey for POST /api/timeline", async () => {
+        const token = await signJwt({
+            userId: "user-123",
+            role: "mom",
+            familyId: "family-1",
+            email: "mom@example.com"
+        });
+        const apiService = {
+            createItem: vi.fn(),
+        };
+        const controller = createTimelineController(apiService as any);
+
+        const response = await controller.handle(
+            new Request("http://localhost/api/timeline", {
+                method: "POST",
+                headers: {
+                    Cookie: `token=${token}`,
+                    "content-type": "application/json"
+                },
+                body: JSON.stringify({
+                    type: "NOTE",
+                    date: "2026-03-03",
+                    childId: "child-1",
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-123": "ciphertext" },
+                    signatureBase64: "sig",
+                    timestamp: "2026-03-03T10:00:00.000Z",
+                    keyId: "key1"
+                })
+            })
+        );
+
+        expect(response.status).toBe(422);
+        expect(apiService.createItem).not.toHaveBeenCalled();
+    });
 });
