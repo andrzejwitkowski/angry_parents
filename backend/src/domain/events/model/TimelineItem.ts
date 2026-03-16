@@ -38,12 +38,20 @@ export function inferEventProofStatus(record: Partial<{
     blockNumber: string;
     anchoredAt: string;
 }>): EventProofStatus {
-    if (record.txHash && record.blockNumber !== undefined && record.anchoredAt) {
-        return "CONFIRMED";
-    }
-
     if (record.status === "FAILED" || record.status === "RECONCILING") {
         return record.status;
+    }
+
+    if (record.status === "CONFIRMED") {
+        if (record.txHash && record.blockNumber !== undefined && record.anchoredAt) {
+            return "CONFIRMED";
+        }
+
+        return record.submittedTxHash ? "SUBMITTED" : "CLAIMED";
+    }
+
+    if (record.txHash && record.blockNumber !== undefined && record.anchoredAt) {
+        return "CONFIRMED";
     }
 
     if (record.submittedTxHash) {

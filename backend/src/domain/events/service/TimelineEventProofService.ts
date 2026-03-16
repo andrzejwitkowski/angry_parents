@@ -47,6 +47,11 @@ export class TimelineEventProofService {
             status: "CLAIMED",
         };
         delete claimedProof.submittedTxHash;
+        delete claimedProof.txHash;
+        delete claimedProof.blockNumber;
+        delete claimedProof.anchoredAt;
+        delete claimedProof.lastError;
+        delete claimedProof.lastAttemptAt;
 
         await this.repository.replaceProofRecord(id, claimedProof);
         return this.startClaimedProofPublication(id, version, proof.hash);

@@ -526,6 +526,46 @@ describe("TimelineEventProofService", () => {
             submittedTxHash: validPublishedTxHash,
             txHash: validPublishedTxHash,
         });
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory[0]).toEqual({
+            version: 2,
+            hash,
+            status: "CONFIRMED",
+            submittedTxHash: validPublishedTxHash,
+            txHash: validPublishedTxHash,
+            blockNumber: "987",
+            anchoredAt,
+            lastAttemptAt: anchoredAt,
+        });
+    });
+
+    it("clears stale proof metadata before restarting claimed-state publication", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "FAILED",
+            txHash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            blockNumber: "123",
+            anchoredAt: "2026-03-11T10:00:00.000Z",
+            lastAttemptAt: submittedAt,
+            lastError: "receipt lookup exhausted",
+        });
+
+        await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory[0]).toEqual({
+            version: 2,
+            hash,
+            status: "CONFIRMED",
+            submittedTxHash: validPublishedTxHash,
+            txHash: validPublishedTxHash,
+            blockNumber: "987",
+            anchoredAt,
+            lastAttemptAt: anchoredAt,
+        });
     });
 
     it("routes reconciling proof retry without submitted tx hash back through the claimed publication path", async () => {

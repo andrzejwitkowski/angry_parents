@@ -167,6 +167,29 @@ describe("TimelineApiService", () => {
         });
     });
 
+    it("preserves an explicit FAILED status even if stale anchored fields are still present", async () => {
+        const service = createService(createTimelineItem([
+            {
+                version: 1,
+                hash: "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+                status: "FAILED",
+                submittedTxHash: "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+                txHash: "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+                blockNumber: "301",
+                anchoredAt: "2026-03-12T12:30:00.000Z",
+                lastError: "receipt lookup exhausted",
+            }
+        ]));
+
+        await expect(service.getEventProof("event-1", user)).resolves.toEqual({
+            status: "FAILED",
+            hash: "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            submittedTxHash: "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            lastError: "receipt lookup exhausted",
+            lastAttemptAt: undefined,
+        });
+    });
+
     it("prefers a confirmed proof within the latest version over a later stale non-confirmed entry", async () => {
         const service = createService({
             id: "event-1",
