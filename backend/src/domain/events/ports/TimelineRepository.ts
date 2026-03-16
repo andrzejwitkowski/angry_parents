@@ -60,6 +60,11 @@ export interface TimelineRepository {
     markProofSubmitted(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem>;
 
     /**
+     * Atomically confirm a pending proof only if no confirmation exists yet for that version.
+     */
+    confirmProofAtomically(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem | null>;
+
+    /**
      * Atomically claim a pending proof transition before attempting blockchain submission.
      */
     markProofTransitionInProgress(id: string, version: number, hash: string, session?: unknown): Promise<EncryptedTimelineItem | null>;

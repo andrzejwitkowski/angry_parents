@@ -362,4 +362,181 @@ describe("MongoTimelineRepository", () => {
             }
         ]);
     });
+
+    it("atomically confirms a pending proof once in Mongo", async () => {
+        const itemWithVersionHistory: TimelineItem = encrypted({
+            ...mockItem,
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: mockItem.id,
+                    type: "NOTE",
+                    date: mockItem.date,
+                    createdAt: mockItem.createdAt,
+                    createdBy: mockItem.createdBy,
+                    createdByName: mockItem.createdByName,
+                    auditTrail: mockItem.auditTrail,
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-1": "ciphertext" }
+                },
+                proofHistory: [{
+                    version: 1,
+                    hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    status: "SUBMITTED",
+                    submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    lastAttemptAt: "2026-03-12T11:55:00.000Z"
+                }]
+            }]
+        }) as any;
+
+        await repository.save(itemWithVersionHistory as any);
+
+        const updated = await repository.confirmProofAtomically(mockItem.id, {
+            version: 1,
+            hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            status: "CONFIRMED",
+            submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            blockNumber: "44",
+            anchoredAt: "2026-03-12T12:00:00.000Z"
+        } as any);
+
+        expect((updated as any)?.versionHistory[0].proofHistory).toEqual([
+            {
+                version: 1,
+                hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                status: "CONFIRMED",
+                submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                lastAttemptAt: "2026-03-12T11:55:00.000Z",
+                txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                blockNumber: "44",
+                anchoredAt: "2026-03-12T12:00:00.000Z"
+            }
+        ]);
+
+        await expect(repository.confirmProofAtomically(mockItem.id, {
+            version: 1,
+            hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            status: "CONFIRMED",
+            submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            blockNumber: "44",
+            anchoredAt: "2026-03-12T12:00:00.000Z"
+        } as any)).resolves.toBeNull();
+    });
+
+    it("allows only one concurrent Mongo atomic confirmation", async () => {
+        const itemWithVersionHistory: TimelineItem = encrypted({
+            ...mockItem,
+            id: "timeline-concurrent-confirm",
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: "timeline-concurrent-confirm",
+                    type: "NOTE",
+                    date: mockItem.date,
+                    createdAt: mockItem.createdAt,
+                    createdBy: mockItem.createdBy,
+                    createdByName: mockItem.createdByName,
+                    auditTrail: mockItem.auditTrail,
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-1": "ciphertext" }
+                },
+                proofHistory: [{
+                    version: 1,
+                    hash: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    status: "RECONCILING",
+                    submittedTxHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    lastAttemptAt: "2026-03-12T11:55:00.000Z"
+                }]
+            }]
+        }) as any;
+
+        await repository.save(itemWithVersionHistory as any);
+
+        const [first, second] = await Promise.all([
+            repository.confirmProofAtomically("timeline-concurrent-confirm", {
+                version: 1,
+                hash: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                status: "CONFIRMED",
+                submittedTxHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                txHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                blockNumber: "66",
+                anchoredAt: "2026-03-12T12:00:00.000Z",
+                lastAttemptAt: "2026-03-12T11:55:00.000Z"
+            } as any),
+            repository.confirmProofAtomically("timeline-concurrent-confirm", {
+                version: 1,
+                hash: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                status: "CONFIRMED",
+                submittedTxHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                txHash: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                blockNumber: "66",
+                anchoredAt: "2026-03-12T12:00:00.000Z",
+                lastAttemptAt: "2026-03-12T11:55:00.000Z"
+            } as any),
+        ]);
+
+        expect([first, second].filter(Boolean)).toHaveLength(1);
+        expect([first, second]).toContain(null);
+    });
+
+    it("returns null when Mongo atomic confirmation loses to an existing confirmed proof", async () => {
+        const itemWithVersionHistory: TimelineItem = encrypted({
+            ...mockItem,
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: mockItem.id,
+                    type: "NOTE",
+                    date: mockItem.date,
+                    createdAt: mockItem.createdAt,
+                    createdBy: mockItem.createdBy,
+                    createdByName: mockItem.createdByName,
+                    auditTrail: mockItem.auditTrail,
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-1": "ciphertext" }
+                },
+                proofHistory: [
+                    {
+                        version: 1,
+                        hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        status: "SUBMITTED",
+                        submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        lastAttemptAt: "2026-03-12T11:55:00.000Z"
+                    },
+                    {
+                        version: 1,
+                        hash: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                        status: "CONFIRMED",
+                        submittedTxHash: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                        txHash: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                        blockNumber: "55",
+                        anchoredAt: "2026-03-12T11:00:00.000Z"
+                    }
+                ]
+            }]
+        }) as any;
+
+        await repository.save(itemWithVersionHistory as any);
+
+        await expect(repository.confirmProofAtomically(mockItem.id, {
+            version: 1,
+            hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            status: "CONFIRMED",
+            submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            blockNumber: "44",
+            anchoredAt: "2026-03-12T12:00:00.000Z"
+        } as any)).resolves.toBeNull();
+    });
 });

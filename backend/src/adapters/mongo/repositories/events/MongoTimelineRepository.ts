@@ -119,6 +119,59 @@ export class MongoTimelineRepository implements TimelineRepository {
         return this.appendProofRecord(id, proof, session);
     }
 
+    async confirmProofAtomically(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem | null> {
+        const mongooseSession = session as ClientSession | undefined;
+        const result = await TimelineItemModel.findOneAndUpdate(
+            {
+                id,
+                versionHistory: {
+                    $elemMatch: {
+                        version: proof.version,
+                        proofHistory: {
+                            $elemMatch: {
+                                hash: proof.hash,
+                                status: { $in: ["SUBMITTED", "RECONCILING"] },
+                            }
+                        },
+                    }
+                },
+                $nor: [{
+                    versionHistory: {
+                        $elemMatch: {
+                            version: proof.version,
+                            proofHistory: {
+                                $elemMatch: {
+                                    status: "CONFIRMED",
+                                }
+                            },
+                        }
+                    }
+                }],
+            },
+            {
+                $set: {
+                    "versionHistory.$[ver].proofHistory.$[prf].status": "CONFIRMED",
+                    "versionHistory.$[ver].proofHistory.$[prf].submittedTxHash": proof.submittedTxHash,
+                    "versionHistory.$[ver].proofHistory.$[prf].txHash": proof.txHash,
+                    "versionHistory.$[ver].proofHistory.$[prf].blockNumber": proof.blockNumber,
+                    "versionHistory.$[ver].proofHistory.$[prf].anchoredAt": proof.anchoredAt,
+                    "versionHistory.$[ver].proofHistory.$[prf].lastAttemptAt": proof.lastAttemptAt,
+                    "versionHistory.$[ver].proofHistory.$[prf].lastError": proof.lastError,
+                },
+            },
+            {
+                arrayFilters: [
+                    { "ver.version": proof.version },
+                    { "prf.hash": proof.hash, "prf.status": { $in: ["SUBMITTED", "RECONCILING"] } },
+                ],
+                returnDocument: "after",
+                session: mongooseSession,
+            }
+        ).lean();
+
+        return result ? this.toDomainItem(result) : null;
+    }
+
     async markProofTransitionInProgress(id: string, version: number, hash: string, session?: unknown): Promise<EncryptedTimelineItem | null> {
         const mongooseSession = session as ClientSession | undefined;
         const result = await TimelineItemModel.findOneAndUpdate(

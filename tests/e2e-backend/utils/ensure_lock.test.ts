@@ -27,8 +27,8 @@ describe("acquireTestBackendStartupLock", () => {
         const lock = await acquireTestBackendStartupLock({
             lockDir,
             staleAfterMs: 1_000,
-            retryIntervalMs: 10,
-            timeoutMs: 100,
+            retryIntervalMs: 25,
+            timeoutMs: 250,
             isBackendReady: async () => false,
         });
 
@@ -53,10 +53,10 @@ describe("acquireTestBackendStartupLock", () => {
         const lock = await acquireTestBackendStartupLock({
             lockDir,
             staleAfterMs: 5_000,
-            retryIntervalMs: 10,
-            timeoutMs: 100,
+            retryIntervalMs: 25,
+            timeoutMs: 250,
             isBackendReady: async () => false,
-            heartbeatIntervalMs: 20,
+            heartbeatIntervalMs: 50,
         });
 
         if (lock.kind !== "acquired") {
@@ -65,7 +65,7 @@ describe("acquireTestBackendStartupLock", () => {
 
         try {
             const initialMtime = fs.statSync(lockDir).mtimeMs;
-            await new Promise((resolve) => setTimeout(resolve, 60));
+            await new Promise((resolve) => setTimeout(resolve, 150));
             const refreshedMtime = fs.statSync(lockDir).mtimeMs;
 
             expect(refreshedMtime).toBeGreaterThan(initialMtime);

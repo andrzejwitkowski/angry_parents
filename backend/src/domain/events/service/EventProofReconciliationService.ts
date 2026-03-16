@@ -16,10 +16,7 @@ export class EventProofReconciliationService {
             throw new Error(`Timeline item with id ${itemId} not found`);
         }
 
-        const versionEntry = item.versionHistory.find((entry) => entry.version === version);
-        if (!versionEntry || versionEntry.proofHistory.length === 0) {
-            throw new Error(`No proof record found for timeline item ${itemId} version ${version}`);
-        }
+        const versionEntry = this.getVersionEntry(item, itemId, version);
 
         const proof = this.getCurrentProof(versionEntry);
         if (proof.status === "CONFIRMED") {
@@ -54,8 +51,24 @@ export class EventProofReconciliationService {
             anchoredAt: this.dateProvider.getIsoString(),
         };
 
-        await this.repository.appendProofRecord(itemId, confirmedProof);
-        return confirmedProof;
+        const updated = await this.repository.confirmProofAtomically(itemId, confirmedProof);
+        if (updated) {
+            return this.getCurrentProof(this.getVersionEntry(updated, itemId, version));
+        }
+
+        const currentItem = await this.repository.findByIdIncludingDeleted(itemId);
+        if (!currentItem) {
+            throw new Error(`Timeline item with id ${itemId} not found`);
+        }
+
+        const currentProof = this.getCurrentProof(this.getVersionEntry(currentItem, itemId, version));
+        if (currentProof.status !== "CONFIRMED") {
+            throw new Error(
+                `Proof confirmation for timeline item ${itemId} version ${version} lost an atomic race without persisting a confirmed proof`
+            );
+        }
+
+        return currentProof;
     }
 
     async markProofReconciliationFailed(itemId: string, version: number, errorMessage: string, submittedTxHash?: string): Promise<EventProofRecord> {
@@ -64,10 +77,7 @@ export class EventProofReconciliationService {
             throw new Error(`Timeline item with id ${itemId} not found`);
         }
 
-        const versionEntry = item.versionHistory.find((entry) => entry.version === version);
-        if (!versionEntry || versionEntry.proofHistory.length === 0) {
-            throw new Error(`No proof record found for timeline item ${itemId} version ${version}`);
-        }
+        const versionEntry = this.getVersionEntry(item, itemId, version);
 
         const proof = this.getCurrentProof(versionEntry);
         if (proof.status === "CONFIRMED") {
@@ -93,5 +103,14 @@ export class EventProofReconciliationService {
         }
 
         return versionEntry.proofHistory[versionEntry.proofHistory.length - 1];
+    }
+
+    private getVersionEntry(item: { versionHistory: TimelineItemVersion[] }, itemId: string, version: number): TimelineItemVersion {
+        const versionEntry = item.versionHistory.find((entry) => entry.version === version);
+        if (!versionEntry || versionEntry.proofHistory.length === 0) {
+            throw new Error(`No proof record found for timeline item ${itemId} version ${version}`);
+        }
+
+        return versionEntry;
     }
 }

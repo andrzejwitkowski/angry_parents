@@ -89,6 +89,37 @@ function buildItemWithProof(proof: EventProofRecord): EncryptedTimelineItem {
     };
 }
 
+class RaceWinningTimelineRepository extends InMemoryTimelineRepository {
+    private readonly winningProof: EventProofRecord = {
+        version: 2,
+        hash: "9999999999999999999999999999999999999999999999999999999999999999",
+        status: "CONFIRMED",
+        submittedTxHash: "0x9999999999999999999999999999999999999999999999999999999999999999",
+        txHash: "0x9999999999999999999999999999999999999999999999999999999999999999",
+        blockNumber: "77",
+        anchoredAt: "2026-03-12T11:00:00.000Z",
+    };
+
+    async appendProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
+        if (proof.status === "CONFIRMED" && proof.version === 2) {
+            return super.appendProofRecord(id, this.winningProof, session);
+        }
+
+        return super.appendProofRecord(id, proof, session);
+    }
+
+    async confirmProofAtomically(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem | null> {
+        await super.appendProofRecord(id, this.winningProof, session);
+        return null;
+    }
+}
+
+class RaceLosingWithoutConfirmationRepository extends InMemoryTimelineRepository {
+    async confirmProofAtomically(_id: string, _proof: EventProofRecord, _session?: unknown): Promise<EncryptedTimelineItem | null> {
+        return null;
+    }
+}
+
 describe("EventProofReconciliationService", () => {
     let repository: InMemoryTimelineRepository;
     let blockchainAnchor: {
@@ -429,5 +460,55 @@ describe("EventProofReconciliationService", () => {
             anchoredAt: "2026-03-12T11:00:00.000Z",
         });
         expect(blockchainAnchor.getReceipt).not.toHaveBeenCalled();
+    });
+
+    it("returns the already-confirmed proof when atomic confirmation loses the race", async () => {
+        repository = new RaceWinningTimelineRepository();
+        service = new EventProofReconciliationService(repository, blockchainAnchor as any, fixedDateProvider);
+
+        await repository.save(buildItemWithProof({
+            version: 2,
+            hash: "ababffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            status: "SUBMITTED",
+            submittedTxHash,
+            lastAttemptAt: "2026-03-12T11:55:00.000Z",
+        }));
+        blockchainAnchor.getReceipt.mockResolvedValue({
+            txHash: submittedTxHash,
+            blockNumber: 456n,
+        });
+
+        const result = await service.reconcileProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", 2);
+
+        expect(result).toEqual({
+            version: 2,
+            hash: "9999999999999999999999999999999999999999999999999999999999999999",
+            status: "CONFIRMED",
+            submittedTxHash: "0x9999999999999999999999999999999999999999999999999999999999999999",
+            txHash: "0x9999999999999999999999999999999999999999999999999999999999999999",
+            blockNumber: "77",
+            anchoredAt: "2026-03-12T11:00:00.000Z",
+        });
+    });
+
+    it("throws when atomic confirmation loses the race without any confirmed proof being persisted", async () => {
+        repository = new RaceLosingWithoutConfirmationRepository();
+        service = new EventProofReconciliationService(repository, blockchainAnchor as any, fixedDateProvider);
+
+        await repository.save(buildItemWithProof({
+            version: 2,
+            hash: "ababababffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            status: "SUBMITTED",
+            submittedTxHash,
+            lastAttemptAt: "2026-03-12T11:55:00.000Z",
+        }));
+        blockchainAnchor.getReceipt.mockResolvedValue({
+            txHash: submittedTxHash,
+            blockNumber: 456n,
+        });
+
+        await expect(service.reconcileProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", 2)).rejects.toThrow(
+            "lost an atomic race without persisting a confirmed proof"
+        );
     });
 });

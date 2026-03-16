@@ -146,6 +146,68 @@ export class InMemoryTimelineRepository implements TimelineRepository {
         return this.appendProofRecord(id, proof, session);
     }
 
+    async confirmProofAtomically(id: string, proof: EventProofRecord, _session?: unknown): Promise<EncryptedTimelineItem | null> {
+        const existingItem = this.itemsById.get(id);
+        if (!existingItem) {
+            return null;
+        }
+
+        let didConfirm = false;
+        const versionHistory = existingItem.versionHistory.map((entry) => {
+            if (entry.version !== proof.version) {
+                return entry;
+            }
+
+            const hasConfirmedProof = entry.proofHistory.some((existingProof) => existingProof.status === "CONFIRMED");
+            if (hasConfirmedProof) {
+                return entry;
+            }
+
+            const proofIndex = entry.proofHistory.findIndex((existingProof) => existingProof.hash === proof.hash);
+            if (proofIndex === -1) {
+                return entry;
+            }
+
+            const currentProof = entry.proofHistory[proofIndex];
+            if (currentProof.status !== "SUBMITTED" && currentProof.status !== "RECONCILING") {
+                return entry;
+            }
+
+            didConfirm = true;
+            const updatedProofHistory = [...entry.proofHistory];
+            updatedProofHistory[proofIndex] = {
+                ...currentProof,
+                ...proof,
+                status: "CONFIRMED",
+            };
+
+            return {
+                ...entry,
+                proofHistory: updatedProofHistory,
+            };
+        });
+
+        if (!didConfirm) {
+            return null;
+        }
+
+        const updatedItem = {
+            ...existingItem,
+            versionHistory,
+        } satisfies EncryptedTimelineItem;
+
+        this.itemsById.set(id, updatedItem);
+
+        const itemsForDate = this.itemsByDate.get(existingItem.date) || [];
+        const itemIndex = itemsForDate.findIndex((item) => item.id === id);
+        if (itemIndex !== -1) {
+            itemsForDate[itemIndex] = updatedItem;
+            this.itemsByDate.set(existingItem.date, itemsForDate);
+        }
+
+        return this.toDomainItem(updatedItem);
+    }
+
     async markProofTransitionInProgress(id: string, version: number, hash: string, _session?: unknown): Promise<EncryptedTimelineItem | null> {
         const existingItem = this.itemsById.get(id);
         if (!existingItem) {
