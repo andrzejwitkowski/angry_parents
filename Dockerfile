@@ -3,19 +3,21 @@ FROM oven/bun:latest
 WORKDIR /app
 
 # Kopiujemy pliki zależności
-COPY package.json bun.lockb ./
+# Kopiujemy też package-lock.json (jeśli go masz), żeby npm był szczęśliwy
+COPY package.json package-lock.json* bun.lockb* ./
 
-# Instalujemy paczki (ignorujemy skrypty gita, które wywalały błąd)
-RUN bun install --ignore-scripts
+# Używamy npm do instalacji - jest DUŻO stabilniejszy w środowiskach CI
+# Dodajemy --ignore-scripts, żeby te nieszczęsne gity nam nie psuły zabawy
+RUN npm install --ignore-scripts
 
 # Kopiujemy resztę kodu
 COPY . .
 
-# Budujemy frontend (Vite)
+# Budujemy projekt (Vite + tsc)
 RUN bun run build
 
-# Twoja apka wystawia port (ustaw taki sam w Coolify)
+# Twoja apka wystawia port (upewnij się, że taki sam masz w Coolify)
 EXPOSE 3000
 
-# Startujemy backend
+# Startujemy backend za pomocą Bun
 CMD ["bun", "backend/src/index.ts"]
