@@ -42,16 +42,20 @@ export class TimelineEventProofService {
     }
 
     private async restartProofPublicationFromClaimedState(id: string, version: number, proof: EventProofRecord): Promise<EventProofRecord> {
+        const {
+            submittedTxHash: _submittedTxHash,
+            txHash: _txHash,
+            blockNumber: _blockNumber,
+            anchoredAt: _anchoredAt,
+            lastError: _lastError,
+            lastAttemptAt: _lastAttemptAt,
+            ...proofWithoutTransientMetadata
+        } = proof;
+
         const claimedProof: EventProofRecord = {
-            ...proof,
+            ...proofWithoutTransientMetadata,
             status: "CLAIMED",
         };
-        delete claimedProof.submittedTxHash;
-        delete claimedProof.txHash;
-        delete claimedProof.blockNumber;
-        delete claimedProof.anchoredAt;
-        delete claimedProof.lastError;
-        delete claimedProof.lastAttemptAt;
 
         await this.repository.replaceProofRecord(id, claimedProof);
         return this.startClaimedProofPublication(id, version, proof.hash);
