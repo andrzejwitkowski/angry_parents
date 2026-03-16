@@ -161,6 +161,27 @@ export class TimelineServiceImpl {
         return `timeline-create:${itemId}:v${version}`;
     }
 
+    private async repairCreateReplayAsyncWork(item: EncryptedTimelineItem): Promise<void> {
+        if (!this.taskOutboxRepository) {
+            return;
+        }
+
+        const version = item.eventVersion ?? 1;
+        const intentId = this.buildCreateForensicIntentId(item.id, version);
+        const entries = [
+            { taskType: TaskType.PROCESS_FORENSIC_INTENT, payload: { intentId } },
+            { taskType: TaskType.PUBLISH_EVENT_PROOF, payload: { itemId: item.id, version } },
+        ];
+
+        for (const entry of entries) {
+            await this.taskOutboxRepository.append({
+                ...entry,
+                payloadHash: calculatePayloadHash(entry.payload),
+                retryPolicy: TimelineServiceImpl.DEFAULT_TASK_RETRY_POLICY,
+            });
+        }
+    }
+
     private assertSignatureMetadata(signatureBase64: string, timestamp: string, keyId: string): void {
         if (process.env.NODE_ENV === "test" || process.env.VITEST) {
             return;
@@ -291,6 +312,7 @@ export class TimelineServiceImpl {
         if (existingRequest?.status === "COMPLETED" && existingRequest.timelineItemId) {
             const existingItem = await this.repository.findByIdIncludingDeleted(existingRequest.timelineItemId);
             if (existingItem) {
+                await this.repairCreateReplayAsyncWork(existingItem);
                 return existingItem;
             }
         }

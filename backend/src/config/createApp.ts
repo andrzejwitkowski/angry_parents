@@ -269,6 +269,11 @@ export async function createApp() {
         }
     }
 
+    (finalApp as any).stop = async () => {
+        clearInterval(outboxDispatchLoop);
+        await taskManager.stop();
+    };
+
     (globalThis as any).app = finalApp;
 
     return { app: finalApp, deps };

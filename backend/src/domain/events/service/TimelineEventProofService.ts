@@ -1,4 +1,4 @@
-import type { EncryptedTimelineItem, EncryptedTimelineVersionSnapshot, EventProofRecord, TimelineItemVersion } from "../model/TimelineItem";
+import { inferEventProofStatus, type EncryptedTimelineItem, type EncryptedTimelineVersionSnapshot, type EventProofRecord, type TimelineItemVersion } from "../model/TimelineItem";
 import type { TimelineRepository } from "../ports/TimelineRepository";
 import type { DateProvider } from "../../shared/ports/DateProvider";
 import type { IEventBlockchainAnchor } from "../../shared/ports/IEventBlockchainAnchor";
@@ -37,6 +37,10 @@ export class TimelineEventProofService {
         return parsed.toISOString();
     }
 
+    private getLatestProofForHash(versionEntry: TimelineItemVersion, hash: string): EventProofRecord | undefined {
+        return [...versionEntry.proofHistory].reverse().find((proof) => proof.hash === hash);
+    }
+
     async publishProof(id: string, versionOrOptions?: number | { retryPending?: boolean }, maybeOptions?: { retryPending?: boolean }): Promise<EventProofRecord> {
         const item = await this.repository.findByIdIncludingDeleted(id);
         if (!item) {
@@ -51,16 +55,21 @@ export class TimelineEventProofService {
         const versionEntry = this.getVersionEntry(hydratedItem, activeVersion);
         const hash = calculateEventProofHash(versionEntry.snapshot);
 
-        const existingConfirmedProof = versionEntry.proofHistory.find(
-            (proof) => proof.hash === hash && proof.status === "CONFIRMED" && proof.txHash && proof.blockNumber !== undefined && proof.anchoredAt
-        );
+        const existingProof = this.getLatestProofForHash(versionEntry, hash);
+        const existingConfirmedProof = existingProof
+            && inferEventProofStatus(existingProof) === "CONFIRMED"
+            && existingProof.txHash
+            && existingProof.blockNumber !== undefined
+            && existingProof.anchoredAt
+            ? existingProof
+            : undefined;
         if (existingConfirmedProof) {
             return existingConfirmedProof as Required<EventProofRecord> as EventProofRecord;
         }
 
-        const existingPendingProof = versionEntry.proofHistory.find(
-            (proof) => proof.hash === hash && proof.status !== "CONFIRMED"
-        );
+        const existingPendingProof = existingProof && inferEventProofStatus(existingProof) !== "CONFIRMED"
+            ? { ...existingProof, status: inferEventProofStatus(existingProof) }
+            : undefined;
         if (existingPendingProof) {
             if (options.retryPending) {
                 if (existingPendingProof.status === "SUBMITTED" && existingPendingProof.submittedTxHash) {
@@ -108,12 +117,16 @@ export class TimelineEventProofService {
         if (!claimed) {
             const refreshed = await this.repository.findByIdIncludingDeleted(id);
             const refreshedVersionEntry = refreshed ? this.getVersionEntry(refreshed, version) : null;
-            const refreshedProof = refreshedVersionEntry?.proofHistory.find((proof) => proof.hash === hash);
+            const refreshedProof = refreshedVersionEntry ? this.getLatestProofForHash(refreshedVersionEntry, hash) : undefined;
             if (refreshedProof) {
-                if (refreshedProof.status === "SUBMITTED" && refreshedProof.submittedTxHash) {
+                const refreshedStatus = inferEventProofStatus(refreshedProof);
+                if (refreshedStatus === "SUBMITTED" && refreshedProof.submittedTxHash) {
                     await this.scheduleReconciliation(id, version, refreshedProof.submittedTxHash);
                 }
-                return refreshedProof;
+                return {
+                    ...refreshedProof,
+                    status: refreshedStatus,
+                };
             }
 
             throw new Error(`Proof publication state changed unexpectedly for timeline item ${id} version ${version}`);

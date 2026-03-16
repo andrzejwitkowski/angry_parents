@@ -1,21 +1,26 @@
 import type { TimelineRepository } from "../../../../domain/events/ports/TimelineRepository";
-import type { EncryptedTimelineItem, EventProofRecord } from "../../../../domain/events/model/TimelineItem";
+import { normalizeTimelineItemProofHistory, type EncryptedTimelineItem, type EventProofRecord } from "../../../../domain/events/model/TimelineItem";
 
 export class InMemoryTimelineRepository implements TimelineRepository {
     private itemsByDate: Map<string, EncryptedTimelineItem[]> = new Map();
     private itemsById: Map<string, EncryptedTimelineItem> = new Map();
 
+    private toDomainItem(item: EncryptedTimelineItem): EncryptedTimelineItem {
+        return normalizeTimelineItemProofHistory(structuredClone(item));
+    }
+
     async save(item: EncryptedTimelineItem, _session?: unknown): Promise<EncryptedTimelineItem> {
         const dateKey = item.date;
         const existingItems = this.itemsByDate.get(dateKey) || [];
-        existingItems.push(item);
+        const storedItem = structuredClone(item);
+        existingItems.push(storedItem);
         this.itemsByDate.set(dateKey, existingItems);
-        this.itemsById.set(item.id, item);
-        return item;
+        this.itemsById.set(item.id, storedItem);
+        return this.toDomainItem(storedItem);
     }
 
     async findByDate(date: string): Promise<EncryptedTimelineItem[]> {
-        return this.itemsByDate.get(date) || [];
+        return (this.itemsByDate.get(date) || []).map((item) => this.toDomainItem(item));
     }
 
     async findByDateRange(from: string, to: string): Promise<EncryptedTimelineItem[]> {
@@ -25,16 +30,17 @@ export class InMemoryTimelineRepository implements TimelineRepository {
                 results.push(...items);
             }
         }
-        return results;
+        return results.map((item) => this.toDomainItem(item));
     }
 
     async findById(id: string): Promise<EncryptedTimelineItem | null> {
         const item = this.itemsById.get(id) || null;
-        return item && !item.isDeleted ? item : null;
+        return item && !item.isDeleted ? this.toDomainItem(item) : null;
     }
 
     async findByIdIncludingDeleted(id: string): Promise<EncryptedTimelineItem | null> {
-        return this.itemsById.get(id) || null;
+        const item = this.itemsById.get(id) || null;
+        return item ? this.toDomainItem(item) : null;
     }
 
     async update(id: string, updates: Partial<EncryptedTimelineItem>, _session?: unknown): Promise<EncryptedTimelineItem> {
@@ -62,7 +68,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
             this.itemsByDate.delete(oldDateKey);
         }
 
-        return updatedItem;
+        return this.toDomainItem(updatedItem);
     }
 
     async updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -133,7 +139,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
             this.itemsByDate.set(existingItem.date, itemsForDate);
         }
 
-        return updatedItem;
+        return this.toDomainItem(updatedItem);
     }
 
     async markProofSubmitted(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -193,7 +199,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
             this.itemsByDate.set(existingItem.date, itemsForDate);
         }
 
-        return updatedItem;
+        return this.toDomainItem(updatedItem);
     }
 
     async resetProofTransitionClaim(id: string, version: number, hash: string, _session?: unknown): Promise<EncryptedTimelineItem | null> {
@@ -249,7 +255,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
             this.itemsByDate.set(existingItem.date, itemsForDate);
         }
 
-        return updatedItem;
+        return this.toDomainItem(updatedItem);
     }
 
     async replaceProofRecord(id: string, proof: EventProofRecord, _session?: unknown): Promise<EncryptedTimelineItem> {

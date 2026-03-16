@@ -41,4 +41,30 @@ describe("acquireTestBackendStartupLock", () => {
         lock.release();
         expect(fs.existsSync(lockDir)).toBe(false);
     });
+
+    test("refreshes the lock mtime while held so active startup does not look stale", async () => {
+        const lockDir = path.join(tmpdir(), `angry-e2e-ensure-lock-heartbeat-${process.pid}-${Date.now()}`);
+        createdLockDirs.push(lockDir);
+
+        const lock = await acquireTestBackendStartupLock({
+            lockDir,
+            staleAfterMs: 5_000,
+            retryIntervalMs: 10,
+            timeoutMs: 100,
+            isBackendReady: async () => false,
+            heartbeatIntervalMs: 20,
+        } as any);
+
+        if (lock.kind !== "acquired") {
+            throw new Error(`Expected lock acquisition, got ${lock.kind}`);
+        }
+
+        const initialMtime = fs.statSync(lockDir).mtimeMs;
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        const refreshedMtime = fs.statSync(lockDir).mtimeMs;
+
+        expect(refreshedMtime).toBeGreaterThan(initialMtime);
+
+        lock.release();
+    });
 });

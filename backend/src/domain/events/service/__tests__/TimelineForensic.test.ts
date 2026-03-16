@@ -55,6 +55,7 @@ describe("Timeline Forensic Integration", () => {
         });
         const mockTaskManager: ITaskManager = {
             registerHandler: vi.fn(),
+            registerFailureHandler: vi.fn(),
             schedule: scheduleTask as unknown as ITaskManager["schedule"],
             start: vi.fn(),
             stop: vi.fn()
@@ -182,7 +183,10 @@ describe("Timeline Forensic Integration", () => {
 
         expect(updatedTimelineItem.eventVersion).toBe(2);
         expect(updatedTimelineItem.versionHistory).toHaveLength(2);
-        expect(updatedTimelineItem.versionHistory[0].proofHistory).toEqual([anchoredProof]);
+        expect(updatedTimelineItem.versionHistory[0].proofHistory).toEqual([{
+            ...anchoredProof,
+            status: "CONFIRMED",
+        }]);
         expect(updatedTimelineItem.versionHistory[1]).toMatchObject({
             version: 2,
             proofHistory: [],

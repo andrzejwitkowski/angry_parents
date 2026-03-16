@@ -50,12 +50,14 @@ export async function acquireTestBackendStartupLock({
     staleAfterMs = 30_000,
     retryIntervalMs = 500,
     timeoutMs = 30_000,
+    heartbeatIntervalMs = 1_000,
     isBackendReady = () => isPortOpen(TEST_PORT),
 }: {
     lockDir?: string;
     staleAfterMs?: number;
     retryIntervalMs?: number;
     timeoutMs?: number;
+    heartbeatIntervalMs?: number;
     isBackendReady?: () => Promise<boolean>;
 } = {}): Promise<StartupLockResult> {
     const start = Date.now();
@@ -67,9 +69,19 @@ export async function acquireTestBackendStartupLock({
 
         try {
             fs.mkdirSync(lockDir);
+            const heartbeat = setInterval(() => {
+                try {
+                    const now = new Date();
+                    fs.utimesSync(lockDir, now, now);
+                } catch {
+                }
+            }, heartbeatIntervalMs);
+            heartbeat.unref?.();
+
             return {
                 kind: "acquired",
                 release: () => {
+                    clearInterval(heartbeat);
                     try {
                         fs.rmdirSync(lockDir);
                     } catch {

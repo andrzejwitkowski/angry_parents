@@ -11,6 +11,8 @@ export const EventProofStatusSchema = z.enum([
     "RECONCILING",
 ]);
 
+export type EventProofStatus = z.infer<typeof EventProofStatusSchema>;
+
 const AuditEntrySchema = z.object({
     timestamp: z.string().datetime(),
     userId: z.string(),
@@ -29,14 +31,63 @@ const TimelineItemTypeSchema = z.enum([
     "ATTACHMENT",
 ]);
 
-function inferLegacyEventProofStatus(record: Record<string, unknown>): EventProofStatus {
+export function inferEventProofStatus(record: Partial<{
+    status: EventProofStatus;
+    submittedTxHash: string;
+    txHash: string;
+    blockNumber: string;
+    anchoredAt: string;
+}>): EventProofStatus {
     if (record.txHash && record.blockNumber !== undefined && record.anchoredAt) {
         return "CONFIRMED";
     }
+
+    if (record.status === "FAILED" || record.status === "RECONCILING") {
+        return record.status;
+    }
+
     if (record.submittedTxHash) {
         return "SUBMITTED";
     }
+
     return "CLAIMED";
+}
+
+export function normalizeEventProofRecord(proof: EventProofRecord): EventProofRecord {
+    return {
+        ...proof,
+        status: inferEventProofStatus(proof),
+    };
+}
+
+export function normalizeTimelineItemProofHistory<T extends { versionHistory?: Array<{ proofHistory?: EventProofRecord[] }> }>(item: T): T {
+    const clone = structuredClone(item);
+    if (!Array.isArray(clone.versionHistory)) {
+        return clone;
+    }
+
+    clone.versionHistory = clone.versionHistory.map((entry) => {
+        if (!entry || !Array.isArray(entry.proofHistory)) {
+            return entry;
+        }
+
+        return {
+            ...entry,
+            proofHistory: entry.proofHistory.map((proof) => normalizeEventProofRecord(proof)),
+        };
+    });
+
+    return clone;
+}
+
+function inferLegacyEventProofStatus(record: Record<string, unknown>): EventProofStatus {
+    return inferEventProofStatus({
+        status: typeof record.status === "string" ? record.status as EventProofStatus : undefined,
+        submittedTxHash: typeof record.submittedTxHash === "string" ? record.submittedTxHash : undefined,
+        txHash: typeof record.txHash === "string" ? record.txHash : undefined,
+        blockNumber: typeof record.blockNumber === "string" ? record.blockNumber : undefined,
+        anchoredAt: typeof record.anchoredAt === "string" ? record.anchoredAt : undefined,
+    });
 }
 
 const EventProofRecordSchema = z.preprocess((value) => {
@@ -185,7 +236,6 @@ export type IncidentItem = z.infer<typeof IncidentItemSchema>;
 export type VacationItem = z.infer<typeof VacationItemSchema>;
 export type AttachmentItem = z.infer<typeof AttachmentItemSchema>;
 export type PlainTimelineItem = z.infer<typeof PlainTimelineItemSchema>;
-export type EventProofStatus = z.infer<typeof EventProofStatusSchema>;
 export type EventProofRecord = z.infer<typeof EventProofRecordSchema>;
 export type EncryptedTimelineVersionSnapshot = z.infer<typeof EncryptedTimelineVersionSnapshotSchema>;
 export type TimelineItemVersion = z.infer<typeof TimelineItemVersionSchema>;

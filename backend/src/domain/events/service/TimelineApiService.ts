@@ -3,7 +3,7 @@ import type { CreateTimelineItemDto } from "../model/TimelineItem";
 import type { SessionUser } from "../../shared/types/SessionUser";
 import type { ChildRepository } from "../../family/ports/ChildRepository";
 import type { TimelineRepository } from "../ports/TimelineRepository";
-import type { EventProofRecord, EventProofStatus } from "../model/TimelineItem";
+import { inferEventProofStatus, type EventProofRecord, type EventProofStatus } from "../model/TimelineItem";
 
 export type EventProofReadModel =
     | {
@@ -71,19 +71,6 @@ function toEventProofReadModel(proof: EventProofRecord): EventProofReadModel {
         lastAttemptAt: proof.lastAttemptAt,
         lastError: proof.lastError,
     };
-}
-
-function inferEventProofStatus(proof: Partial<EventProofRecord>): EventProofStatus {
-    if (proof.status) {
-        return proof.status;
-    }
-    if (proof.txHash && proof.blockNumber !== undefined && proof.anchoredAt) {
-        return "CONFIRMED";
-    }
-    if (proof.submittedTxHash) {
-        return "SUBMITTED";
-    }
-    return "CLAIMED";
 }
 
 function getPreferredProofForVersion(proofHistory: EventProofRecord[]): EventProofRecord | null {

@@ -212,6 +212,45 @@ describe("MongoTimelineRepository", () => {
         ]);
     });
 
+    it("infers legacy proof status when reading records without an explicit status field", async () => {
+        const itemWithLegacyProof: TimelineItem = encrypted({
+            ...mockItem,
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: mockItem.id,
+                    type: "NOTE",
+                    date: mockItem.date,
+                    createdAt: mockItem.createdAt,
+                    createdBy: mockItem.createdBy,
+                    createdByName: mockItem.createdByName,
+                    auditTrail: mockItem.auditTrail,
+                    isDeleted: false,
+                    childIds: ["child-1"],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-1": "ciphertext" }
+                },
+                proofHistory: [{
+                    version: 1,
+                    hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    blockNumber: "44",
+                    anchoredAt: "2026-03-11T12:00:00.000Z"
+                }]
+            }]
+        }) as any;
+
+        await TimelineItemModel.create(itemWithLegacyProof);
+
+        const found = await repository.findByIdIncludingDeleted(mockItem.id);
+        expect(found?.versionHistory[0].proofHistory[0]).toMatchObject({
+            status: "CONFIRMED",
+            txHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            blockNumber: "44",
+        });
+    });
+
     it("atomically claims a proof transition only once under concurrent Mongo calls", async () => {
         const itemWithVersionHistory: TimelineItem = encrypted({
             ...mockItem,

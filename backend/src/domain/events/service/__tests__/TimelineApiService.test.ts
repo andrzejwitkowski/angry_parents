@@ -130,6 +130,24 @@ describe("TimelineApiService", () => {
         });
     });
 
+    it("downgrades incomplete confirmed proofs instead of emitting a broken CONFIRMED read model", async () => {
+        const service = createService(createTimelineItem([
+            {
+                version: 1,
+                hash: "abababababababababababababababababababababababababababababababab",
+                status: "CONFIRMED",
+                submittedTxHash: "0xabababababababababababababababababababababababababababababababab",
+                anchoredAt: "2026-03-12T12:00:00.000Z"
+            }
+        ]));
+
+        await expect(service.getEventProof("event-1", user)).resolves.toEqual({
+            status: "SUBMITTED",
+            hash: "abababababababababababababababababababababababababababababababab",
+            submittedTxHash: "0xabababababababababababababababababababababababababababababababab"
+        });
+    });
+
     it("derives CONFIRMED status for legacy anchored proof records without explicit status", async () => {
         const service = createService(createTimelineItem([
             {

@@ -212,7 +212,10 @@ describe("Timeline Audit System", () => {
 
         expect((updated as any).eventVersion).toBe(2);
         expect((updated as any).versionHistory).toHaveLength(2);
-        expect((updated as any).versionHistory[0].proofHistory).toEqual([anchoredProof]);
+        expect((updated as any).versionHistory[0].proofHistory).toEqual([{
+            ...anchoredProof,
+            status: "CONFIRMED",
+        }]);
         expect((updated as any).versionHistory[0].snapshot.encryptedPayload).toEqual({ "dad-1": "initial-encrypted" });
         expect((updated as any).versionHistory[1]).toMatchObject({
             version: 2,

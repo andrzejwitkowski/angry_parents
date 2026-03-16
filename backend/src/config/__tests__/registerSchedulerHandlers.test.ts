@@ -101,6 +101,27 @@ describe("registerSchedulerHandlers", () => {
         );
     });
 
+    it("fails fast when reconciliation failure persistence is not implemented", async () => {
+        const { registerSchedulerHandlers } = await import("../registerSchedulerHandlers");
+
+        const deps = {
+            forensicRepository: { name: "forensicRepository" },
+            cryptoService: { name: "cryptoService" },
+            passkeyRepository: { name: "passkeyRepository" },
+            blockchainAnchor: { name: "blockchainAnchor" },
+            forensicIntentRepository: { name: "forensicIntentRepository" },
+            forensicService: { name: "forensicService" },
+            timelineEventProofService: { name: "timelineEventProofService" },
+            eventProofReconciliationService: {
+                reconcileProof: mock(() => Promise.resolve({ status: "CONFIRMED" })),
+            },
+        } as const;
+
+        expect(() => registerSchedulerHandlers(deps as never)).toThrow(
+            "Event proof reconciliation service must implement markProofReconciliationFailed"
+        );
+    });
+
     it("calls registerFailureHandler with the task manager bound as this", async () => {
         const { registerSchedulerHandlers } = await import("../registerSchedulerHandlers");
         const calls: Array<[TaskType, unknown]> = [];

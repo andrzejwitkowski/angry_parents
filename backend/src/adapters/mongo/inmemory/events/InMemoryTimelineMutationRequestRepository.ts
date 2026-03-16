@@ -5,7 +5,9 @@ export class InMemoryTimelineMutationRequestRepository implements TimelineMutati
 
     async save(record: TimelineMutationRequestRecord, _session?: unknown): Promise<void> {
         if (this.records.has(record.idempotencyKey)) {
-            throw new Error(`Mutation request with idempotency key ${record.idempotencyKey} already exists`);
+            const error = new Error(`Mutation request with idempotency key ${record.idempotencyKey} already exists`);
+            (error as Error & { code?: number }).code = 11000;
+            throw error;
         }
 
         this.records.set(record.idempotencyKey, { ...record });

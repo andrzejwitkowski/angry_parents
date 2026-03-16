@@ -256,6 +256,66 @@ describe("TimelineEventProofService", () => {
         expect(updated?.versionHistory[0].proofHistory).toHaveLength(1);
     });
 
+    it("treats legacy confirmed proof records without explicit status as already confirmed", async () => {
+        const hash = calculateEventProofHash(buildEncryptedTimelineItem().versionHistory[1].snapshot);
+        const legacyRepository = new InMemoryTimelineRepository();
+        const legacyItem = buildEncryptedTimelineItem();
+        legacyItem.versionHistory[1].proofHistory = [{
+            version: 2,
+            hash,
+            submittedTxHash: validPublishedTxHash,
+            txHash: validPublishedTxHash,
+            blockNumber: "987",
+            anchoredAt,
+        } as any];
+        await legacyRepository.save(legacyItem);
+
+        const legacyService = new TimelineEventProofService(legacyRepository, blockchainAnchor, fixedDateProvider, taskManager as any);
+        const result = await legacyService.publishProof(legacyItem.id);
+
+        expect(result).toMatchObject({
+            version: 2,
+            hash,
+            status: "CONFIRMED",
+            txHash: validPublishedTxHash,
+            blockNumber: "987",
+            anchoredAt,
+        });
+        expect(blockchainAnchor.submitHash).not.toHaveBeenCalled();
+    });
+
+    it("uses the latest proof record for a hash when older stale entries still exist", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "CLAIMED",
+        });
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result).toMatchObject({
+            version: 2,
+            hash,
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        });
+        expect(blockchainAnchor.submitHash).not.toHaveBeenCalled();
+        expect(taskManager.schedule).toHaveBeenCalledWith(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: "6f133670-8d3a-4f53-a033-0f2da65e45d2", version: 2, submittedTxHash: validPublishedTxHash },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
+    });
+
     it("does not republish when the current version already has a pending proof marker", async () => {
         await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
             version: 2,

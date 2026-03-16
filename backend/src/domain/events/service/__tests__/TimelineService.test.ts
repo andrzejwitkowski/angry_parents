@@ -196,6 +196,83 @@ describe("TimelineService", () => {
             expect(items).toHaveLength(1);
         });
 
+        it("repairs missing outbox work when a completed idempotent create is replayed", async () => {
+            class RecordingMutationRepository extends InMemoryTimelineMutationRequestRepository {
+                async seed(record: TimelineMutationRequestRecord): Promise<void> {
+                    await this.update(record);
+                }
+            }
+
+            const mutationRepository = new RecordingMutationRepository();
+            const outboxRepository = new InMemoryTaskOutboxRepository();
+            const replaySafeService = new TimelineServiceImpl(
+                repository,
+                new RealDateProvider(),
+                new RealUuidProvider(),
+                new MockCryptoService(),
+                mockChildRepository,
+                mockPasskeyRepository,
+                mockForensicIntentRepository,
+                mockTaskManager,
+                mutationRepository,
+                outboxRepository,
+            );
+
+            const existingItemId = "77777777-7777-4777-8777-777777777777";
+            await repository.save({
+                id: existingItemId,
+                type: "NOTE",
+                date: "2026-01-27",
+                createdAt: "2026-01-27T10:00:00.000Z",
+                createdBy: "user-123",
+                createdByName: "Tester",
+                auditTrail: [],
+                isDeleted: false,
+                childIds: ["child-1"],
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                eventVersion: 1,
+                versionHistory: [],
+            } as any);
+
+            await mutationRepository.seed({
+                idempotencyKey: "idem-replay-completed-repair",
+                operation: "CREATE_TIMELINE_ITEM",
+                status: "COMPLETED",
+                timelineItemId: existingItemId,
+                requestHash: calculatePayloadHash({
+                    type: "NOTE",
+                    date: "2026-01-27",
+                    childId: "child-1",
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                    signatureBase64: mockSignature.signatureBase64,
+                    timestamp: mockSignature.timestamp,
+                    keyId: mockSignature.keyId,
+                    createdBy: "user-123",
+                }),
+            });
+
+            const replayed = await replaySafeService.createItem({
+                type: "NOTE",
+                date: "2026-01-27",
+                childId: "child-1",
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                ...mockSignature,
+                idempotencyKey: "idem-replay-completed-repair",
+                createdBy: "user-123",
+                createdByName: "Tester"
+            } as any);
+
+            expect(replayed.id).toBe(existingItemId);
+            const outboxEntries = await outboxRepository.getAll();
+            expect(outboxEntries.map((entry) => entry.taskType)).toEqual([
+                TaskType.PROCESS_FORENSIC_INTENT,
+                TaskType.PUBLISH_EVENT_PROOF,
+            ]);
+        });
+
         it("rejects replay when the same idempotencyKey is reused with a different payload", async () => {
             const replaySafeService = new TimelineServiceImpl(
                 repository,
@@ -648,7 +725,10 @@ describe("TimelineService", () => {
             });
 
             const outboxEntries = await outboxRepository.getAll();
-            expect(outboxEntries).toEqual([]);
+            expect(outboxEntries.map((entry) => entry.taskType)).toEqual([
+                TaskType.PROCESS_FORENSIC_INTENT,
+                TaskType.PUBLISH_EVENT_PROOF,
+            ]);
         });
 
         it("does not duplicate async work when the final idempotency completion update fails once", async () => {

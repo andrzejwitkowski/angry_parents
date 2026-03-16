@@ -1,10 +1,14 @@
 import { TimelineRepository } from "../../../../domain/events/ports/TimelineRepository";
-import { EncryptedTimelineItem, EventProofRecord } from "../../../../domain/events/model/TimelineItem";
+import { normalizeTimelineItemProofHistory, type EncryptedTimelineItem, type EventProofRecord } from "../../../../domain/events/model/TimelineItem";
 import { TimelineItemModel } from "../../models/TimelineItemModel";
 import mongoose, { ClientSession } from "mongoose";
 
 export class MongoTimelineRepository implements TimelineRepository {
     constructor() { }
+
+    private toDomainItem(item: unknown): EncryptedTimelineItem {
+        return normalizeTimelineItemProofHistory(item as EncryptedTimelineItem);
+    }
 
     async save(item: EncryptedTimelineItem, session?: unknown): Promise<EncryptedTimelineItem> {
         const mongooseSession = session as ClientSession | undefined;
@@ -19,7 +23,7 @@ export class MongoTimelineRepository implements TimelineRepository {
 
     async findByDate(date: string): Promise<EncryptedTimelineItem[]> {
         const items = await TimelineItemModel.find({ date, isDeleted: false }).lean();
-        return items as unknown as EncryptedTimelineItem[];
+        return items.map((item) => this.toDomainItem(item));
     }
 
     async findByDateRange(from: string, to: string): Promise<EncryptedTimelineItem[]> {
@@ -27,19 +31,19 @@ export class MongoTimelineRepository implements TimelineRepository {
             date: { $gte: from, $lte: to },
             isDeleted: false
         }).lean();
-        return items as unknown as EncryptedTimelineItem[];
+        return items.map((item) => this.toDomainItem(item));
     }
 
     async findById(id: string): Promise<EncryptedTimelineItem | null> {
         const item = await TimelineItemModel.findOne({ id, isDeleted: false }).lean();
         if (!item) return null;
-        return item as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(item);
     }
 
     async findByIdIncludingDeleted(id: string): Promise<EncryptedTimelineItem | null> {
         const item = await TimelineItemModel.findOne({ id }).lean();
         if (!item) return null;
-        return item as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(item);
     }
 
     async update(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -59,7 +63,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} not found on update`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(result);
     }
 
     async updateIncludingDeleted(id: string, updates: Partial<EncryptedTimelineItem>, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -79,7 +83,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} not found on update`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(result);
     }
 
     async delete(id: string, session?: unknown): Promise<void> {
@@ -108,7 +112,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} and version ${proof.version} not found`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(result);
     }
 
     async markProofSubmitted(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -144,7 +148,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             }
         ).lean();
 
-        return result as unknown as EncryptedTimelineItem | null;
+        return result ? this.toDomainItem(result) : null;
     }
 
     async resetProofTransitionClaim(id: string, version: number, hash: string, session?: unknown): Promise<EncryptedTimelineItem | null> {
@@ -176,7 +180,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             }
         ).lean();
 
-        return result as unknown as EncryptedTimelineItem | null;
+        return result ? this.toDomainItem(result) : null;
     }
 
     async replaceProofRecord(id: string, proof: EventProofRecord, session?: unknown): Promise<EncryptedTimelineItem> {
@@ -211,7 +215,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} and version ${proof.version} not found`);
         }
 
-        return result as unknown as EncryptedTimelineItem;
+        return this.toDomainItem(result);
     }
 
     private async findVersionEntry(id: string, version: number, session: ClientSession | undefined) {
@@ -225,7 +229,7 @@ export class MongoTimelineRepository implements TimelineRepository {
             throw new Error(`Item with id ${id} and version ${version} not found`);
         }
 
-        const timelineItem = existing as unknown as EncryptedTimelineItem;
+        const timelineItem = this.toDomainItem(existing);
         const versionEntry = timelineItem.versionHistory.find((entry) => entry.version === version);
         if (!versionEntry) {
             throw new Error(`Item with id ${id} and version ${version} not found`);
