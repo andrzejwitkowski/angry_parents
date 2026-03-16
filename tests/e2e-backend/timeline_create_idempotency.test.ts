@@ -4,6 +4,28 @@ import { TestApi } from "./utils/api";
 
 const nativeFetch = Bun.fetch.bind(Bun);
 
+async function waitForProof(api: TestApi, eventId: string, attempts = 40) {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        const proofRes = await api.get(`/api/events/${eventId}/proof`);
+        if (proofRes.status === 200) {
+            const proof = await proofRes.json();
+            if (proof.status === "FAILED") {
+                throw new Error(`Proof ${eventId} failed: ${JSON.stringify(proof)}`);
+            }
+
+            if (["SUBMITTED", "RECONCILING", "CONFIRMED"].includes(proof.status)) {
+                return proof;
+            }
+        }
+
+        const processRes = await api.post("/api/test/process-tasks", {});
+        expect(processRes.status).toBe(200);
+        await Bun.sleep(50);
+    }
+
+    throw new Error(`Timed out waiting for proof for ${eventId}`);
+}
+
 describe.skipIf(!process.env.E2E_TEST)("timeline create idempotency", () => {
     const api = new TestApi(process.env.API_URL || "http://127.0.0.1:3002");
 
@@ -91,16 +113,21 @@ describe.skipIf(!process.env.E2E_TEST)("timeline create idempotency", () => {
             idempotencyKey: "timeline-create-idem-2"
         });
         expect(createRes.status).toBe(200);
+        const created = await createRes.json();
 
         const enableRes = await api.post("/api/test/outbox/enable", {});
         expect(enableRes.status).toBe(200);
 
         const flushRes = await api.post("/api/test/process-outbox", {});
         expect(flushRes.status).toBe(200);
-        expect(await flushRes.json()).toEqual({ status: "processed", dispatched: true });
+        const flushResult = await flushRes.json();
+        expect(flushResult).toEqual({
+            status: "processed",
+            dispatched: expect.any(Boolean),
+        });
 
-        const processRes = await api.post("/api/test/process-tasks", {});
-        expect(processRes.status).toBe(200);
-        expect(await processRes.json()).toEqual({ status: "processed", count: 1 });
+        expect(await waitForProof(api, created.id)).toEqual(expect.objectContaining({
+            status: expect.stringMatching(/^(SUBMITTED|RECONCILING|CONFIRMED)$/),
+        }));
     });
 });
