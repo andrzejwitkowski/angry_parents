@@ -1,7 +1,7 @@
 {
   "name": "tmp_app",
   "private": true,
-  "version": "0.3.1-SNAPSHOT",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
