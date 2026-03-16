@@ -3,8 +3,10 @@ import { connectMongoMemory, disconnectMongoMemory } from "../../adapters/mongo/
 import { Family } from "../../adapters/mongo/models/FamilyModel";
 import { TaskType } from "../../scheduler/types";
 import * as wireDependenciesModule from "../wireDependencies";
-const scheduleMock = vi.fn();
-const registerHandlerMock = vi.fn();
+
+var scheduleMock: ReturnType<typeof vi.fn>;
+var registerHandlerMock: ReturnType<typeof vi.fn>;
+var registerFailureHandlerMock: ReturnType<typeof vi.fn>;
 
 const createMockDeps = () => ({
     timelineApiService: {},
@@ -32,8 +34,9 @@ vi.mock("../../scheduler/instance", () => ({
     taskManager: {
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn(),
-        schedule: scheduleMock,
-        registerHandler: registerHandlerMock
+        schedule: scheduleMock ??= vi.fn(),
+        registerHandler: registerHandlerMock ??= vi.fn(),
+        registerFailureHandler: registerFailureHandlerMock ??= vi.fn(),
     }
 }));
 
@@ -50,6 +53,7 @@ describe("createApp dev seed endpoint", () => {
         vi.spyOn(wireDependenciesModule, "wireDependencies").mockResolvedValue(createMockDeps() as any);
         scheduleMock.mockReset();
         registerHandlerMock.mockReset();
+        registerFailureHandlerMock.mockReset();
         return connectMongoMemory().then(async () => {
             await Family.deleteMany({});
         });

@@ -139,32 +139,33 @@ Example 3: Securing `scanf`
 
 ### Memory and String Safety Guidelines
 
-#### Unsafe Memory Functions - FORBIDDEN
-NEVER use these unsafe memory functions that don't check input parameter boundaries:
+#### Memory Functions Requiring Explicit Bounds Safety
+Prefer bounds-checked variants or platform-provided wrappers when they are available, and otherwise use portable wrappers or APIs that always pass explicit lengths and validate bounds.
 
-##### Banned Memory Functions:
-- `memcpy()` → Use `memcpy_s()`
-- `memset()` → Use `memset_s()`
-- `memmove()` → Use `memmove_s()`
-- `memcmp()` → Use `memcmp_s()`
-- `bzero()` → Use `memset_s()`
-- `memzero()` → Use `memset_s()`
+##### Preferred Memory Function Replacements:
+- `memcpy()` → Prefer `memcpy_s()` or a vetted wrapper that validates destination size
+- `memset()` → Prefer `memset_s()` or a vetted wrapper that preserves explicit length checks
+- `memmove()` → Prefer `memmove_s()` or a vetted wrapper that validates destination size
+- `memcmp()` → Prefer `memcmp_s()` or a vetted wrapper with explicit bounds
+- `bzero()` → Prefer `memset_s()` or a wrapper that zeroes memory with explicit size input
+- `memzero()` → Prefer `memset_s()` or a wrapper that zeroes memory with explicit size input
 
 ##### Safe Memory Function Replacements:
 ```c
-// Instead of: memcpy(dest, src, count);
+// When Annex K is available: memcpy_s(dest, dest_size, src, count);
+// Otherwise wrap memcpy with explicit destination-size checks.
 errno_t result = memcpy_s(dest, dest_size, src, count);
 if (result != 0) {
 // Handle error
 }
 
-// Instead of: memset(dest, value, count);
+// When Annex K is available: memset_s(dest, dest_size, value, count);
 errno_t result = memset_s(dest, dest_size, value, count);
 
-// Instead of: memmove(dest, src, count);
+// When Annex K is available: memmove_s(dest, dest_size, src, count);
 errno_t result = memmove_s(dest, dest_size, src, count);
 
-// Instead of: memcmp(s1, s2, count);
+// When Annex K is available: memcmp_s(...);
 int indicator;
 errno_t result = memcmp_s(s1, s1max, s2, s2max, count, &indicator);
 if (result == 0) {
@@ -172,16 +173,16 @@ if (result == 0) {
 }
 ```
 
-#### Unsafe String Functions - FORBIDDEN
-NEVER use these unsafe string functions that can cause buffer overflows:
+#### String Functions Requiring Explicit Bounds Safety
+Prefer bounds-checked string APIs where the target platform supports them; otherwise use portable functions and wrappers that keep explicit buffer lengths in the call contract.
 
-##### Banned String Functions:
-- `strstr()` → Use `strstr_s()`
-- `strtok()` → Use `strtok_s()`
-- `strcpy()` → Use `strcpy_s()`
-- `strcmp()` → Use `strcmp_s()`
-- `strlen()` → Use `strnlen_s()`
-- `strcat()` → Use `strcat_s()`
+##### Preferred String Function Replacements:
+- `strstr()` → Prefer `strstr_s()` where available, otherwise wrap search with explicit source bounds
+- `strtok()` → Prefer `strtok_s()` where available, otherwise use re-entrant tokenization with explicit state
+- `strcpy()` → Prefer `strcpy_s()` where available, otherwise use bounded copy helpers
+- `strcmp()` → Prefer `strcmp_s()` where available, otherwise compare with explicit bounds
+- `strlen()` → Prefer `strnlen_s()` or other bounded length helpers
+- `strcat()` → Prefer `strcat_s()` where available, otherwise use bounded concatenation helpers
 - `sprintf()` → Use `snprintf()`
 
 ##### Safe String Function Replacements:

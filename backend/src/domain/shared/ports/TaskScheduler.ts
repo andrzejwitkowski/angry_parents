@@ -49,7 +49,7 @@ export interface ScheduleOptions {
 
 export interface ITaskManager {
     registerHandler<T>(type: TaskType, handler: (payload: T) => Promise<void>): void;
-    registerFailureHandler?(type: TaskType, handler: (payload: unknown, errorMessage: string) => Promise<void>): void;
+    registerFailureHandler(type: TaskType, handler: (payload: unknown, errorMessage: string) => Promise<void>): void;
     start(): Promise<void>;
     stop(): Promise<void>;
     schedule<T>(type: TaskType, payload: T, options?: ScheduleOptions): Promise<ITask<T>>;

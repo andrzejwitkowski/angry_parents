@@ -1,7 +1,7 @@
 export type TaskOutboxStatus = "PENDING" | "CLAIMED" | "DISPATCHED";
 
 export interface TaskOutboxRecord {
-    id?: string;
+    id: string;
     taskType: string;
     payload: Record<string, unknown>;
     payloadHash: string;

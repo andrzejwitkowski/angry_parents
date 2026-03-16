@@ -1,0 +1,44 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import fs from "fs";
+import path from "path";
+import { tmpdir } from "os";
+import { acquireTestBackendStartupLock } from "./ensure";
+
+const createdLockDirs: string[] = [];
+
+afterEach(() => {
+    for (const lockDir of createdLockDirs.splice(0)) {
+        try {
+            fs.rmdirSync(lockDir);
+        } catch {
+        }
+    }
+});
+
+describe("acquireTestBackendStartupLock", () => {
+    test("reclaims a stale lock directory instead of waiting forever", async () => {
+        const lockDir = path.join(tmpdir(), `angry-e2e-ensure-lock-${process.pid}-${Date.now()}`);
+        fs.mkdirSync(lockDir);
+        createdLockDirs.push(lockDir);
+
+        const staleAt = new Date(Date.now() - 10_000);
+        fs.utimesSync(lockDir, staleAt, staleAt);
+
+        const lock = await acquireTestBackendStartupLock({
+            lockDir,
+            staleAfterMs: 1_000,
+            retryIntervalMs: 10,
+            timeoutMs: 100,
+            isBackendReady: async () => false,
+        });
+
+        expect(lock.kind).toBe("acquired");
+
+        if (lock.kind !== "acquired") {
+            throw new Error(`Expected lock acquisition, got ${lock.kind}`);
+        }
+
+        lock.release();
+        expect(fs.existsSync(lockDir)).toBe(false);
+    });
+});

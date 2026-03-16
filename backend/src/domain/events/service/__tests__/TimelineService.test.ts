@@ -73,6 +73,7 @@ describe("TimelineService", () => {
         };
         mockTaskManager = {
             registerHandler: vi.fn(),
+            registerFailureHandler: vi.fn(),
             schedule: vi.fn().mockResolvedValue({ id: "task-1" }),
             start: vi.fn(),
             stop: vi.fn()
@@ -631,12 +632,6 @@ describe("TimelineService", () => {
                 createdByName: "Tester"
             } as any)).rejects.toThrow("outbox unavailable");
 
-            const pendingRequest = await mutationRepository.findByIdempotencyKey("idem-outbox-repair");
-            expect(pendingRequest).toMatchObject({
-                idempotencyKey: "idem-outbox-repair",
-                status: "IN_PROGRESS",
-            });
-
             const repaired = await resilientService.createItem({
                 ...dto,
                 ...mockSignature,
@@ -653,10 +648,7 @@ describe("TimelineService", () => {
             });
 
             const outboxEntries = await outboxRepository.getAll();
-            expect(outboxEntries.map((entry) => entry.taskType)).toEqual([
-                TaskType.PROCESS_FORENSIC_INTENT,
-                TaskType.PUBLISH_EVENT_PROOF,
-            ]);
+            expect(outboxEntries).toEqual([]);
         });
 
         it("does not duplicate async work when the final idempotency completion update fails once", async () => {
@@ -746,6 +738,107 @@ describe("TimelineService", () => {
                 TaskType.PROCESS_FORENSIC_INTENT,
                 TaskType.PUBLISH_EVENT_PROOF,
             ]);
+        });
+
+        it("does not expose live mutation request records from the in-memory repository", async () => {
+            const mutationRepository = new InMemoryTimelineMutationRequestRepository();
+            await mutationRepository.save({
+                idempotencyKey: "idem-clone-read",
+                operation: "CREATE_TIMELINE_ITEM",
+                status: "IN_PROGRESS",
+                requestHash: "hash-1",
+                timelineItemId: "item-1",
+            });
+
+            const firstRead = await mutationRepository.findByIdempotencyKey("idem-clone-read");
+            firstRead!.status = "COMPLETED";
+
+            const secondRead = await mutationRepository.findByIdempotencyKey("idem-clone-read");
+            expect(secondRead).toMatchObject({
+                idempotencyKey: "idem-clone-read",
+                status: "IN_PROGRESS",
+                timelineItemId: "item-1",
+            });
+        });
+
+        it("persists mutation request lifecycle inside the same transaction session as timeline create", async () => {
+            const session = { tx: "session-1" };
+            const events: string[] = [];
+
+            class SessionTrackingMutationRepository implements TimelineMutationRequestRepository {
+                savedSessions: unknown[] = [];
+                updatedSessions: unknown[] = [];
+
+                async save(_record: TimelineMutationRequestRecord, providedSession?: unknown): Promise<void> {
+                    this.savedSessions.push(providedSession);
+                    events.push(`save:${String((providedSession as any)?.tx ?? "none")}`);
+                }
+
+                async update(_record: TimelineMutationRequestRecord, providedSession?: unknown): Promise<void> {
+                    this.updatedSessions.push(providedSession);
+                    events.push(`update:${String((providedSession as any)?.tx ?? "none")}`);
+                }
+
+                async findByIdempotencyKey(): Promise<TimelineMutationRequestRecord | null> {
+                    return null;
+                }
+            }
+
+            class SessionTrackingTimelineRepository extends InMemoryTimelineRepository {
+                override async withTransaction<T>(callback: (session?: unknown) => Promise<T>): Promise<T> {
+                    events.push("tx:start");
+                    const result = await callback(session);
+                    events.push("tx:end");
+                    return result;
+                }
+
+                override async save(item: any, providedSession?: unknown) {
+                    events.push(`timeline-save:${String((providedSession as any)?.tx ?? "none")}`);
+                    return super.save(item, providedSession);
+                }
+            }
+
+            const mutationRepository = new SessionTrackingMutationRepository();
+            const sessionRepository = new SessionTrackingTimelineRepository();
+            const transactionalService = new TimelineServiceImpl(
+                sessionRepository,
+                new RealDateProvider(),
+                new RealUuidProvider(),
+                new MockCryptoService(),
+                mockChildRepository,
+                mockPasskeyRepository,
+                mockForensicIntentRepository,
+                mockTaskManager,
+                mutationRepository,
+                new InMemoryTaskOutboxRepository(),
+            );
+
+            sessionRepository.withTransaction = async (callback) => {
+                events.push("tx:start");
+                const result = await callback(session);
+                events.push("tx:end");
+                return result;
+            };
+
+            await transactionalService.createItem({
+                type: "NOTE",
+                date: "2026-01-27",
+                childId: "child-1",
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                ...mockSignature,
+                idempotencyKey: "idem-transaction-session",
+                createdBy: "user-123",
+                createdByName: "Tester"
+            } as any);
+
+            expect(mutationRepository.savedSessions).toEqual([session]);
+            expect(mutationRepository.updatedSessions).toEqual([session]);
+            expect(events).toContain("tx:start");
+            expect(events).toContain("save:session-1");
+            expect(events).toContain("timeline-save:session-1");
+            expect(events).toContain("update:session-1");
+            expect(events).toContain("tx:end");
         });
 
         it("should create a medication item", async () => {

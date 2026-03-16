@@ -1,14 +1,13 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { ensureTestBackend } from "./utils/ensure";
 import { TestApi } from "./utils/api";
 
 const nativeFetch = Bun.fetch.bind(Bun);
 
-describe("timeline create idempotency", () => {
+describe.skipIf(!process.env.E2E_TEST)("timeline create idempotency", () => {
     const api = new TestApi(process.env.API_URL || "http://127.0.0.1:3002");
 
-    beforeAll(async () => {
-        process.env.E2E_TEST = "true";
+    beforeEach(async () => {
         await ensureTestBackend();
         globalThis.fetch = nativeFetch;
 
@@ -16,6 +15,10 @@ describe("timeline create idempotency", () => {
 
         await api.post("/api/test/dev/seed-mock-family", {});
         await api.post("/api/auth/mock-login", { userId: "mock-user-id-dev-test-stable" });
+    });
+
+    afterEach(async () => {
+        await api.post("/api/test/outbox/enable", {});
     });
 
     test("replaying POST /api/timeline with the same idempotencyKey returns the same item", async () => {

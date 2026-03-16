@@ -40,6 +40,7 @@ describe("MongoTaskOutboxRepository", () => {
 
         const claimed = await repository.claimNext();
         expect(claimed).toMatchObject({
+            id: expect.any(String),
             taskType: "PUBLISH_EVENT_PROOF",
             payload: { itemId: "event-1", version: 1 },
             payloadHash: "payload-hash-1",

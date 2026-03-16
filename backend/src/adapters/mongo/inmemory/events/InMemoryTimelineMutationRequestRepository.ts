@@ -3,7 +3,7 @@ import type { TimelineMutationRequestRecord, TimelineMutationRequestRepository }
 export class InMemoryTimelineMutationRequestRepository implements TimelineMutationRequestRepository {
     private records = new Map<string, TimelineMutationRequestRecord>();
 
-    async save(record: TimelineMutationRequestRecord): Promise<void> {
+    async save(record: TimelineMutationRequestRecord, _session?: unknown): Promise<void> {
         if (this.records.has(record.idempotencyKey)) {
             throw new Error(`Mutation request with idempotency key ${record.idempotencyKey} already exists`);
         }
@@ -11,11 +11,12 @@ export class InMemoryTimelineMutationRequestRepository implements TimelineMutati
         this.records.set(record.idempotencyKey, { ...record });
     }
 
-    async update(record: TimelineMutationRequestRecord): Promise<void> {
+    async update(record: TimelineMutationRequestRecord, _session?: unknown): Promise<void> {
         this.records.set(record.idempotencyKey, { ...record });
     }
 
     async findByIdempotencyKey(idempotencyKey: string): Promise<TimelineMutationRequestRecord | null> {
-        return this.records.get(idempotencyKey) ?? null;
+        const record = this.records.get(idempotencyKey);
+        return record ? { ...record } : null;
     }
 }

@@ -24,9 +24,14 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
     const { ensureUnlocked } = useSecurity();
     const [selectedMode, setSelectedMode] = useState<ActionMode | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
 
     const handleModeSelect = (mode: ActionMode) => {
-        setSelectedMode(prev => (prev === mode ? null : mode));
+        setSelectedMode((prev) => {
+            const nextMode = prev === mode ? null : mode;
+            setIdempotencyKey(nextMode ? crypto.randomUUID() : null);
+            return nextMode;
+        });
     };
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {
@@ -40,12 +45,14 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
                 type: selectedMode,
                 date,
                 encryption: "PLAINTEXT",
+                idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
                 createdBy,
                 childId,
             };
 
             await timelineApi.create(dto, await getMutationSignature());
             setSelectedMode(null);
+            setIdempotencyKey(null);
             onSuccess();
         } catch (error) {
             console.error("Failed to add entry:", error);

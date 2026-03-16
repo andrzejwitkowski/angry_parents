@@ -40,6 +40,28 @@ describe("TaskOutboxDispatcher", () => {
         expect(entries[0].status).toBe("PENDING");
     });
 
+    it("does not move the entry back to pending when markDispatched fails after scheduling succeeded", async () => {
+        const outboxRepository = new InMemoryTaskOutboxRepository();
+        await outboxRepository.append({
+            taskType: "PROCESS_FORENSIC_INTENT",
+            payload: { intentId: "intent-2" },
+            payloadHash: "hash-2b",
+        });
+
+        const schedule = vi.fn().mockResolvedValue({ id: "task-2" });
+        const markPending = vi.spyOn(outboxRepository, "markPending");
+        vi.spyOn(outboxRepository, "markDispatched").mockRejectedValue(new Error("mark dispatched failed"));
+        const dispatcher = new TaskOutboxDispatcher(outboxRepository as any, { schedule } as any);
+
+        await expect(dispatcher.dispatchNext()).rejects.toThrow("mark dispatched failed");
+
+        expect(schedule).toHaveBeenCalledTimes(1);
+        expect(markPending).not.toHaveBeenCalled();
+
+        const entries = await outboxRepository.getAll();
+        expect(entries[0].status).toBe("CLAIMED");
+    });
+
     it("forwards retry policy from the outbox entry when dispatching", async () => {
         const outboxRepository = new InMemoryTaskOutboxRepository();
         await outboxRepository.append({

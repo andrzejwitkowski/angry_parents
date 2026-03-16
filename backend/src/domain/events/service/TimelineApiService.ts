@@ -53,7 +53,9 @@ function selectSingleCiphertextForUser(item: any, userId: string) {
 }
 
 function toEventProofReadModel(proof: EventProofRecord): EventProofReadModel {
-    if (proof.status === "CONFIRMED") {
+    const normalizedStatus = inferEventProofStatus(proof);
+
+    if (normalizedStatus === "CONFIRMED") {
         return {
             status: "CONFIRMED",
             hash: proof.hash,
@@ -63,7 +65,7 @@ function toEventProofReadModel(proof: EventProofRecord): EventProofReadModel {
     }
 
     return {
-        status: proof.status,
+        status: normalizedStatus,
         hash: proof.hash,
         submittedTxHash: proof.submittedTxHash,
         lastAttemptAt: proof.lastAttemptAt,
@@ -71,9 +73,22 @@ function toEventProofReadModel(proof: EventProofRecord): EventProofReadModel {
     };
 }
 
+function inferEventProofStatus(proof: Partial<EventProofRecord>): EventProofStatus {
+    if (proof.status) {
+        return proof.status;
+    }
+    if (proof.txHash && proof.blockNumber !== undefined && proof.anchoredAt) {
+        return "CONFIRMED";
+    }
+    if (proof.submittedTxHash) {
+        return "SUBMITTED";
+    }
+    return "CLAIMED";
+}
+
 function getPreferredProofForVersion(proofHistory: EventProofRecord[]): EventProofRecord | null {
     const confirmedProof = [...proofHistory].reverse().find((proof) => (
-        proof.status === "CONFIRMED"
+        inferEventProofStatus(proof) === "CONFIRMED"
         && Boolean(proof.txHash)
         && proof.blockNumber !== undefined
         && Boolean(proof.anchoredAt)

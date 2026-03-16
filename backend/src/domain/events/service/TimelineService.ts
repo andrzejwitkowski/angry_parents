@@ -370,19 +370,30 @@ export class TimelineServiceImpl {
 
         let savedItem: EncryptedTimelineItem;
         try {
-            if (claimedRequest) {
-                if (existingRequest) {
-                    await this.mutationRequestRepository!.update(claimedRequest);
-                } else {
-                    await this.mutationRequestRepository!.save(claimedRequest);
-                }
-            }
-
             savedItem = await this.saveWithForensicIntent(
                 async (session?: unknown) => {
-                    return inProgressReplayItem
+                    if (claimedRequest) {
+                        if (existingRequest) {
+                            await this.mutationRequestRepository!.update(claimedRequest, session);
+                        } else {
+                            await this.mutationRequestRepository!.save(claimedRequest, session);
+                        }
+                    }
+
+                    const persistedItem = inProgressReplayItem
                         ? inProgressReplayItem
                         : await this.repository.save(encryptedItem, session);
+
+                    if (claimedRequest) {
+                        await this.mutationRequestRepository!.update({
+                            ...claimedRequest,
+                            status: "COMPLETED",
+                        }, session);
+                    }
+
+                    return inProgressReplayItem
+                        ? inProgressReplayItem
+                        : persistedItem;
                 },
                 intent,
                 [
@@ -391,12 +402,6 @@ export class TimelineServiceImpl {
                 ]
             ) as EncryptedTimelineItem;
 
-            if (claimedRequest) {
-                await this.mutationRequestRepository!.update({
-                    ...claimedRequest,
-                    status: "COMPLETED",
-                });
-            }
         } catch (error) {
             if (!dto.idempotencyKey || !this.isDuplicateKeyError(error)) {
                 throw error;

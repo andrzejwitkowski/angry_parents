@@ -375,6 +375,35 @@ describe("TimelineEventProofService", () => {
         );
     });
 
+    it("returns the persisted RECONCILING proof state instead of rewriting it to SUBMITTED in memory", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "RECONCILING",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result).toEqual({
+            version: 2,
+            hash,
+            status: "RECONCILING",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        });
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory).toEqual([{
+            version: 2,
+            hash,
+            status: "RECONCILING",
+            submittedTxHash: validPublishedTxHash,
+            lastAttemptAt: submittedAt,
+        }]);
+    });
+
     it("retries a failed proof with a submitted tx hash by resuming reconciliation instead of submitting again", async () => {
         const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
         await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
@@ -536,9 +565,15 @@ describe("TimelineEventProofService", () => {
             return realMarkProofSubmitted(id, proof, session);
         });
 
-        await expect(service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true })).rejects.toThrow(
-            "Failed to publish event proof for timeline item 6f133670-8d3a-4f53-a033-0f2da65e45d2 version 2: mongo unavailable"
-        );
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result).toMatchObject({
+            version: 2,
+            hash,
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastError: "mongo unavailable",
+        });
 
         const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
         expect(updated?.versionHistory[1].proofHistory).toEqual([
@@ -551,6 +586,41 @@ describe("TimelineEventProofService", () => {
                 lastError: "mongo unavailable",
             },
         ]);
+    });
+
+    it("schedules reconciliation when fallback proof persistence succeeds after markProofSubmitted fails", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "CLAIMED",
+        });
+
+        const realMarkProofSubmitted = repository.markProofSubmitted.bind(repository);
+        let firstCall = true;
+        repository.markProofSubmitted = vi.fn(async (id, proof, session) => {
+            if (firstCall) {
+                firstCall = false;
+                throw new Error("mongo unavailable");
+            }
+
+            return realMarkProofSubmitted(id, proof, session);
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(result).toMatchObject({
+            version: 2,
+            hash,
+            status: "SUBMITTED",
+            submittedTxHash: validPublishedTxHash,
+            lastError: "mongo unavailable",
+        });
+        expect(taskManager.schedule).toHaveBeenCalledWith(
+            TaskType.RECONCILE_EVENT_PROOF,
+            { itemId: "6f133670-8d3a-4f53-a033-0f2da65e45d2", version: 2, submittedTxHash: validPublishedTxHash },
+            { retryPolicy: { maxRetries: 5, initialDelayMinutes: 1 } }
+        );
     });
 
     it("schedules reconciliation with the submitted tx hash when proof persistence failed after submit", async () => {

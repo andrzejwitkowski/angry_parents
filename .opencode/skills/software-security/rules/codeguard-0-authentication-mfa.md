@@ -33,7 +33,7 @@ Build a resilient, user-friendly authentication system that resists credential a
 ### Password Storage (Hashing)
 - Hash, do not encrypt. Use slow, memory‑hard algorithms with unique per‑user salts and constant‑time comparison.
 - Preferred order and parameters (tune to your hardware; target <1s on server):
-  - Argon2id: m=19–46 MiB, t=2–1, p=1 (or equivalent security trade‑offs)
+  - Argon2id: m=19–46 MiB, t=1–2, p=1 (or equivalent security trade-offs)
   - scrypt: N=2^17, r=8, p=1 (or equivalent)
   - bcrypt (legacy only): cost ≥10, be aware of 72‑byte input limit
   - PBKDF2 (FIPS): PBKDF2‑HMAC‑SHA‑256 ≥600k, or SHA‑1 ≥1.3M

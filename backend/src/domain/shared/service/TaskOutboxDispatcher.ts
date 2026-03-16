@@ -25,13 +25,14 @@ export class TaskOutboxDispatcher {
 
         try {
             await this.taskManager.schedule(entry.taskType as any, entry.payload as any, entry.retryPolicy ? { retryPolicy: entry.retryPolicy } : undefined);
-            await this.outboxRepository.markDispatched(entry.id!);
-            return true;
         } catch (error) {
             if (this.outboxRepository.markPending) {
-                await this.outboxRepository.markPending(entry.id!);
+                await this.outboxRepository.markPending(entry.id);
             }
             throw error;
         }
+
+        await this.outboxRepository.markDispatched(entry.id);
+        return true;
     }
 }

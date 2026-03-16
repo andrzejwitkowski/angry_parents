@@ -80,10 +80,7 @@ export class TimelineEventProofService {
                 if (existingPendingProof.status === "RECONCILING") {
                     if (existingPendingProof.submittedTxHash) {
                         await this.scheduleReconciliation(id, versionEntry.version, existingPendingProof.submittedTxHash);
-                        return {
-                            ...existingPendingProof,
-                            status: "SUBMITTED",
-                        };
+                        return existingPendingProof;
                     }
                     return existingPendingProof;
                 }
@@ -153,7 +150,8 @@ export class TimelineEventProofService {
                 } catch {
                     return this.scheduleRecoveryAfterPersistenceFailure(id, version, hash, submittedTxHash, error);
                 }
-                throw error;
+                await this.scheduleReconciliation(id, version, submittedTxHash);
+                return recoveredSubmittedProof;
             }
             await this.scheduleReconciliation(id, version, submittedTxHash);
 

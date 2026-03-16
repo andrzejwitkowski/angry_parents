@@ -29,17 +29,41 @@ const TimelineItemTypeSchema = z.enum([
     "ATTACHMENT",
 ]);
 
-const EventProofRecordSchema = z.object({
+function inferLegacyEventProofStatus(record: Record<string, unknown>): EventProofStatus {
+    if (record.txHash && record.blockNumber !== undefined && record.anchoredAt) {
+        return "CONFIRMED";
+    }
+    if (record.submittedTxHash) {
+        return "SUBMITTED";
+    }
+    return "CLAIMED";
+}
+
+const EventProofRecordSchema = z.preprocess((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    if (record.status) {
+        return record;
+    }
+
+    return {
+        ...record,
+        status: inferLegacyEventProofStatus(record),
+    };
+}, z.object({
     version: z.number().int().positive(),
     hash: z.string().regex(SHA256_HEX_RE),
-    status: EventProofStatusSchema.default("CLAIMED"),
+    status: EventProofStatusSchema,
     submittedTxHash: z.string().regex(EVM_TX_HASH_RE).optional(),
     lastAttemptAt: z.string().datetime().optional(),
     lastError: z.string().min(1).optional(),
     txHash: z.string().regex(EVM_TX_HASH_RE).optional(),
     blockNumber: z.string().regex(/^\d+$/).optional(),
     anchoredAt: z.string().datetime().optional(),
-});
+}));
 
 const EncryptedTimelineVersionSnapshotSchema = z.object({
     id: z.string().uuid(),

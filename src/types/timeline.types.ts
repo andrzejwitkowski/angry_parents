@@ -120,7 +120,7 @@ export type CreateTimelineItemInput = {
     date: string;
     childId: string;
     encryption: "PLAINTEXT";
-    idempotencyKey?: string;
+    idempotencyKey: string;
     createdBy?: string;
     childIds?: string[];
     [key: string]: unknown;

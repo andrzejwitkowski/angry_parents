@@ -130,6 +130,25 @@ describe("TimelineApiService", () => {
         });
     });
 
+    it("derives CONFIRMED status for legacy anchored proof records without explicit status", async () => {
+        const service = createService(createTimelineItem([
+            {
+                version: 1,
+                hash: "abababababababababababababababababababababababababababababababab",
+                txHash: "0xabababababababababababababababababababababababababababababababab",
+                blockNumber: "300",
+                anchoredAt: "2026-03-12T12:00:00.000Z"
+            }
+        ]));
+
+        await expect(service.getEventProof("event-1", user)).resolves.toEqual({
+            status: "CONFIRMED",
+            hash: "abababababababababababababababababababababababababababababababab",
+            txHash: "0xabababababababababababababababababababababababababababababababab",
+            blockNumber: "300"
+        });
+    });
+
     it("prefers a confirmed proof within the latest version over a later stale non-confirmed entry", async () => {
         const service = createService({
             id: "event-1",
