@@ -3,14 +3,20 @@ import type { MongoMemoryServer } from "mongodb-memory-server";
 import { connectMongoMemory, disconnectMongoMemory } from "../../../__tests__/mongoMemoryServer";
 import { MongoTaskOutboxRepository } from "../MongoTaskOutboxRepository";
 import { TaskOutboxModel } from "../../../models/TaskOutboxModel";
+import type { DateProvider } from "../../../../../domain/shared/ports/DateProvider";
 
 describe("MongoTaskOutboxRepository", () => {
     let mongoServer: MongoMemoryServer;
     let repository: MongoTaskOutboxRepository;
+    const fixedNow = new Date("2026-03-15T20:00:00.000Z");
+    const dateProvider: DateProvider = {
+        getNow: () => new Date(fixedNow),
+        getIsoString: () => fixedNow.toISOString(),
+    };
 
     beforeAll(async () => {
         mongoServer = await connectMongoMemory();
-        repository = new MongoTaskOutboxRepository();
+        repository = new MongoTaskOutboxRepository(dateProvider);
     });
 
     afterAll(async () => {
@@ -108,7 +114,7 @@ describe("MongoTaskOutboxRepository", () => {
 
         await TaskOutboxModel.updateOne(
             { _id: firstClaim!.id! },
-            { $set: { lockedUntil: new Date(Date.now() - 1000) } }
+            { $set: { lockedUntil: new Date(fixedNow.getTime() - 1000) } }
         );
 
         const reclaimed = await repository.claimNext();
@@ -118,5 +124,19 @@ describe("MongoTaskOutboxRepository", () => {
             payloadHash: "payload-hash-stale",
             status: "CLAIMED",
         });
+    });
+
+    it("uses the injected date provider for availability and claim locks", async () => {
+        await repository.append({
+            taskType: "PUBLISH_EVENT_PROOF",
+            payload: { itemId: "event-date", version: 5 },
+            payloadHash: "payload-hash-date",
+        });
+
+        const stored = await TaskOutboxModel.findOne({ payloadHash: "payload-hash-date" }).lean();
+        expect(stored?.availableAt?.toISOString()).toBe("2026-03-15T20:00:00.000Z");
+
+        const claimed = await repository.claimNext();
+        expect(claimed?.lockedUntil?.toISOString()).toBe("2026-03-15T20:05:00.000Z");
     });
 });

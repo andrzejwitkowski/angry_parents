@@ -1,8 +1,12 @@
 import { ClientSession } from "mongoose";
 import { TaskOutboxModel } from "../../models/TaskOutboxModel";
 import type { TaskOutboxAppendInput, TaskOutboxRecord, TaskOutboxRepository } from "../../../../domain/shared/ports/TaskOutboxRepository";
+import type { DateProvider } from "../../../../domain/shared/ports/DateProvider";
+import { RealDateProvider } from "../../../../shared/providers/RealDateProvider";
 
 export class MongoTaskOutboxRepository implements TaskOutboxRepository {
+    constructor(private readonly dateProvider: DateProvider = new RealDateProvider()) {}
+
     async ensureIndexes(): Promise<void> {
         await TaskOutboxModel.syncIndexes();
     }
@@ -18,7 +22,7 @@ export class MongoTaskOutboxRepository implements TaskOutboxRepository {
                 $setOnInsert: {
                     ...entry,
                     status: "PENDING",
-                    availableAt: new Date(),
+                    availableAt: this.dateProvider.getNow(),
                     lockedUntil: null,
                 },
             },
@@ -30,7 +34,7 @@ export class MongoTaskOutboxRepository implements TaskOutboxRepository {
     }
 
     async claimNext(): Promise<TaskOutboxRecord | null> {
-        const now = new Date();
+        const now = this.dateProvider.getNow();
         const claimed = await TaskOutboxModel.findOneAndUpdate(
             {
                 $or: [

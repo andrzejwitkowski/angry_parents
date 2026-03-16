@@ -155,7 +155,7 @@ export class TimelineEventProofService {
                 }
                 throw error;
             }
-            void this.scheduleReconciliation(id, version, submittedTxHash);
+            await this.scheduleReconciliation(id, version, submittedTxHash);
 
             let published;
             try {
