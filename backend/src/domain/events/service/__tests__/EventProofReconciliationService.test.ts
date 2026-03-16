@@ -350,6 +350,55 @@ describe("EventProofReconciliationService", () => {
         });
     });
 
+    it("does not downgrade a proof that is already confirmed by a newer record", async () => {
+        await repository.save(buildItemWithProof({
+            version: 2,
+            hash: "5656565656565656565656565656565656565656565656565656565656565656",
+            status: "SUBMITTED",
+            submittedTxHash,
+            lastAttemptAt: "2026-03-12T11:55:00.000Z",
+        }));
+
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash: "5656565656565656565656565656565656565656565656565656565656565656",
+            status: "CONFIRMED",
+            submittedTxHash,
+            txHash: submittedTxHash,
+            blockNumber: "99",
+            anchoredAt: "2026-03-12T11:58:00.000Z",
+        });
+
+        const result = await service.markProofReconciliationFailed(
+            "6f133670-8d3a-4f53-a033-0f2da65e45d2",
+            2,
+            "receipt lookup exhausted"
+        );
+
+        expect(result).toEqual({
+            version: 2,
+            hash: "5656565656565656565656565656565656565656565656565656565656565656",
+            status: "CONFIRMED",
+            submittedTxHash,
+            lastAttemptAt: "2026-03-12T11:55:00.000Z",
+            txHash: submittedTxHash,
+            blockNumber: "99",
+            anchoredAt: "2026-03-12T11:58:00.000Z",
+        });
+
+        const updated = await repository.findByIdIncludingDeleted("6f133670-8d3a-4f53-a033-0f2da65e45d2");
+        expect(updated?.versionHistory[1].proofHistory).toEqual([{
+            version: 2,
+            hash: "5656565656565656565656565656565656565656565656565656565656565656",
+            status: "CONFIRMED",
+            submittedTxHash,
+            lastAttemptAt: "2026-03-12T11:55:00.000Z",
+            txHash: submittedTxHash,
+            blockNumber: "99",
+            anchoredAt: "2026-03-12T11:58:00.000Z",
+        }]);
+    });
+
     it("prefers an existing confirmed proof when multiple proof records exist for the same version", async () => {
         await repository.save(buildItemWithProof({
             version: 2,

@@ -53,7 +53,7 @@ describe("acquireTestBackendStartupLock", () => {
             timeoutMs: 100,
             isBackendReady: async () => false,
             heartbeatIntervalMs: 20,
-        } as any);
+        });
 
         if (lock.kind !== "acquired") {
             throw new Error(`Expected lock acquisition, got ${lock.kind}`);

@@ -19,6 +19,20 @@ interface LogComposerProps {
     childId: string;
 }
 
+export function ensureComposerIdempotencyKey(
+    currentKey: string | null,
+    setIdempotencyKey: (key: string) => void,
+    generate: () => string = () => crypto.randomUUID(),
+): string {
+    if (currentKey) {
+        return currentKey;
+    }
+
+    const generatedKey = generate();
+    setIdempotencyKey(generatedKey);
+    return generatedKey;
+}
+
 export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposerProps) {
     const { t } = useTranslation();
     const { ensureUnlocked } = useSecurity();
@@ -40,12 +54,13 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
 
         setIsSubmitting(true);
         try {
+            const resolvedIdempotencyKey = ensureComposerIdempotencyKey(idempotencyKey, setIdempotencyKey);
             const dto: CreateTimelineItemInput = {
                 ...(formData as Record<string, unknown>),
                 type: selectedMode,
                 date,
                 encryption: "PLAINTEXT",
-                idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
+                idempotencyKey: resolvedIdempotencyKey,
                 createdBy,
                 childId,
             };

@@ -70,6 +70,10 @@ export class EventProofReconciliationService {
         }
 
         const proof = this.getCurrentProof(versionEntry);
+        if (proof.status === "CONFIRMED") {
+            return proof;
+        }
+
         const failedProof: EventProofRecord = {
             ...proof,
             status: "FAILED",
@@ -83,7 +87,7 @@ export class EventProofReconciliationService {
     }
 
     private getCurrentProof(versionEntry: TimelineItemVersion): EventProofRecord {
-        const confirmedProof = versionEntry.proofHistory.find((proof) => proof.status === "CONFIRMED");
+        const confirmedProof = [...versionEntry.proofHistory].reverse().find((proof) => proof.status === "CONFIRMED");
         if (confirmedProof) {
             return confirmedProof;
         }
