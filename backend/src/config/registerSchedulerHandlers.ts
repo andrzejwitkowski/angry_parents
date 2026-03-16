@@ -65,7 +65,8 @@ export function registerSchedulerHandlers(deps: SchedulerDependencies) {
         throw new Error("Event proof reconciliation service must implement markProofReconciliationFailed");
     }
 
-    const markProofReconciliationFailed = deps.eventProofReconciliationService.markProofReconciliationFailed;
+    const markProofReconciliationFailed =
+        deps.eventProofReconciliationService.markProofReconciliationFailed.bind(deps.eventProofReconciliationService);
 
     taskManager.registerFailureHandler(
         TaskType.RECONCILE_EVENT_PROOF,

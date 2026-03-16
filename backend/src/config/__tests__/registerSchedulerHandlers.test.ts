@@ -94,6 +94,55 @@ describe("registerSchedulerHandlers", () => {
         );
     });
 
+    it("invokes reconciliation failure persistence with the service as this context", async () => {
+        const { registerSchedulerHandlers } = await import("../registerSchedulerHandlers");
+
+        const service = {
+            calls: [] as Array<[string, number, string, string | undefined]>,
+            reconcileProof: mock(() => Promise.resolve({ status: "CONFIRMED" })),
+            async markProofReconciliationFailed(
+                this: {
+                    calls: Array<[string, number, string, string | undefined]>;
+                },
+                itemId: string,
+                version: number,
+                errorMessage: string,
+                submittedTxHash?: string
+            ) {
+                this.calls.push([itemId, version, errorMessage, submittedTxHash]);
+                return { status: "FAILED" } as const;
+            },
+        };
+
+        registerSchedulerHandlers({
+            forensicRepository: { name: "forensicRepository" },
+            cryptoService: { name: "cryptoService" },
+            passkeyRepository: { name: "passkeyRepository" },
+            blockchainAnchor: { name: "blockchainAnchor" },
+            forensicIntentRepository: { name: "forensicIntentRepository" },
+            forensicService: { name: "forensicService" },
+            timelineEventProofService: { name: "timelineEventProofService" },
+            eventProofReconciliationService: service,
+        } as never);
+
+        const failureRegistration = (registerFailureHandler.mock.calls as unknown as Array<[TaskType, unknown]>).find(
+            ([taskType]) => taskType === TaskType.RECONCILE_EVENT_PROOF
+        );
+        expect(failureRegistration).toBeDefined();
+
+        const [, failureHandler] = failureRegistration as unknown as [
+            TaskType,
+            (payload: unknown, errorMessage: string) => Promise<void>
+        ];
+
+        await failureHandler(
+            { itemId: "evt-ctx", version: 7, submittedTxHash: "0xdef" },
+            "context-sensitive failure"
+        );
+
+        expect(service.calls).toEqual([["evt-ctx", 7, "context-sensitive failure", "0xdef"]]);
+    });
+
     it("fails fast when the task manager does not expose registerFailureHandler", async () => {
         const { registerSchedulerHandlers } = await import("../registerSchedulerHandlers");
         const { taskManager } = await import("../../scheduler/instance");

@@ -41,11 +41,9 @@ export function LogComposer({ date, onSuccess, createdBy, childId }: LogComposer
     const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
 
     const handleModeSelect = (mode: ActionMode) => {
-        setSelectedMode((prev) => {
-            const nextMode = prev === mode ? null : mode;
-            setIdempotencyKey(nextMode ? crypto.randomUUID() : null);
-            return nextMode;
-        });
+        const nextMode = selectedMode === mode ? null : mode;
+        setSelectedMode(nextMode);
+        setIdempotencyKey(nextMode ? crypto.randomUUID() : null);
     };
 
     const handleFormSubmit = async (formData: Record<string, unknown>) => {

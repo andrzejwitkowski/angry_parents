@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach, jest, mock } from "bun:test";
 import { render, screen, act } from "@testing-library/react";
+import { StrictMode } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18n from "@/i18n";
 import { LogComposer } from "./LogComposer";
@@ -29,16 +30,19 @@ mock.module("./forms/NoteForm", () => ({
 describe("LogComposer", () => {
     let createSpy: ReturnType<typeof jest.spyOn>;
     let signatureSpy: ReturnType<typeof jest.spyOn>;
+    let randomUuidSpy: ReturnType<typeof jest.spyOn>;
 
     beforeEach(() => {
         jest.clearAllMocks();
         signatureSpy = jest.spyOn(signatureProvider, "getMutationSignature").mockResolvedValue({ signature: "sig" } as any);
         createSpy = jest.spyOn(timelineApi, "create").mockResolvedValue(undefined as any);
+        randomUuidSpy = jest.spyOn(crypto, "randomUUID");
     });
 
     afterEach(() => {
         createSpy.mockRestore();
         signatureSpy.mockRestore();
+        randomUuidSpy.mockRestore();
     });
 
     test("blocks submit when session is locked", async () => {
@@ -101,5 +105,37 @@ describe("LogComposer", () => {
             { signature: "sig" },
         );
         expect(onSuccess).toHaveBeenCalled();
+    });
+
+    test("selecting a mode in StrictMode assigns one idempotency key outside the state updater path", async () => {
+        securityState.ensureUnlocked.mockReturnValue(true);
+        randomUuidSpy
+            .mockReturnValueOnce("11111111-1111-4111-8111-111111111111")
+            .mockReturnValueOnce("22222222-2222-4222-8222-222222222222");
+
+        render(
+            <StrictMode>
+                <I18nextProvider i18n={i18n}>
+                    <LogComposer date="2026-03-11" onSuccess={jest.fn()} createdBy="user-1" childId="child-1" />
+                </I18nextProvider>
+            </StrictMode>
+        );
+
+        await act(async () => {
+            screen.getByTestId("mode-button").click();
+        });
+
+        await act(async () => {
+            screen.getByTestId("submit-note").click();
+        });
+
+        expect(randomUuidSpy).toHaveBeenCalledTimes(1);
+        expect(createSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: "NOTE",
+                idempotencyKey: "11111111-1111-4111-8111-111111111111",
+            }),
+            { signature: "sig" },
+        );
     });
 });
