@@ -166,7 +166,7 @@ export class TimelineServiceImpl {
             return;
         }
 
-        const version = item.eventVersion ?? 1;
+        const version = 1;
         const intentId = this.buildCreateForensicIntentId(item.id, version);
         const entries = [
             { taskType: TaskType.PROCESS_FORENSIC_INTENT, payload: { intentId } },

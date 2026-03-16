@@ -88,7 +88,11 @@ export async function acquireTestBackendStartupLock({
                     }
                 }
             };
-        } catch {
+        } catch (error) {
+            const fsError = error as NodeJS.ErrnoException;
+            if (fsError.code !== "EEXIST" && fsError.code !== "EISDIR") {
+                throw error;
+            }
             try {
                 if (lockAgeMs(lockDir) >= staleAfterMs) {
                     fs.rmdirSync(lockDir);

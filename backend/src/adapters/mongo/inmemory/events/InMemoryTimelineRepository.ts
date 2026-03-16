@@ -149,7 +149,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
     async markProofTransitionInProgress(id: string, version: number, hash: string, _session?: unknown): Promise<EncryptedTimelineItem | null> {
         const existingItem = this.itemsById.get(id);
         if (!existingItem) {
-            throw new Error(`Item with id ${id} not found`);
+            return null;
         }
 
         let didClaim = false;
@@ -160,7 +160,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
 
             const proofIndex = entry.proofHistory.findIndex((proof) => proof.hash === hash);
             if (proofIndex === -1) {
-                throw new Error(`Item with id ${id} and version ${version} not found`);
+                return entry;
             }
 
             const proof = entry.proofHistory[proofIndex];
@@ -205,7 +205,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
     async resetProofTransitionClaim(id: string, version: number, hash: string, _session?: unknown): Promise<EncryptedTimelineItem | null> {
         const existingItem = this.itemsById.get(id);
         if (!existingItem) {
-            throw new Error(`Item with id ${id} not found`);
+            return null;
         }
 
         let didReset = false;
@@ -216,7 +216,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
 
             const proofIndex = entry.proofHistory.findIndex((proof) => proof.hash === hash);
             if (proofIndex === -1) {
-                throw new Error(`Item with id ${id} and version ${version} not found`);
+                return entry;
             }
 
             const proof = entry.proofHistory[proofIndex];
@@ -303,7 +303,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
             this.itemsByDate.set(existingItem.date, itemsForDate);
         }
 
-        return updatedItem;
+        return this.toDomainItem(updatedItem);
     }
 
     async countByChildId(childId: string): Promise<number> {

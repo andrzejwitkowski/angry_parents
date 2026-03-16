@@ -273,6 +273,135 @@ describe("TimelineService", () => {
             ]);
         });
 
+        it("repairs completed create replay async work against version 1 even after the item has newer versions", async () => {
+            class RecordingMutationRepository extends InMemoryTimelineMutationRequestRepository {
+                async seed(record: TimelineMutationRequestRecord): Promise<void> {
+                    await this.update(record);
+                }
+            }
+
+            const mutationRepository = new RecordingMutationRepository();
+            const outboxRepository = new InMemoryTaskOutboxRepository();
+            const replaySafeService = new TimelineServiceImpl(
+                repository,
+                new RealDateProvider(),
+                new RealUuidProvider(),
+                new MockCryptoService(),
+                mockChildRepository,
+                mockPasskeyRepository,
+                mockForensicIntentRepository,
+                mockTaskManager,
+                mutationRepository,
+                outboxRepository,
+            );
+
+            const existingItemId = "88888888-8888-4888-8888-888888888888";
+            await repository.save({
+                id: existingItemId,
+                type: "NOTE",
+                date: "2026-01-27",
+                createdAt: "2026-01-27T10:00:00.000Z",
+                createdBy: "user-123",
+                createdByName: "Tester",
+                auditTrail: [],
+                isDeleted: false,
+                childIds: ["child-1"],
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                eventVersion: 3,
+                versionHistory: [
+                    {
+                        version: 1,
+                        snapshot: {
+                            id: existingItemId,
+                            type: "NOTE",
+                            date: "2026-01-27",
+                            createdAt: "2026-01-27T10:00:00.000Z",
+                            createdBy: "user-123",
+                            createdByName: "Tester",
+                            auditTrail: [],
+                            isDeleted: false,
+                            childIds: ["child-1"],
+                            encryption: "ENCRYPTED",
+                            encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                        },
+                        proofHistory: [],
+                    },
+                    {
+                        version: 2,
+                        snapshot: {
+                            id: existingItemId,
+                            type: "NOTE",
+                            date: "2026-01-27",
+                            createdAt: "2026-01-27T10:05:00.000Z",
+                            createdBy: "user-123",
+                            createdByName: "Tester",
+                            auditTrail: [],
+                            isDeleted: false,
+                            childIds: ["child-1"],
+                            encryption: "ENCRYPTED",
+                            encryptedPayload: { "mom-1": "payload-2", "dad-1": "payload-2" },
+                        },
+                        proofHistory: [],
+                    },
+                    {
+                        version: 3,
+                        snapshot: {
+                            id: existingItemId,
+                            type: "NOTE",
+                            date: "2026-01-27",
+                            createdAt: "2026-01-27T10:10:00.000Z",
+                            createdBy: "user-123",
+                            createdByName: "Tester",
+                            auditTrail: [],
+                            isDeleted: false,
+                            childIds: ["child-1"],
+                            encryption: "ENCRYPTED",
+                            encryptedPayload: { "mom-1": "payload-3", "dad-1": "payload-3" },
+                        },
+                        proofHistory: [],
+                    },
+                ],
+            } as any);
+
+            await mutationRepository.seed({
+                idempotencyKey: "idem-replay-completed-version-one",
+                operation: "CREATE_TIMELINE_ITEM",
+                status: "COMPLETED",
+                timelineItemId: existingItemId,
+                requestHash: calculatePayloadHash({
+                    type: "NOTE",
+                    date: "2026-01-27",
+                    childId: "child-1",
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                    signatureBase64: mockSignature.signatureBase64,
+                    timestamp: mockSignature.timestamp,
+                    keyId: mockSignature.keyId,
+                    createdBy: "user-123",
+                }),
+            });
+
+            const replayed = await replaySafeService.createItem({
+                type: "NOTE",
+                date: "2026-01-27",
+                childId: "child-1",
+                encryption: "ENCRYPTED",
+                encryptedPayload: { "mom-1": "payload", "dad-1": "payload" },
+                ...mockSignature,
+                idempotencyKey: "idem-replay-completed-version-one",
+                createdBy: "user-123",
+                createdByName: "Tester"
+            } as any);
+
+            expect(replayed.id).toBe(existingItemId);
+            const outboxEntries = await outboxRepository.getAll();
+            expect(outboxEntries.map((entry) => entry.payload)).toEqual([
+                { intentId: `timeline-create:${existingItemId}:v1` },
+                { itemId: existingItemId, version: 1 },
+            ]);
+        });
+
         it("rejects replay when the same idempotencyKey is reused with a different payload", async () => {
             const replaySafeService = new TimelineServiceImpl(
                 repository,

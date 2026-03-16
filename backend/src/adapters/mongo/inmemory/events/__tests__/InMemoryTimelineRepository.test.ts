@@ -164,4 +164,95 @@ describe("InMemoryTimelineRepository", () => {
         const items = await repository.findByDate("2026-01-27");
         expect(items).toHaveLength(2);
     });
+
+    it("returns null for proof transition claims when the item or proof is missing", async () => {
+        const item = encrypted({
+            id: crypto.randomUUID(),
+            type: "NOTE",
+            date: "2026-01-27",
+            createdAt: new Date().toISOString(),
+            createdBy: "user-123",
+            auditTrail: [],
+            isDeleted: false,
+            childIds: [],
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: "item-1",
+                    type: "NOTE",
+                    date: "2026-01-27",
+                    createdAt: new Date().toISOString(),
+                    createdBy: "user-123",
+                    createdByName: "Tester",
+                    auditTrail: [],
+                    isDeleted: false,
+                    childIds: [],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-123": "ciphertext" },
+                },
+                proofHistory: [],
+            }],
+        });
+
+        await repository.save(item as any);
+
+        await expect(repository.markProofTransitionInProgress("missing", 1, "hash")).resolves.toBeNull();
+        await expect(repository.resetProofTransitionClaim("missing", 1, "hash")).resolves.toBeNull();
+        await expect(repository.markProofTransitionInProgress(item.id, 1, "hash")).resolves.toBeNull();
+        await expect(repository.resetProofTransitionClaim(item.id, 1, "hash")).resolves.toBeNull();
+    });
+
+    it("returns a defensive copy from replaceProofRecord", async () => {
+        const item = encrypted({
+            id: crypto.randomUUID(),
+            type: "NOTE",
+            date: "2026-01-27",
+            createdAt: new Date().toISOString(),
+            createdBy: "user-123",
+            createdByName: "Tester",
+            auditTrail: [],
+            isDeleted: false,
+            childIds: [],
+            eventVersion: 1,
+            versionHistory: [{
+                version: 1,
+                snapshot: {
+                    id: "item-2",
+                    type: "NOTE",
+                    date: "2026-01-27",
+                    createdAt: new Date().toISOString(),
+                    createdBy: "user-123",
+                    createdByName: "Tester",
+                    auditTrail: [],
+                    isDeleted: false,
+                    childIds: [],
+                    encryption: "ENCRYPTED",
+                    encryptedPayload: { "user-123": "ciphertext" },
+                },
+                proofHistory: [{
+                    version: 1,
+                    hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    status: "CLAIMED",
+                }],
+            }],
+        });
+
+        await repository.save(item as any);
+
+        const replaced = await repository.replaceProofRecord(item.id, {
+            version: 1,
+            hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            status: "SUBMITTED",
+            submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        } as any);
+
+        replaced.versionHistory[0].proofHistory[0].status = "FAILED" as any;
+
+        const stored = await repository.findByIdIncludingDeleted(item.id);
+        expect(stored?.versionHistory[0].proofHistory[0]).toMatchObject({
+            status: "SUBMITTED",
+            submittedTxHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        });
+    });
 });

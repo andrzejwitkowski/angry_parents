@@ -75,6 +75,23 @@ describe("registerSchedulerHandlers", () => {
             TaskType.RECONCILE_EVENT_PROOF,
             expect.any(Function)
         );
+
+        const [, failureHandler] = registerFailureHandler.mock.calls[0] as unknown as [
+            TaskType,
+            (payload: unknown, errorMessage: string) => Promise<void>
+        ];
+
+        await failureHandler(
+            { itemId: "evt-1", version: 3, submittedTxHash: "0xabc" },
+            "scheduler timeout"
+        );
+
+        expect(markProofReconciliationFailed).toHaveBeenCalledWith(
+            "evt-1",
+            3,
+            "scheduler timeout",
+            "0xabc"
+        );
     });
 
     it("fails fast when the task manager does not expose registerFailureHandler", async () => {

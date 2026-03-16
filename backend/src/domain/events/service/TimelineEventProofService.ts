@@ -41,6 +41,17 @@ export class TimelineEventProofService {
         return [...versionEntry.proofHistory].reverse().find((proof) => proof.hash === hash);
     }
 
+    private async restartProofPublicationFromClaimedState(id: string, version: number, proof: EventProofRecord): Promise<EventProofRecord> {
+        const claimedProof: EventProofRecord = {
+            ...proof,
+            status: "CLAIMED",
+        };
+        delete claimedProof.submittedTxHash;
+
+        await this.repository.replaceProofRecord(id, claimedProof);
+        return this.startClaimedProofPublication(id, version, proof.hash);
+    }
+
     async publishProof(id: string, versionOrOptions?: number | { retryPending?: boolean }, maybeOptions?: { retryPending?: boolean }): Promise<EventProofRecord> {
         const item = await this.repository.findByIdIncludingDeleted(id);
         if (!item) {
@@ -72,6 +83,10 @@ export class TimelineEventProofService {
             : undefined;
         if (existingPendingProof) {
             if (options.retryPending) {
+                if ((existingPendingProof.status === "SUBMITTED" || existingPendingProof.status === "FAILED" || existingPendingProof.status === "RECONCILING")
+                    && !existingPendingProof.submittedTxHash) {
+                    return this.restartProofPublicationFromClaimedState(id, versionEntry.version, existingPendingProof);
+                }
                 if (existingPendingProof.status === "SUBMITTED" && existingPendingProof.submittedTxHash) {
                     await this.scheduleReconciliation(id, versionEntry.version, existingPendingProof.submittedTxHash);
                     return existingPendingProof;
@@ -91,7 +106,7 @@ export class TimelineEventProofService {
                         await this.scheduleReconciliation(id, versionEntry.version, existingPendingProof.submittedTxHash);
                         return existingPendingProof;
                     }
-                    return existingPendingProof;
+                    return this.restartProofPublicationFromClaimedState(id, versionEntry.version, existingPendingProof);
                 }
                 if (existingPendingProof.status === "CLAIMED") {
                     return this.startClaimedProofPublication(id, versionEntry.version, hash);

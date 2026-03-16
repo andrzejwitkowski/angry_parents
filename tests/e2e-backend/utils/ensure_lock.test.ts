@@ -38,7 +38,11 @@ describe("acquireTestBackendStartupLock", () => {
             throw new Error(`Expected lock acquisition, got ${lock.kind}`);
         }
 
-        lock.release();
+        try {
+            expect(fs.existsSync(lockDir)).toBe(true);
+        } finally {
+            lock.release();
+        }
         expect(fs.existsSync(lockDir)).toBe(false);
     });
 
@@ -59,12 +63,14 @@ describe("acquireTestBackendStartupLock", () => {
             throw new Error(`Expected lock acquisition, got ${lock.kind}`);
         }
 
-        const initialMtime = fs.statSync(lockDir).mtimeMs;
-        await new Promise((resolve) => setTimeout(resolve, 60));
-        const refreshedMtime = fs.statSync(lockDir).mtimeMs;
+        try {
+            const initialMtime = fs.statSync(lockDir).mtimeMs;
+            await new Promise((resolve) => setTimeout(resolve, 60));
+            const refreshedMtime = fs.statSync(lockDir).mtimeMs;
 
-        expect(refreshedMtime).toBeGreaterThan(initialMtime);
-
-        lock.release();
+            expect(refreshedMtime).toBeGreaterThan(initialMtime);
+        } finally {
+            lock.release();
+        }
     });
 });

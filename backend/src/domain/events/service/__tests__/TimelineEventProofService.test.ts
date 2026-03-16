@@ -506,6 +506,49 @@ describe("TimelineEventProofService", () => {
         ]);
     });
 
+    it("routes failed proof retry without submitted tx hash back through the claimed publication path", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "FAILED",
+            lastAttemptAt: submittedAt,
+            lastError: "receipt lookup exhausted",
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(blockchainAnchor.submitHash).toHaveBeenCalledWith(hash);
+        expect(result).toMatchObject({
+            version: 2,
+            hash,
+            status: "CONFIRMED",
+            submittedTxHash: validPublishedTxHash,
+            txHash: validPublishedTxHash,
+        });
+    });
+
+    it("routes reconciling proof retry without submitted tx hash back through the claimed publication path", async () => {
+        const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
+        await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
+            version: 2,
+            hash,
+            status: "RECONCILING",
+            lastAttemptAt: submittedAt,
+        });
+
+        const result = await service.publishProof("6f133670-8d3a-4f53-a033-0f2da65e45d2", { retryPending: true });
+
+        expect(blockchainAnchor.submitHash).toHaveBeenCalledWith(hash);
+        expect(result).toMatchObject({
+            version: 2,
+            hash,
+            status: "CONFIRMED",
+            submittedTxHash: validPublishedTxHash,
+            txHash: validPublishedTxHash,
+        });
+    });
+
     it("does not double-submit when retrying a claimed proof concurrently", async () => {
         const hash = calculateEventProofHash((await repository.findById("6f133670-8d3a-4f53-a033-0f2da65e45d2"))!.versionHistory[1].snapshot);
         await repository.appendProofRecord("6f133670-8d3a-4f53-a033-0f2da65e45d2", {
