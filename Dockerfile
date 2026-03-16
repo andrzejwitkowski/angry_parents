@@ -1,5 +1,9 @@
 FROM oven/bun:latest
 
+# Instalujemy Node.js i npm bezpośrednio w obrazie Bun
+# Musimy to zrobić, bo domyślny obraz Bun jest "goły"
+RUN apt-get update && apt-get install -y nodejs npm
+
 WORKDIR /app
 
 # Kopiujemy pliki zależności
